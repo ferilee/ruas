@@ -1,9 +1,9 @@
-# UTBK Belajar
+# Ruang Asesmen
 
-Aplikasi web minimal untuk latihan soal UTBK.
-Dibuat untuk kebutuhan belajar mandiri, dengan bantuan AI
-untuk menyusun soal, dan disajikan dalam tampilan web yang
-fokus — tanpa distraksi, tanpa riwayat, tanpa gamifikasi.
+Aplikasi web untuk latihan dan ujian sekolah.
+Dibuat untuk kebutuhan belajar mandiri dan asesmen sekolah,
+dengan bantuan AI untuk menyusun soal, serta tampilan ujian
+yang fokus dan responsif.
 
 Tujuan: kamu dan soal. Selesai satu, lanjut berikutnya.
 
@@ -12,7 +12,7 @@ Tujuan: kamu dan soal. Selesai satu, lanjut berikutnya.
 | ![home](docs/screenshots/02-home.png) | ![quiz-ready](docs/screenshots/03-ready.png) |
 | ![quiz](docs/screenshots/04-answering.png) | ![review](docs/screenshots/05-reviewing.png) |
 
-Flow: pilih topik → kerjakan soal acak → timer → jawab → lihat pembahasan → lanjut → resume.
+Flow: pilih mata pelajaran → pilih topik → kerjakan soal → timer → jawab → lihat pembahasan → lanjut → resume.
 
 - **Stack:** Bun + Hono + Drizzle + MariaDB + Vue 3
 - **Auth opsional:** via `APP_PASSWORD` di `.env`
@@ -22,22 +22,16 @@ Flow: pilih topik → kerjakan soal acak → timer → jawab → lihat pembahasa
 
 ## Tentang
 
-Ujian Tulis Berbasis Komputer (UTBK) adalah gerbang masuk
-Perguruan Tinggi Negeri di Indonesia. Persiapan yang matang
-sangat menentukan — dan latihan soal adalah salah satu cara
-paling efektif.
+Menyusun bank soal dan paket ujian sekolah membutuhkan waktu.
+Ruang Asesmen menyediakan wadah untuk mengelola soal dan
+mengerjakan asesmen dengan tampilan yang terarah.
 
-Dulu, menyusun bank soal sendiri butuh waktu dan tenaga besar.
-Sekarang, dengan bantuan AI, siapapun bisa menghasilkan puluhan
-soal berkualitas dalam hitungan menit. Tapi punya koleksi soal
-saja tidak cukup — butuh wadah yang tepat untuk mengerjakannya.
-
-**UTBK Belajar** hadir sebagai wadah itu:
+**Ruang Asesmen** menyediakan:
 
 - Soal diimpor dari file JSON — mudah digenerate oleh AI
   (lihat panduan di `docs/FORMAT-SOAL/`)
-- Satu soal per halaman — fokus, tidak overload
-- Timer per soal — ukur kecepatan tanpa tekanan
+- Layout ujian dua panel — soal dan jawaban terlihat berdampingan
+- Timer sesi — pantau waktu pengerjaan
 - Pembahasan langsung — belajar dari kesalahan saat itu juga
 - Resume di akhir — lihat skor dan waktu total sebagai evaluasi
 
@@ -132,4 +126,4 @@ A: Stopwatch per soal, bukan countdown.
 
 ---
 
-Private — untuk penggunaan pribadi.
+Private — untuk penggunaan pribadi dan sekolah.

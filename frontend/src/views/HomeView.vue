@@ -1,7 +1,7 @@
 <template>
   <div class="home-view">
-    <h1 class="home-title">Pilih Mata Uji</h1>
-    <p class="home-subtitle">Pilih salah satu mata uji UTBK untuk mulai berlatih.</p>
+    <h1 class="home-title">Pilih Mata Pelajaran</h1>
+    <p class="home-subtitle">Pilih mata pelajaran untuk mulai mengerjakan asesmen.</p>
 
     <div v-if="loading" class="home-loading">Memuat...</div>
 
@@ -11,7 +11,7 @@
     </div>
 
     <div v-else-if="subjects.length === 0" class="home-state">
-      <p class="home-empty">Belum ada mata uji yang tersedia.</p>
+      <p class="home-empty">Belum ada mata pelajaran yang tersedia.</p>
       <button class="home-action-btn" @click="loadSubjects">Muat Ulang</button>
     </div>
 

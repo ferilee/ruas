@@ -1,7 +1,7 @@
 <template>
   <div class="auth-view">
     <div class="auth-box">
-      <h1 class="auth-title">UTBK Belajar</h1>
+      <h1 class="auth-title">Ruang Asesmen</h1>
       <p class="auth-subtitle">Masukkan password untuk melanjutkan.</p>
 
       <form class="auth-form" @submit.prevent="login">

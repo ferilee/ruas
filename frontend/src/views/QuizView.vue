@@ -1,457 +1,383 @@
 <template>
-  <div class="quiz-view">
-    <div class="quiz-header">
-      <a href="#" class="quiz-back" @click.prevent="tryExit">&larr; Ganti Topik</a>
-      <span v-if="topicLabel" class="quiz-topic">{{ topicLabel }}</span>
-      <span v-if="state === 'answering' || state === 'reviewing'" class="quiz-counter">
-        {{ currentQuestionNumber }} / {{ questionCount }}
-      </span>
-    </div>
+  <div class="exam-page" :class="fontSizeClass">
+    <header class="exam-topbar">
+      <router-link to="/" class="exam-brand" @click.prevent="tryExit">
+        <span class="brand-mark">RA</span>
+        <span class="brand-copy">
+          <strong>RUANG ASESMEN</strong>
+          <small>UJIAN SEKOLAH</small>
+        </span>
+      </router-link>
 
-    <div v-if="state === 'loading'" class="quiz-loading">
-      <p>Memuat soal...</p>
-    </div>
-
-    <div v-else-if="state === 'ready'" class="quiz-ready">
-      <p class="ready-text">Siap berlatih?</p>
-      <p v-if="questionCount > 0" class="ready-count">{{ questionCount }} soal tersedia</p>
-      <p v-else class="ready-empty">Belum ada soal yang tersedia untuk topik ini.</p>
-      <button class="quiz-start-btn" @click="startQuiz">Mulai</button>
-    </div>
-
-    <div v-else-if="state === 'resume'" class="quiz-resume">
-      <h2 class="resume-title">Sesi Selesai</h2>
-      <div class="resume-stats">
-        <div class="resume-stat">
-          <span class="resume-value correct">{{ correctCount }}</span>
-          <span class="resume-label">Benar</span>
-        </div>
-        <div class="resume-stat">
-          <span class="resume-value incorrect">{{ incorrectCount }}</span>
-          <span class="resume-label">Salah</span>
-        </div>
-        <div class="resume-stat">
-          <span class="resume-value">{{ totalTime }}</span>
-          <span class="resume-label">Total Waktu</span>
-        </div>
-        <div class="resume-stat">
-          <span class="resume-value">{{ accuracy }}%</span>
-          <span class="resume-label">Akurasi</span>
-        </div>
+      <div class="participant-label">
+        <span>Peserta</span>
+        <strong>Mode latihan</strong>
       </div>
-      <router-link :to="`/topics/${subjectId}`" class="quiz-back-btn">Pilih Topik Lain</router-link>
-    </div>
 
-    <div v-else-if="question" class="quiz-content">
-      <TimerBar v-if="state === 'answering'" :running="timerRunning" @time="onTime" />
-
-      <QuestionCard
-        :type="question.type"
-        :difficulty="question.difficulty"
-        :text="question.question_text"
-      />
-
-      <div class="quiz-options-section">
-        <OptionList
-          :options="question.options"
-          :type="question.type"
-          :selected-keys="selectedKeys"
-          :disabled="state !== 'answering'"
-          :correct-keys="result?.correct_keys"
-          :show-result="state === 'reviewing'"
-          @update:selected-keys="onSelectKeys"
-        />
-
-        <button
-          v-if="state === 'answering'"
-          class="quiz-submit-btn"
-          :disabled="selectedKeys.length === 0"
-          @click="submitAnswer"
-        >
-          Selesai
+      <div class="exam-actions">
+        <button class="topbar-button" type="button" @click="showInfoModal = true">Informasi Ujian</button>
+        <div v-if="state === 'answering' || state === 'reviewing'" class="exam-clock" aria-label="Waktu berjalan">
+          <span>Waktu berjalan</span>
+          <strong>{{ formattedElapsed }}</strong>
+        </div>
+        <button class="topbar-button question-list-button" type="button" @click="showQuestionList = true">
+          Daftar Soal <span class="grid-icon">▦</span>
         </button>
       </div>
+    </header>
 
-      <ExplanationPanel
-        v-if="state === 'reviewing' && result"
-        :correct="result.correct"
-        :correct_keys="result.correct_keys"
-        :explanation="result.explanation"
-        :elapsed_seconds="finalTime"
-        :is_last="isLastQuestion"
-        @next="nextQuestion"
-        @finish="finishSession"
-      />
-    </div>
+    <TimerBar
+      v-if="state === 'answering' || state === 'reviewing'"
+      class="timer-driver"
+      :running="timerRunning"
+      @time="onTime"
+    />
 
-    <div v-else-if="state === 'error'" class="quiz-error">
-      <p>{{ errorMessage }}</p>
-      <button class="quiz-retry-btn" @click="retryCurrentState">Coba Lagi</button>
-    </div>
+    <main class="exam-main">
+      <div class="exam-heading">
+        <div>
+          <button class="exam-back" type="button" @click="tryExit">&larr; Keluar dari ujian</button>
+          <h1>Soal nomor {{ currentQuestionNumber }}</h1>
+          <p v-if="topicLabel">{{ topicLabel }} <span v-if="questionCount">· {{ questionCount }} soal</span></p>
+        </div>
 
-    <div v-if="showExitModal" class="modal-overlay" @click.self="cancelExit">
-      <div class="modal-box">
-        <p class="modal-text">Yakin berhenti?</p>
-        <p class="modal-sub">Progress sesi ini akan hilang.</p>
-        <div class="modal-actions">
-          <button class="modal-btn modal-btn-cancel" @click="cancelExit">Lanjutkan</button>
-          <button class="modal-btn modal-btn-exit" @click="confirmExit">Berhenti</button>
+        <div class="font-controls" aria-label="Ukuran font soal">
+          <span>Ukuran font soal:</span>
+          <button type="button" :class="{ active: fontSize === 'small' }" @click="setFontSize('small')">A</button>
+          <button type="button" :class="{ active: fontSize === 'normal' }" @click="setFontSize('normal')">A</button>
+          <button type="button" :class="{ active: fontSize === 'large' }" @click="setFontSize('large')">A</button>
         </div>
       </div>
+
+      <div v-if="state === 'loading'" class="exam-state-card"><p>Memuat soal...</p></div>
+
+      <div v-else-if="state === 'ready'" class="exam-state-card ready-card">
+        <span class="state-kicker">PERSIAPAN UJIAN</span>
+        <h2>Siap mengerjakan?</h2>
+        <p>{{ questionCount }} soal tersedia. Timer dimulai saat kamu menekan tombol mulai.</p>
+        <button class="primary-exam-button" type="button" @click="startQuiz">Mulai Ujian</button>
+      </div>
+
+      <div v-else-if="state === 'resume'" class="exam-state-card resume-card">
+        <span class="state-kicker">UJIAN SELESAI</span>
+        <h2>Hasil pengerjaan</h2>
+        <div class="resume-stats">
+          <div><strong>{{ correctCount }}</strong><span>Benar</span></div>
+          <div><strong>{{ incorrectCount }}</strong><span>Salah</span></div>
+          <div><strong>{{ accuracy }}%</strong><span>Akurasi</span></div>
+          <div><strong>{{ totalTime }}</strong><span>Total waktu</span></div>
+        </div>
+        <router-link :to="`/topics/${subjectId}`" class="primary-exam-button">Pilih Ujian Lain</router-link>
+      </div>
+
+      <div v-else-if="state === 'error'" class="exam-state-card error-card">
+        <h2>Soal belum dapat dimuat</h2>
+        <p>{{ errorMessage }}</p>
+        <button class="primary-exam-button" type="button" @click="retryCurrentState">Coba Lagi</button>
+      </div>
+
+      <template v-else-if="question">
+        <div class="exam-workspace">
+          <section class="exam-pane question-pane">
+            <div class="pane-heading">
+              <div>
+                <span class="pane-kicker">SOAL {{ currentQuestionNumber }}</span>
+                <h2>Perhatikan soal berikut.</h2>
+              </div>
+              <span class="question-type-label">{{ questionTypeLabel }}</span>
+            </div>
+            <div class="pane-scroll question-scroll"><MathText :text="question.question_text" /></div>
+          </section>
+
+          <section class="exam-pane answer-pane">
+            <div class="pane-heading">
+              <div>
+                <span class="pane-kicker">JAWABAN</span>
+                <h2>{{ question.type === 'multiple_response' ? 'Pilih semua jawaban yang benar.' : 'Pilih satu jawaban.' }}</h2>
+              </div>
+              <span v-if="isDoubtful" class="doubt-badge">Ragu-ragu</span>
+            </div>
+
+            <div class="pane-scroll answer-scroll">
+              <OptionList
+                :options="question.options"
+                :type="question.type"
+                :selected-keys="selectedKeys"
+                :disabled="state !== 'answering'"
+                :correct-keys="result?.correct_keys"
+                :show-result="state === 'reviewing'"
+                @update:selected-keys="onSelectKeys"
+              />
+
+              <ExplanationPanel
+                v-if="state === 'reviewing' && result"
+                :correct="result.correct"
+                :correct_keys="result.correct_keys"
+                :explanation="result.explanation"
+                :elapsed_seconds="finalTime"
+                :is_last="isLastQuestion"
+                :show-actions="false"
+              />
+            </div>
+          </section>
+        </div>
+
+        <nav class="exam-navigation" aria-label="Navigasi ujian">
+          <button class="nav-button nav-secondary" type="button" @click="tryExit"><span>‹</span> Keluar dari ujian</button>
+          <button class="nav-button nav-doubt" :class="{ active: isDoubtful }" type="button" @click="isDoubtful = !isDoubtful">
+            <span>□</span> {{ isDoubtful ? 'Ragu-ragu ditandai' : 'Tandai ragu-ragu' }}
+          </button>
+          <button v-if="state === 'answering'" class="nav-button nav-primary" type="button" :disabled="selectedKeys.length === 0" @click="submitAnswer">
+            Simpan jawaban <span>›</span>
+          </button>
+          <button v-else class="nav-button nav-primary" type="button" @click="goToNextStep">
+            {{ isLastQuestion ? 'Lihat hasil' : 'Soal berikutnya' }} <span>›</span>
+          </button>
+        </nav>
+      </template>
+    </main>
+
+    <div v-if="showInfoModal" class="exam-modal-backdrop" @click.self="showInfoModal = false">
+      <section class="exam-modal" role="dialog" aria-modal="true" aria-labelledby="info-title">
+        <button class="modal-close" type="button" aria-label="Tutup" @click="showInfoModal = false">×</button>
+        <span class="state-kicker">INFORMASI UJIAN</span>
+        <h2 id="info-title">{{ topicLabel || 'Ujian sekolah' }}</h2>
+        <p>Kerjakan soal dengan teliti. Kamu dapat menandai soal yang masih diragukan untuk membantumu memantau pengerjaan.</p>
+        <ul>
+          <li>Soal bertanda ragu-ragu tetap dapat dijawab dan dikoreksi.</li>
+          <li>Timer menunjukkan waktu berjalan pada sesi ini.</li>
+          <li>Jawaban diperiksa setelah tombol simpan jawaban ditekan.</li>
+        </ul>
+        <button class="primary-exam-button" type="button" @click="showInfoModal = false">Mengerti</button>
+      </section>
+    </div>
+
+    <div v-if="showQuestionList" class="exam-modal-backdrop" @click.self="showQuestionList = false">
+      <section class="exam-modal question-list-modal" role="dialog" aria-modal="true" aria-labelledby="list-title">
+        <button class="modal-close" type="button" aria-label="Tutup" @click="showQuestionList = false">×</button>
+        <span class="state-kicker">NAVIGASI</span>
+        <h2 id="list-title">Daftar soal</h2>
+        <p class="modal-description">Status soal pada sesi ini.</p>
+        <div class="question-number-grid">
+          <span v-for="number in questionNumbers" :key="number" class="question-number" :class="questionNumberClass(number)">{{ number }}</span>
+        </div>
+        <div class="question-status-legend">
+          <span><i class="legend-dot current"></i> Sedang dikerjakan</span>
+          <span><i class="legend-dot answered"></i> Sudah dijawab</span>
+          <span><i class="legend-dot"></i> Belum dikerjakan</span>
+        </div>
+      </section>
+    </div>
+
+    <div v-if="showExitModal" class="exam-modal-backdrop" @click.self="cancelExit">
+      <section class="exam-modal exit-modal" role="dialog" aria-modal="true" aria-labelledby="exit-title">
+        <span class="state-kicker">KONFIRMASI</span>
+        <h2 id="exit-title">Keluar dari ujian?</h2>
+        <p>Progress sesi ini akan dihentikan.</p>
+        <div class="modal-actions">
+          <button class="nav-button nav-secondary" type="button" @click="cancelExit">Lanjutkan</button>
+          <button class="nav-button nav-primary" type="button" @click="confirmExit">Keluar</button>
+        </div>
+      </section>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, watch } from 'vue';
-import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router';
-import QuestionCard from '@/components/QuestionCard.vue';
-import TimerBar from '@/components/TimerBar.vue';
+import { computed, onMounted, ref, watch } from 'vue';
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router';
+import MathText from '@/components/MathText.vue';
 import OptionList from '@/components/OptionList.vue';
 import ExplanationPanel from '@/components/ExplanationPanel.vue';
+import TimerBar from '@/components/TimerBar.vue';
 import { useQuizSession } from '@/composables/useQuizSession';
 
 const route = useRoute();
 const router = useRouter();
+const fontSize = ref<'small' | 'normal' | 'large'>('normal');
+const isDoubtful = ref(false);
+const showInfoModal = ref(false);
+const showQuestionList = ref(false);
 
-function getTopicId(): number {
-  return Number(route.params.id);
-}
+function getTopicId(): number { return Number(route.params.id); }
 
 const {
-  accuracy,
-  cancelExit: dismissExitModal,
-  confirmExitState,
-  correctCount,
-  currentQuestionNumber,
-  errorMessage,
-  finalTime,
-  finishSession,
-  hasActiveSession,
-  incorrectCount,
-  initializeSession,
-  isLastQuestion,
-  nextQuestion,
-  onSelectKeys,
-  onTime,
-  question,
-  questionCount,
-  resetSession,
-  result,
-  retryCurrentState,
-  selectedKeys,
-  showExitModal,
-  startQuiz,
-  state,
-  subjectId,
-  submitAnswer,
-  timerRunning,
-  topicLabel,
-  totalTime,
+  accuracy, answeredIds, cancelExit: dismissExitModal, confirmExitState, correctCount,
+  currentQuestionNumber, elapsedTime, errorMessage, finalTime, finishSession, hasActiveSession,
+  incorrectCount, initializeSession, isLastQuestion, nextQuestion, onSelectKeys, question,
+  questionCount, resetSession, result, retryCurrentState, selectedKeys, showExitModal,
+  startQuiz, state, subjectId, submitAnswer, topicLabel, totalTime, timerRunning, onTime,
 } = useQuizSession({
   getTopicId,
   getQuerySubjectId: () => Number(route.query.subject_id),
   getQueryTopicLabel: () => typeof route.query.topic_label === 'string' ? route.query.topic_label : '',
 });
 
-function tryExit() {
-  if (hasActiveSession()) {
-    showExitModal.value = true;
-  } else {
-    router.push(`/topics/${subjectId.value}`);
-  }
+const fontSizeClass = computed(() => `font-${fontSize.value}`);
+const formattedElapsed = computed(() => formatDuration(elapsedTime.value));
+const questionNumbers = computed(() => Array.from({ length: questionCount.value }, (_, index) => index + 1));
+const questionTypeLabel = computed(() => {
+  if (question.value?.type === 'multiple_response') return 'Pilihan ganda kompleks';
+  if (question.value?.type === 'true_false') return 'Benar atau salah';
+  return 'Pilihan ganda';
+});
+
+function formatDuration(seconds: number): string {
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
 }
 
-function cancelExit() {
-  dismissExitModal();
+function setFontSize(size: 'small' | 'normal' | 'large') { fontSize.value = size; }
+
+function questionNumberClass(number: number) {
+  return { current: number === currentQuestionNumber.value, answered: number < currentQuestionNumber.value };
 }
+
+function goToNextStep() {
+  if (isLastQuestion.value) finishSession();
+  else { isDoubtful.value = false; nextQuestion(); }
+}
+
+function tryExit() {
+  if (hasActiveSession()) showExitModal.value = true;
+  else router.push(`/topics/${subjectId.value}`);
+}
+
+function cancelExit() { dismissExitModal(); }
 
 function confirmExit() {
   confirmExitState();
   router.push(`/topics/${subjectId.value}`);
 }
 
-onBeforeRouteLeave((_to, _from, next) => {
-  if (hasActiveSession()) {
-    showExitModal.value = true;
-    next(false);
-  } else {
-    next();
-  }
-});
-
-watch(
-  () => route.params.id,
-  (newId) => {
-    if (!newId) return;
-    resetSession();
-    initializeSession();
-  },
-);
-
-onMounted(() => {
+watch(() => route.params.id, (newId) => {
+  if (!newId) return;
+  resetSession();
+  isDoubtful.value = false;
   initializeSession();
 });
+
+onBeforeRouteLeave((_to, _from, next) => {
+  if (hasActiveSession()) { showExitModal.value = true; next(false); }
+  else next();
+});
+
+onMounted(() => { initializeSession(); });
 </script>
 
 <style scoped>
-.quiz-header {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 24px;
-  flex-wrap: wrap;
+.timer-driver { display: none; }
+.exam-page { min-height: 100vh; background: #f4f7fb; color: #1c2b3a; font-size: 16px; }
+.exam-page.font-small { font-size: 14px; }
+.exam-page.font-large { font-size: 18px; }
+.exam-topbar { min-height: 76px; padding: 12px 32px; display: flex; align-items: center; gap: 28px; color: #fff; background: linear-gradient(115deg, #0d6fb8 0%, #176ca7 54%, #12588d 100%); box-shadow: 0 2px 8px rgba(16, 66, 104, .22); }
+.exam-brand { display: flex; align-items: center; gap: 12px; color: #fff; text-decoration: none; }
+.brand-mark { width: 44px; height: 44px; display: grid; place-items: center; border: 2px solid rgba(255,255,255,.7); border-radius: 50%; font-size: .85rem; font-weight: 800; letter-spacing: .04em; }
+.brand-copy { display: flex; flex-direction: column; line-height: 1.2; }
+.brand-copy strong { font-size: 1rem; letter-spacing: .06em; }
+.brand-copy small { margin-top: 4px; font-size: .72rem; letter-spacing: .14em; opacity: .8; }
+.participant-label { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; font-size: .75rem; opacity: .86; }
+.participant-label strong { font-size: .88rem; color: #fff; }
+.exam-actions { display: flex; align-items: center; gap: 10px; }
+.topbar-button { min-height: 40px; padding: 8px 16px; border: 1px solid rgba(255,255,255,.68); border-radius: 22px; color: #fff; background: rgba(255,255,255,.08); font: inherit; font-size: .82rem; font-weight: 700; cursor: pointer; }
+.topbar-button:hover { background: rgba(255,255,255,.18); }
+.question-list-button { background: #fff; color: #1266a5; border-color: #fff; }
+.grid-icon { margin-left: 5px; font-size: 1.05rem; }
+.exam-clock { min-width: 132px; padding: 6px 14px; display: flex; flex-direction: column; align-items: center; border: 1px solid rgba(255,255,255,.55); border-radius: 22px; background: rgba(0, 35, 68, .18); }
+.exam-clock span { font-size: .68rem; opacity: .8; }
+.exam-clock strong { font-size: .93rem; letter-spacing: .08em; }
+.exam-main { width: min(1280px, 100%); margin: 0 auto; padding: 24px 32px 32px; }
+.exam-heading { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; margin-bottom: 18px; }
+.exam-back { padding: 0; border: 0; color: #587087; background: transparent; font: inherit; font-size: .86rem; cursor: pointer; }
+.exam-back:hover { color: #1266a5; }
+.exam-heading h1 { margin-top: 5px; color: #1a2d40; font-size: 1.7rem; }
+.exam-heading p { margin-top: 3px; color: #667d91; font-size: .95rem; }
+.font-controls { display: flex; align-items: center; gap: 8px; color: #71869a; font-size: .82rem; }
+.font-controls button { min-width: 28px; border: 0; color: #49647b; background: transparent; cursor: pointer; }
+.font-controls button:nth-of-type(1) { font-size: .8rem; }
+.font-controls button:nth-of-type(2) { font-size: 1rem; }
+.font-controls button:nth-of-type(3) { font-size: 1.2rem; }
+.font-controls button.active { color: #1266a5; font-weight: 800; }
+.exam-workspace { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(360px, .95fr); gap: 16px; min-height: min(60vh, 570px); }
+.exam-pane { min-width: 0; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #dce5ee; border-radius: 10px; background: #fff; box-shadow: 0 4px 16px rgba(43, 74, 103, .06); }
+.pane-heading { min-height: 76px; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; gap: 16px; border-bottom: 1px solid #e6edf3; }
+.pane-kicker, .state-kicker { color: #1571b5; font-size: .72rem; font-weight: 800; letter-spacing: .1em; }
+.pane-heading h2 { margin-top: 4px; color: #273d52; font-size: 1rem; }
+.question-type-label { color: #7890a4; font-size: .78rem; text-align: right; }
+.pane-scroll { flex: 1; min-height: 0; overflow: auto; }
+.question-scroll { padding: 28px 30px; color: #24384b; font-size: 1.08em; line-height: 1.8; }
+.answer-scroll { padding: 22px 20px; }
+.answer-scroll :deep(.explanation-panel) { margin-top: 22px; }
+.doubt-badge { padding: 4px 9px; border-radius: 12px; color: #986700; background: #fff4c7; font-size: .72rem; font-weight: 700; }
+.exam-navigation { margin-top: 18px; padding: 12px 0 0; display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.nav-button, .primary-exam-button { min-height: 44px; padding: 10px 22px; border: 0; border-radius: 24px; font: inherit; font-weight: 700; cursor: pointer; text-decoration: none; text-align: center; }
+.nav-button:disabled { opacity: .5; cursor: default; }
+.nav-button span { font-size: 1.3em; line-height: 0; vertical-align: -1px; }
+.nav-secondary { color: #587087; background: #e8eef4; }
+.nav-secondary:hover { background: #dce6ee; }
+.nav-doubt { color: #856000; background: #fff0b8; }
+.nav-doubt.active { color: #fff; background: #d29400; }
+.nav-primary, .primary-exam-button { color: #fff; background: #1378cc; }
+.nav-primary:hover, .primary-exam-button:hover { background: #0f68ae; }
+.exam-state-card { min-height: 360px; padding: 48px 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; border: 1px solid #dce5ee; border-radius: 10px; background: #fff; text-align: center; box-shadow: 0 4px 16px rgba(43, 74, 103, .06); }
+.exam-state-card h2 { color: #233b51; font-size: 1.45rem; }
+.exam-state-card p { max-width: 520px; color: #6b8194; }
+.ready-card .primary-exam-button, .resume-card .primary-exam-button, .error-card .primary-exam-button { margin-top: 8px; }
+.resume-stats { width: min(560px, 100%); margin: 18px 0 10px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.resume-stats div { padding: 14px 8px; border-radius: 8px; background: #f1f6fa; }
+.resume-stats strong, .resume-stats span { display: block; }
+.resume-stats strong { color: #136cae; font-size: 1.35rem; }
+.resume-stats span { color: #71869a; font-size: .75rem; }
+.error-card h2 { color: #b33d45; }
+.exam-modal-backdrop { position: fixed; inset: 0; z-index: 20; padding: 20px; display: grid; place-items: center; background: rgba(24, 45, 65, .42); }
+.exam-modal { position: relative; width: min(520px, 100%); padding: 30px; border-radius: 14px; background: #fff; box-shadow: 0 18px 50px rgba(24, 45, 65, .22); }
+.exam-modal h2 { margin: 5px 0 12px; color: #233b51; }
+.exam-modal p, .exam-modal li { color: #63798c; line-height: 1.7; }
+.exam-modal ul { margin: 14px 0 22px; padding-left: 20px; }
+.modal-close { position: absolute; top: 12px; right: 16px; border: 0; color: #71869a; background: transparent; font-size: 1.6rem; cursor: pointer; }
+.question-list-modal { width: min(600px, 100%); }
+.modal-description { margin-bottom: 18px; }
+.question-number-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; }
+.question-number { min-height: 38px; display: grid; place-items: center; border: 1px solid #d4e0ea; border-radius: 7px; color: #60778a; background: #f8fafc; font-weight: 700; }
+.question-number.current { color: #fff; border-color: #1477c4; background: #1477c4; }
+.question-number.answered { color: #fff; border-color: #48a47a; background: #48a47a; }
+.question-status-legend { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 12px; color: #71869a; font-size: .78rem; }
+.question-status-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.legend-dot { width: 10px; height: 10px; display: inline-block; border: 1px solid #d4e0ea; border-radius: 50%; background: #f8fafc; }
+.legend-dot.current { border-color: #1477c4; background: #1477c4; }
+.legend-dot.answered { border-color: #48a47a; background: #48a47a; }
+.exit-modal { width: min(420px, 100%); text-align: center; }
+.exit-modal .modal-actions { margin-top: 22px; display: flex; justify-content: center; gap: 10px; }
+@media (max-width: 860px) {
+  .exam-topbar { padding: 12px 20px; gap: 14px; }
+  .participant-label { display: none; }
+  .exam-main { padding: 20px; }
+  .exam-workspace { grid-template-columns: 1fr; min-height: auto; }
+  .exam-pane { min-height: 360px; }
+  .pane-scroll { max-height: 460px; }
 }
-
-.quiz-back {
-  color: #556677;
-  text-decoration: none;
-  font-size: 0.95rem;
-}
-
-.quiz-back:hover {
-  color: #1e40af;
-}
-
-.quiz-topic {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: #1e40af;
-}
-
-.quiz-counter {
-  margin-left: auto;
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: #556677;
-  background: #e8edf5;
-  padding: 4px 12px;
-  border-radius: 8px;
-}
-
-.quiz-loading,
-.quiz-ready,
-.quiz-error {
-  text-align: center;
-  padding: 48px 16px;
-  color: #778899;
-  font-size: 1.1rem;
-}
-
-.quiz-error {
-  color: #c53030;
-}
-
-.ready-text {
-  font-size: 1.3rem;
-  color: #445566;
-  margin-bottom: 24px;
-}
-
-.ready-count {
-  font-size: 1rem;
-  color: #556677;
-  margin-bottom: 16px;
-  margin-top: -8px;
-}
-
-.ready-empty {
-  font-size: 1rem;
-  color: #778899;
-  margin-bottom: 16px;
-  margin-top: -8px;
-}
-
-.quiz-start-btn {
-  padding: 16px 48px;
-  background: #1e40af;
-  color: #fff;
-  border: none;
-  border-radius: 12px;
-  font-size: 1.2rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 0.15s, transform 0.1s;
-}
-
-.quiz-start-btn:hover {
-  background: #1c3a9c;
-  transform: scale(1.03);
-}
-
-.quiz-resume {
-  text-align: center;
-  padding: 32px 16px;
-}
-
-.resume-title {
-  font-size: 1.6rem;
-  font-weight: 700;
-  color: #1e40af;
-  margin-bottom: 32px;
-}
-
-.resume-stats {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-  max-width: 400px;
-  margin: 0 auto 32px;
-}
-
-.resume-stat {
-  background: #fff;
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-}
-
-.resume-value {
-  display: block;
-  font-size: 1.8rem;
-  font-weight: 700;
-  color: #1a2b3c;
-}
-
-.resume-value.correct {
-  color: #2f855a;
-}
-
-.resume-value.incorrect {
-  color: #c53030;
-}
-
-.resume-label {
-  display: block;
-  font-size: 0.85rem;
-  color: #778899;
-  margin-top: 4px;
-}
-
-.quiz-back-btn {
-  display: inline-block;
-  padding: 10px 24px;
-  background: #1e40af;
-  color: #fff;
-  text-decoration: none;
-  border-radius: 8px;
-  font-weight: 600;
-}
-
-.quiz-content {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.quiz-options-section {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.quiz-submit-btn {
-  align-self: flex-end;
-  padding: 12px 32px;
-  background: #1e40af;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.quiz-submit-btn:hover:not(:disabled) {
-  background: #1c3a9c;
-}
-
-.quiz-submit-btn:disabled {
-  background: #aab4c0;
-  cursor: default;
-}
-
-.quiz-retry-btn {
-  margin-top: 16px;
-  padding: 12px 28px;
-  background: #1e40af;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.quiz-retry-btn:hover {
-  background: #1c3a9c;
-}
-
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-}
-
-.modal-box {
-  background: #fff;
-  border-radius: 16px;
-  padding: 28px 32px;
-  max-width: 340px;
-  width: 90%;
-  text-align: center;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
-}
-
-.modal-text {
-  font-size: 1.2rem;
-  font-weight: 700;
-  color: #1a2b3c;
-  margin-bottom: 8px;
-}
-
-.modal-sub {
-  font-size: 0.9rem;
-  color: #778899;
-  margin-bottom: 24px;
-}
-
-.modal-actions {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-}
-
-.modal-btn {
-  padding: 10px 24px;
-  border: none;
-  border-radius: 8px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.modal-btn-cancel {
-  background: #e8edf5;
-  color: #1e40af;
-}
-
-.modal-btn-cancel:hover {
-  background: #d0d8e8;
-}
-
-.modal-btn-exit {
-  background: #c53030;
-  color: #fff;
-}
-
-.modal-btn-exit:hover {
-  background: #b02828;
+@media (max-width: 600px) {
+  .exam-topbar { min-height: 68px; padding: 10px 14px; }
+  .brand-mark { width: 36px; height: 36px; font-size: .7rem; }
+  .brand-copy strong { font-size: .8rem; }
+  .brand-copy small { font-size: .6rem; }
+  .exam-actions { margin-left: auto; }
+  .topbar-button { padding: 8px 10px; font-size: .72rem; }
+  .exam-clock { display: none; }
+  .question-list-button { font-size: 0; }
+  .question-list-button .grid-icon { margin: 0; font-size: 1.2rem; }
+  .exam-main { padding: 16px 12px 22px; }
+  .exam-heading { align-items: flex-start; flex-direction: column; gap: 12px; }
+  .exam-heading h1 { font-size: 1.4rem; }
+  .font-controls { align-self: flex-end; }
+  .pane-heading { padding: 14px 16px; }
+  .question-scroll { padding: 22px 18px; }
+  .answer-scroll { padding: 16px 12px; }
+  .exam-navigation { flex-wrap: wrap; }
+  .nav-button { flex: 1 1 calc(50% - 7px); padding: 10px 12px; font-size: .82rem; }
+  .nav-primary { order: 3; flex-basis: 100%; }
+  .resume-stats { grid-template-columns: repeat(2, 1fr); }
+  .question-number-grid { grid-template-columns: repeat(5, 1fr); }
 }
 </style>

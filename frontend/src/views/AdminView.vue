@@ -4,7 +4,7 @@
       <div>
         <router-link to="/" class="back-link">&larr; Kembali ke latihan</router-link>
         <h1 class="page-title">Editor Soal</h1>
-        <p class="page-subtitle">Tambah, ubah, hapus, dan impor soal UTBK.</p>
+        <p class="page-subtitle">Tambah, ubah, hapus, dan impor soal ujian sekolah.</p>
       </div>
       <button v-if="isAuthenticated" class="secondary-btn" @click="logout">Keluar</button>
     </div>

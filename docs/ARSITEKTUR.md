@@ -1,4 +1,4 @@
-# UTBK Belajar — Arsitektur & Fitur
+# Ruang Asesmen — Arsitektur & Fitur
 
 > Dokumen ini menggambarkan kondisi aktual aplikasi saat ini.
 > Bukan rencana — apa yang sudah jadi.
@@ -7,7 +7,7 @@
 
 ## 1. Ringkasan
 
-Aplikasi web belajar soal UTBK. Alur: pilih topik → mulai → soal acak → timer → jawab → lihat pembahasan → lanjut → resume akhir.
+Aplikasi web latihan dan ujian sekolah. Alur: pilih mata pelajaran → pilih topik → mulai → soal acak → timer → jawab → lihat pembahasan → lanjut → resume akhir.
 
 - Single-user, auth opsional (password)
 - Tanpa riwayat — setiap sesi dimulai dari nol

@@ -1,7 +1,7 @@
 <template>
-  <div class="app-wrapper">
-    <header class="app-header">
-      <router-link to="/" class="app-logo">UTBK Belajar</router-link>
+  <div :class="isExamRoute ? 'app-wrapper exam-wrapper' : 'app-wrapper'">
+    <header v-if="!isExamRoute" class="app-header">
+      <router-link to="/" class="app-logo">Ruang Asesmen</router-link>
       <router-link to="/admin" class="admin-link">Editor</router-link>
     </header>
     <main class="app-main">
@@ -9,6 +9,14 @@
     </main>
   </div>
 </template>
+
+<script setup lang="ts">
+import { computed } from 'vue';
+import { useRoute } from 'vue-router';
+
+const route = useRoute();
+const isExamRoute = computed(() => route.name === 'quiz');
+</script>
 
 <style>
 *,
@@ -31,6 +39,11 @@ body {
   max-width: 800px;
   margin: 0 auto;
   padding: 0 16px;
+}
+
+.exam-wrapper {
+  max-width: none;
+  padding: 0;
 }
 
 .app-header {
@@ -61,5 +74,9 @@ body {
 
 .app-main {
   padding-bottom: 64px;
+}
+
+.exam-wrapper .app-main {
+  padding-bottom: 0;
 }
 </style>

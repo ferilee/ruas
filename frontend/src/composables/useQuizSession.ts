@@ -26,6 +26,7 @@ export function useQuizSession(options: UseQuizSessionOptions) {
   const result = ref<CheckResult | null>(null);
   const selectedKeys = ref<string[]>([]);
   const timerRunning = ref(false);
+  const elapsedTime = ref(0);
   const finalTime = ref(0);
   const errorMessage = ref('');
   const subjectId = ref(0);
@@ -59,6 +60,7 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     state.value = 'loading';
     result.value = null;
     selectedKeys.value = [];
+    elapsedTime.value = 0;
     finalTime.value = 0;
 
     try {
@@ -104,14 +106,14 @@ export function useQuizSession(options: UseQuizSessionOptions) {
   }
 
   function onTime(seconds: number) {
-    if (!timerRunning.value) {
-      finalTime.value = seconds;
-    }
+    elapsedTime.value = seconds;
+    if (!timerRunning.value) finalTime.value = seconds;
   }
 
   async function submitAnswer() {
     if (!question.value || selectedKeys.value.length === 0) return;
 
+    finalTime.value = elapsedTime.value;
     timerRunning.value = false;
 
     try {
@@ -186,6 +188,7 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     state.value = 'ready';
     question.value = null;
     timerRunning.value = false;
+    elapsedTime.value = 0;
   }
 
   function hasActiveSession() {
@@ -205,6 +208,7 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     confirmExitState,
     correctCount,
     currentQuestionNumber,
+    elapsedTime,
     errorMessage,
     finalTime,
     finishSession,

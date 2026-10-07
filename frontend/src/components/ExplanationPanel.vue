@@ -16,10 +16,10 @@
       <div class="explanation-copy"><MathText :text="explanation" /></div>
     </div>
 
-    <button v-if="is_last" class="explanation-next" @click="$emit('finish')">
+    <button v-if="showActions && is_last" class="explanation-next" @click="$emit('finish')">
       Lihat Hasil
     </button>
-    <button v-else class="explanation-next" @click="$emit('next')">
+    <button v-else-if="showActions" class="explanation-next" @click="$emit('next')">
       Soal Berikutnya
     </button>
   </div>
@@ -35,6 +35,7 @@ const props = defineProps<{
   explanation: string;
   elapsed_seconds: number;
   is_last?: boolean;
+  showActions?: boolean;
 }>();
 
 defineEmits<{

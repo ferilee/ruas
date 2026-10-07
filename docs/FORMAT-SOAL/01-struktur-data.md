@@ -12,7 +12,7 @@ File `seed.json` memiliki tiga bagian wajib:
 
 ---
 
-## Subjects — Mata Uji
+## Subjects — Mata Pelajaran
 
 ```json
 {

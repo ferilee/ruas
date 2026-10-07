@@ -3,7 +3,7 @@
 ## Single Choice
 
 ```
-Buatkan 5 soal UTBK tipe single_choice tentang Aljabar (Penalaran Matematika)
+Buatkan 5 soal ujian sekolah tipe single_choice tentang Aljabar (Matematika)
 dalam format JSON array. Setiap soal punya:
 - topic_slug: "aljabar"
 - type: "single_choice"  
@@ -18,7 +18,7 @@ Langsung format JSON saja, tanpa penjelasan lain.
 ## Multiple Response
 
 ```
-Buatkan 3 soal UTBK tipe multiple_response tentang Penalaran Umum (TPS).
+Buatkan 3 soal ujian sekolah tipe multiple_response tentang Penalaran Umum.
 Setiap soal punya 4 opsi, 2-3 di antaranya benar.
 Output dalam format JSON array questions.
 ```

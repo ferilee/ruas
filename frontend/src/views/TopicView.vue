@@ -13,7 +13,7 @@
     </div>
 
     <div v-else-if="topics.length === 0" class="topic-state">
-      <p class="topic-empty">Belum ada topik untuk mata uji ini.</p>
+      <p class="topic-empty">Belum ada topik untuk mata pelajaran ini.</p>
       <button class="topic-action-btn" @click="loadTopicsData">Muat Ulang</button>
     </div>
 
