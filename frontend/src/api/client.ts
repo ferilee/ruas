@@ -43,7 +43,6 @@ async function adminRequest<T>(url: string, options?: RequestInit): Promise<T> {
 
   if (res.status === 401) {
     sessionStorage.removeItem('admin_token');
-    window.location.href = '/admin';
     throw new Error('Sesi admin berakhir.');
   }
 

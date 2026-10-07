@@ -264,6 +264,7 @@ async function loadData() {
     questions.value = questionRows;
     topics.value = topicRows;
   } catch (error) {
+    isAuthenticated.value = false;
     errorMessage.value = error instanceof Error ? error.message : 'Gagal memuat data editor.';
   }
 }
