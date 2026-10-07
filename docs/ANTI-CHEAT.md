@@ -13,6 +13,7 @@ Ruang Asesmen memiliki perlindungan ujian berbasis kemampuan browser. Perlindung
 | Keluar fullscreen | Keluar dari fullscreen dicatat dan menjeda ujian. Peserta harus kembali ke fullscreen untuk melanjutkan. |
 | Pengamanan keluar | Keluar dari sesi aktif membutuhkan kata sandi pengawas yang divalidasi backend. |
 | Peringatan sesi | Pelanggaran ditampilkan sebagai peringatan dan jumlahnya terlihat pada dialog perlindungan ujian. |
+| Hasil pengerjaan | Ringkasan integritas menampilkan status sesi dan rincian setiap jenis aktivitas yang tercatat. |
 
 ## Konfigurasi kata sandi pengawas
 
@@ -48,6 +49,8 @@ Respons yang mungkin:
 6. Peserta hanya dapat melanjutkan setelah mengaktifkan kembali fullscreen.
 
 Pencatatan pelanggaran saat ini bersifat per sesi di sisi klien. Aplikasi tidak menyimpan riwayat peserta atau log pelanggaran permanen di database.
+
+Pada hasil pengerjaan, aktivitas ditampilkan sebagai informasi untuk peserta dan pengawas. Skor jawaban belum dikurangi otomatis. Jika sekolah menetapkan penalti, aturan sebaiknya disepakati terlebih dahulu, misalnya jenis pelanggaran, batas toleransi, besaran pengurangan, dan perlakuan untuk perpindahan fokus yang tidak disengaja.
 
 ## Batasan keamanan browser
 

@@ -69,6 +69,20 @@
           <div><strong>{{ accuracy }}%</strong><span>Akurasi</span></div>
           <div><strong>{{ totalTime }}</strong><span>Total waktu</span></div>
         </div>
+        <section class="integrity-result" :class="{ flagged: violationCount > 0 }" aria-labelledby="integrity-title">
+          <div class="integrity-heading">
+            <strong id="integrity-title">Integritas sesi</strong>
+            <span>{{ violationCount > 0 ? 'Perlu ditinjau' : 'Tidak ada peringatan' }}</span>
+          </div>
+          <p v-if="violationCount === 0">Tidak ada perpindahan tab, keluar fullscreen, atau shortcut terlarang yang tercatat.</p>
+          <template v-else>
+            <p>{{ violationCount }} aktivitas perlindungan tercatat selama pengerjaan.</p>
+            <ul>
+              <li v-for="item in violationSummary" :key="item.type">{{ item.label }} ({{ item.count }}×)</li>
+            </ul>
+            <small>Aktivitas ini dapat ditinjau pengawas sesuai kebijakan ujian.</small>
+          </template>
+        </section>
         <router-link :to="`/topics/${subjectId}`" class="primary-exam-button">Pilih Ujian Lain</router-link>
       </div>
 
@@ -213,7 +227,7 @@ import ExplanationPanel from '@/components/ExplanationPanel.vue';
 import TimerBar from '@/components/TimerBar.vue';
 import { verifyExamExitPassword } from '@/api/client';
 import { useQuizSession } from '@/composables/useQuizSession';
-import { useExamGuard, type ExamViolation } from '@/composables/useExamGuard';
+import { useExamGuard, type ExamViolation, type ExamViolationType } from '@/composables/useExamGuard';
 
 const route = useRoute();
 const router = useRouter();
@@ -244,6 +258,19 @@ const {
 
 const examGuard = useExamGuard({ onViolation: handleViolation });
 const violationCount = examGuard.violationCount;
+const violationLabels: Record<ExamViolationType, string> = {
+  fullscreen_exit: 'Keluar dari fullscreen',
+  tab_hidden: 'Perpindahan tab atau aplikasi',
+  window_blur: 'Fokus jendela berpindah',
+  blocked_shortcut: 'Shortcut terlarang',
+};
+const violationSummary = computed(() => {
+  const counts = new Map<ExamViolationType, number>();
+  for (const violation of examGuard.violations.value) {
+    counts.set(violation.type, (counts.get(violation.type) ?? 0) + 1);
+  }
+  return Array.from(counts, ([type, count]) => ({ type, count, label: violationLabels[type] }));
+});
 
 const fontSizeClass = computed(() => `font-${fontSize.value}`);
 const formattedElapsed = computed(() => formatDuration(elapsedTime.value));
@@ -434,6 +461,13 @@ onMounted(() => { initializeSession(); });
 .resume-stats strong, .resume-stats span { display: block; }
 .resume-stats strong { color: #136cae; font-size: 1.35rem; }
 .resume-stats span { color: #71869a; font-size: .75rem; }
+.integrity-result { width: min(560px, 100%); margin: 4px 0 10px; padding: 14px 16px; border: 1px solid #cfe3d8; border-radius: 10px; color: #397157; background: #f1fbf5; text-align: left; }
+.integrity-result.flagged { border-color: #f0c7a6; color: #9b5d2a; background: #fff8f1; }
+.integrity-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.integrity-heading span { font-size: .75rem; font-weight: 700; }
+.integrity-result p { margin-top: 5px; max-width: none; font-size: .78rem; line-height: 1.5; }
+.integrity-result ul { margin: 8px 0 4px 18px; font-size: .78rem; line-height: 1.6; }
+.integrity-result small { display: block; margin-top: 7px; font-size: .72rem; }
 .error-card h2 { color: #b33d45; }
 .exam-modal-backdrop { position: fixed; inset: 0; z-index: 20; padding: 20px; display: grid; place-items: center; background: rgba(24, 45, 65, .42); }
 .exam-modal { position: relative; width: min(520px, 100%); padding: 30px; border-radius: 14px; background: #fff; box-shadow: 0 18px 50px rgba(24, 45, 65, .22); }
