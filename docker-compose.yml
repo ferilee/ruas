@@ -18,7 +18,7 @@ services:
       timeout: 5s
       retries: 20
     networks:
-      - hasanNet
+      - ferileenet
 
   utbk:
     image: oven/bun:1.3.14
@@ -45,10 +45,10 @@ services:
       APP_PASSWORD: ${APP_PASSWORD:-}
       NODE_ENV: production
     networks:
-      - hasanNet
+      - ferileenet
 
 networks:
-  hasanNet:
+  ferileenet:
     external: true
 
 volumes:

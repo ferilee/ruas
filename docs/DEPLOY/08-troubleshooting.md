@@ -49,17 +49,17 @@ docker compose exec mariadb mariadb -u root -p -e \
   "ALTER USER 'utbk'@'%' IDENTIFIED BY 'PASSWORD_BARU'; FLUSH PRIVILEGES;"
 ```
 
-## Network `hasanNet` tidak ditemukan saat `docker compose up`
+## Network `ferileenet` tidak ditemukan saat `docker compose up`
 
 ```bash
-docker network create hasanNet
+docker network create ferileenet
 docker compose up -d
 ```
 
 Cek apakah container sudah join:
 
 ```bash
-docker inspect utbk | grep hasanNet
+docker inspect utbk | grep ferileenet
 ```
 
 Jika bridge Docker bermasalah, pakai host networking:
@@ -112,17 +112,17 @@ bun run install:all:frozen             # backend + frontend
 
 Jika gagal, ada dependency baru. Jalankan `bun install` biasa di dev, commit semua `bun.lock`, deploy ulang.
 
-## Network `hasanNet` tidak ditemukan
+## Network `ferileenet` tidak ditemukan
 
 Jika `docker compose up` error soal network:
 
 ```bash
-docker network create hasanNet
+docker network create ferileenet
 docker compose up -d
 ```
 
 Cek apakah container sudah join:
 
 ```bash
-docker inspect utbk 2>/dev/null | grep hasanNet
+docker inspect utbk 2>/dev/null | grep ferileenet
 ```

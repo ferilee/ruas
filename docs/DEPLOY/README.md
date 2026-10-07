@@ -29,7 +29,7 @@ App container (Bun + Hono)
 ## Prasyarat
 
 - Docker dan Docker Compose terpasang di VPS
-- Docker network `hasanNet` sudah dibuat jika memakai Nginx Proxy Manager
+- Docker network `ferileenet` sudah dibuat jika memakai Nginx Proxy Manager
 - MariaDB akan dibuat oleh `docker-compose.yml` dengan volume persisten
 
 ## Struktur Folder

@@ -9,7 +9,7 @@
 5. build frontend
 6. isi file `.env`, termasuk password MariaDB
 7. `bun run seed:check`
-8. buat `hasanNet`
+8. buat `ferileenet`
 9. jalankan NPM
 10. jalankan app dan MariaDB dengan `docker compose up -d`
 11. migrasi + seed

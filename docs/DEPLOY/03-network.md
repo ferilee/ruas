@@ -5,7 +5,7 @@
 Jika app perlu join ke network yang sudah ada, buat network dulu sebelum `docker compose up`:
 
 ```bash
-docker network create hasanNet
+docker network create ferileenet
 ```
 
 Jika network sudah ada, Docker akan memberi tahu dan Anda bisa lanjut.
@@ -13,14 +13,14 @@ Jika network sudah ada, Docker akan memberi tahu dan Anda bisa lanjut.
 Cek apakah network sudah ada:
 
 ```bash
-docker network ls | grep hasanNet
+docker network ls | grep ferileenet
 ```
 
 Contoh di `docker-compose.yml`:
 
 ```yaml
 networks:
-  hasanNet:
+  ferileenet:
     external: true
 ```
 
@@ -65,10 +65,10 @@ services:
       CORS_ORIGIN: ${CORS_ORIGIN:-https://domain-anda.com}
       NODE_ENV: production
     networks:
-      - npm_network
+      - ferileenet
 
 networks:
-  npm_network:
+  ferileenet:
     external: true
 ```
 
@@ -102,10 +102,10 @@ services:
       - ./data:/data
       - ./letsencrypt:/etc/letsencrypt
     networks:
-      - npm_network
+      - ferileenet
 
 networks:
-  npm_network:
+  ferileenet:
     external: true
 ```
 
@@ -135,11 +135,11 @@ services:
       CORS_ORIGIN: ${CORS_ORIGIN:-https://domain-anda.com}
       NODE_ENV: production
     networks:
-      - npm_network
+      - ferileenet
 
 networks:
-  npm_network:
+  ferileenet:
     external: true
 ```
 
-NPM dan `utbk` tidak harus dalam file compose yang sama. Yang penting keduanya join ke `npm_network`.
+NPM dan `utbk` tidak harus dalam file compose yang sama. Yang penting keduanya join ke `ferileenet`.
