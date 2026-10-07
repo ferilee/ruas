@@ -8,8 +8,10 @@ interface RawEnvMap {
 export interface AppConfig {
   APP_PORT: number;
   FRONTEND_PORT: number;
+  APP_USERNAME: string;
   APP_PASSWORD: string;
   ADMIN_PASSWORD: string;
+  EXAM_EXIT_PASSWORD: string;
   CORS_ORIGIN: string;
   DB_HOST: string;
   DB_PORT: number;
@@ -57,18 +59,21 @@ export function loadConfig(): AppConfig {
   const fileEnv = readEnvFile();
 
   const frontendPort = Number(getEnvValue(process.env.FRONTEND_PORT, fileEnv.FRONTEND_PORT, '5173')) || 5173;
+  const adminPassword = getEnvValue(process.env.ADMIN_PASSWORD, fileEnv.ADMIN_PASSWORD, '');
 
   cachedConfig = {
     APP_PORT: Number(getEnvValue(process.env.APP_PORT, fileEnv.APP_PORT, '3000')) || 3000,
     FRONTEND_PORT: frontendPort,
+    APP_USERNAME: getEnvValue(process.env.APP_USERNAME, fileEnv.APP_USERNAME, ''),
     APP_PASSWORD: getEnvValue(process.env.APP_PASSWORD, fileEnv.APP_PASSWORD, ''),
-    ADMIN_PASSWORD: getEnvValue(process.env.ADMIN_PASSWORD, fileEnv.ADMIN_PASSWORD, ''),
+    ADMIN_PASSWORD: adminPassword,
+    EXAM_EXIT_PASSWORD: getEnvValue(process.env.EXAM_EXIT_PASSWORD, fileEnv.EXAM_EXIT_PASSWORD, adminPassword),
     CORS_ORIGIN: getEnvValue(process.env.CORS_ORIGIN, fileEnv.CORS_ORIGIN, `http://localhost:${frontendPort}`),
     DB_HOST: getEnvValue(process.env.DB_HOST, fileEnv.DB_HOST, '127.0.0.1'),
     DB_PORT: Number(getEnvValue(process.env.DB_PORT, fileEnv.DB_PORT, '3306')) || 3306,
     DB_USER: getEnvValue(process.env.DB_USER, fileEnv.DB_USER, 'root'),
     DB_PASSWORD: getEnvValue(process.env.DB_PASSWORD, fileEnv.DB_PASSWORD, ''),
-    DB_NAME: getEnvValue(process.env.DB_NAME, fileEnv.DB_NAME, 'utbk_belajar'),
+    DB_NAME: getEnvValue(process.env.DB_NAME, fileEnv.DB_NAME, 'ruas_belajar'),
   };
 
   return cachedConfig;

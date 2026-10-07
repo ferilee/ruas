@@ -126,11 +126,11 @@ Cek status auth.
 
 ### `POST /api/auth`
 
-Login. Hanya valid jika `APP_PASSWORD` diisi.
+Login. Hanya valid jika `APP_PASSWORD` diisi. Jika `APP_USERNAME` diisi, username juga harus cocok.
 
 Request:
 ```json
-{ "password": "..." }
+{ "username": "...", "password": "..." }
 ```
 
 Response:
@@ -335,11 +335,12 @@ DB_HOST=127.0.0.1
 DB_PORT=3306
 DB_USER=root
 DB_PASSWORD=rahaSi4Hasan
-DB_NAME=utbk_belajar
+DB_NAME=ruas_belajar
 APP_PORT=3000
 FRONTEND_PORT=5173
 APP_PASSWORD=
 ADMIN_PASSWORD=
+EXAM_EXIT_PASSWORD=
 CORS_ORIGIN=
 ```
 
@@ -350,6 +351,7 @@ CORS_ORIGIN=
 | `FRONTEND_PORT` | Port Vite dev + fallback CORS |
 | `APP_PASSWORD` | Kosong = auth nonaktif. Diisi = login required |
 | `ADMIN_PASSWORD` | Kosong = editor nonaktif. Diisi = akses `/admin` |
+| `EXAM_EXIT_PASSWORD` | Kata sandi pengawas untuk mengakhiri ujian. Kosong = gunakan `ADMIN_PASSWORD` |
 | `CORS_ORIGIN` | Kosong = `http://localhost:FRONTEND_PORT`. Isi untuk production. |
 
 ---

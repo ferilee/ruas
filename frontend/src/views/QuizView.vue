@@ -1,5 +1,5 @@
 <template>
-  <div class="exam-page" :class="fontSizeClass">
+  <div ref="examPageRef" class="exam-page" :class="fontSizeClass">
     <header class="exam-topbar">
       <router-link to="/" class="exam-brand" @click.prevent="tryExit">
         <span class="brand-mark">RA</span>
@@ -11,8 +11,10 @@
 
       <div class="participant-label">
         <span>Peserta</span>
-        <strong>Mode latihan</strong>
+        <strong>Mode ujian</strong>
       </div>
+
+      <span v-if="examGuard.active" class="security-badge" aria-label="Perlindungan ujian aktif">🔒 Perlindungan aktif</span>
 
       <div class="exam-actions">
         <button class="topbar-button" type="button" @click="showInfoModal = true">Informasi Ujian</button>
@@ -55,7 +57,7 @@
         <span class="state-kicker">PERSIAPAN UJIAN</span>
         <h2>Siap mengerjakan?</h2>
         <p>{{ questionCount }} soal tersedia. Timer dimulai saat kamu menekan tombol mulai.</p>
-        <button class="primary-exam-button" type="button" @click="startQuiz">Mulai Ujian</button>
+        <button class="primary-exam-button" type="button" @click="beginExam">Mulai Ujian</button>
       </div>
 
       <div v-else-if="state === 'resume'" class="exam-state-card resume-card">
@@ -147,7 +149,9 @@
           <li>Soal bertanda ragu-ragu tetap dapat dijawab dan dikoreksi.</li>
           <li>Timer menunjukkan waktu berjalan pada sesi ini.</li>
           <li>Jawaban diperiksa setelah tombol simpan jawaban ditekan.</li>
+          <li>Perpindahan tab, keluar layar penuh, dan shortcut terlarang akan menjeda ujian.</li>
         </ul>
+        <p v-if="violationCount" class="security-count">Aktivitas tercatat: <strong>{{ violationCount }}</strong></p>
         <button class="primary-exam-button" type="button" @click="showInfoModal = false">Mengerti</button>
       </section>
     </div>
@@ -174,10 +178,27 @@
         <span class="state-kicker">KONFIRMASI</span>
         <h2 id="exit-title">Keluar dari ujian?</h2>
         <p>Progress sesi ini akan dihentikan.</p>
+        <label class="exit-password-field">
+          <span>Kata sandi pengawas</span>
+          <input v-model="exitPassword" type="password" autocomplete="off" placeholder="Masukkan kata sandi" :disabled="exitLoading" />
+        </label>
+        <p v-if="exitError" class="exit-error" role="alert">{{ exitError }}</p>
         <div class="modal-actions">
           <button class="nav-button nav-secondary" type="button" @click="cancelExit">Lanjutkan</button>
-          <button class="nav-button nav-primary" type="button" @click="confirmExit">Keluar</button>
+          <button class="nav-button nav-primary" type="button" :disabled="exitLoading || !exitPassword" @click="confirmExit">
+            {{ exitLoading ? 'Memeriksa...' : 'Keluar' }}
+          </button>
         </div>
+      </section>
+    </div>
+
+    <div v-if="showSecurityWarning" class="exam-modal-backdrop security-backdrop">
+      <section class="exam-modal security-modal" role="alertdialog" aria-modal="true" aria-labelledby="security-title">
+        <span class="state-kicker">PERLINDUNGAN UJIAN</span>
+        <h2 id="security-title">Ujian dijeda sementara</h2>
+        <p>{{ securityMessage }}</p>
+        <p class="security-count">Aktivitas tercatat: <strong>{{ violationCount }}</strong></p>
+        <button class="primary-exam-button" type="button" @click="resumeExam">Kembali ke Ujian</button>
       </section>
     </div>
   </div>
@@ -190,7 +211,9 @@ import MathText from '@/components/MathText.vue';
 import OptionList from '@/components/OptionList.vue';
 import ExplanationPanel from '@/components/ExplanationPanel.vue';
 import TimerBar from '@/components/TimerBar.vue';
+import { verifyExamExitPassword } from '@/api/client';
 import { useQuizSession } from '@/composables/useQuizSession';
+import { useExamGuard, type ExamViolation } from '@/composables/useExamGuard';
 
 const route = useRoute();
 const router = useRouter();
@@ -198,6 +221,12 @@ const fontSize = ref<'small' | 'normal' | 'large'>('normal');
 const isDoubtful = ref(false);
 const showInfoModal = ref(false);
 const showQuestionList = ref(false);
+const showSecurityWarning = ref(false);
+const securityMessage = ref('Aktivitas di luar halaman ujian terdeteksi.');
+const exitPassword = ref('');
+const exitError = ref('');
+const exitLoading = ref(false);
+const examPageRef = ref<HTMLElement | null>(null);
 
 function getTopicId(): number { return Number(route.params.id); }
 
@@ -212,6 +241,9 @@ const {
   getQuerySubjectId: () => Number(route.query.subject_id),
   getQueryTopicLabel: () => typeof route.query.topic_label === 'string' ? route.query.topic_label : '',
 });
+
+const examGuard = useExamGuard({ onViolation: handleViolation });
+const violationCount = examGuard.violationCount;
 
 const fontSizeClass = computed(() => `font-${fontSize.value}`);
 const formattedElapsed = computed(() => formatDuration(elapsedTime.value));
@@ -235,19 +267,91 @@ function questionNumberClass(number: number) {
 }
 
 function goToNextStep() {
-  if (isLastQuestion.value) finishSession();
+  if (isLastQuestion.value) {
+    examGuard.deactivate();
+    void examGuard.exitFullscreen();
+    finishSession();
+  }
   else { isDoubtful.value = false; nextQuestion(); }
+}
+
+async function beginExam() {
+  if (!examGuard.isSupported.value) {
+    securityMessage.value = 'Browser ini tidak mendukung mode layar penuh. Gunakan browser terbaru untuk memulai ujian.';
+    showSecurityWarning.value = true;
+    return;
+  }
+
+  examGuard.activate();
+  const entered = await examGuard.enterFullscreen(examPageRef.value);
+  if (!entered) {
+    examGuard.deactivate();
+    securityMessage.value = 'Mode layar penuh wajib diaktifkan sebelum ujian dimulai.';
+    showSecurityWarning.value = true;
+    return;
+  }
+
+  startQuiz();
+}
+
+async function resumeExam() {
+  examGuard.activate();
+  const entered = await examGuard.enterFullscreen(examPageRef.value);
+  if (!entered) {
+    securityMessage.value = 'Mode layar penuh belum aktif. Izinkan layar penuh untuk melanjutkan.';
+    return;
+  }
+
+  showSecurityWarning.value = false;
+  if (state.value === 'ready') startQuiz();
+  else if (state.value === 'answering') timerRunning.value = true;
+}
+
+function handleViolation(violation: ExamViolation) {
+  const messages: Record<ExamViolation['type'], string> = {
+    fullscreen_exit: 'Mode layar penuh ditutup.',
+    tab_hidden: 'Perpindahan tab atau aplikasi terdeteksi.',
+    window_blur: 'Fokus jendela ujian berpindah.',
+    blocked_shortcut: 'Shortcut yang tidak diizinkan terdeteksi.',
+  };
+  securityMessage.value = `${messages[violation.type]} Ujian dijeda sampai kamu kembali.`;
+  showSecurityWarning.value = true;
+  if (state.value === 'answering') timerRunning.value = false;
 }
 
 function tryExit() {
   if (hasActiveSession()) showExitModal.value = true;
-  else router.push(`/topics/${subjectId.value}`);
+  else {
+    examGuard.deactivate();
+    void examGuard.exitFullscreen();
+    router.push(`/topics/${subjectId.value}`);
+  }
 }
 
-function cancelExit() { dismissExitModal(); }
+function cancelExit() {
+  dismissExitModal();
+  exitPassword.value = '';
+  exitError.value = '';
+}
 
-function confirmExit() {
+async function confirmExit() {
+  if (!exitPassword.value || exitLoading.value) return;
+  exitLoading.value = true;
+  exitError.value = '';
+
+  try {
+    await verifyExamExitPassword(exitPassword.value);
+  } catch (error) {
+    exitError.value = error instanceof Error ? error.message : 'Kata sandi pengawas salah.';
+    return;
+  } finally {
+    exitLoading.value = false;
+  }
+
+  examGuard.deactivate();
+  await examGuard.exitFullscreen();
   confirmExitState();
+  exitPassword.value = '';
   router.push(`/topics/${subjectId.value}`);
 }
 
@@ -279,6 +383,7 @@ onMounted(() => { initializeSession(); });
 .brand-copy small { margin-top: 4px; font-size: .72rem; letter-spacing: .14em; opacity: .8; }
 .participant-label { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; font-size: .75rem; opacity: .86; }
 .participant-label strong { font-size: .88rem; color: #fff; }
+.security-badge { padding: 7px 12px; border: 1px solid rgba(255,255,255,.5); border-radius: 18px; color: #fff; background: rgba(0, 35, 68, .18); font-size: .72rem; font-weight: 700; white-space: nowrap; }
 .exam-actions { display: flex; align-items: center; gap: 10px; }
 .topbar-button { min-height: 40px; padding: 8px 16px; border: 1px solid rgba(255,255,255,.68); border-radius: 22px; color: #fff; background: rgba(255,255,255,.08); font: inherit; font-size: .82rem; font-weight: 700; cursor: pointer; }
 .topbar-button:hover { background: rgba(255,255,255,.18); }
@@ -349,9 +454,20 @@ onMounted(() => { initializeSession(); });
 .legend-dot.answered { border-color: #48a47a; background: #48a47a; }
 .exit-modal { width: min(420px, 100%); text-align: center; }
 .exit-modal .modal-actions { margin-top: 22px; display: flex; justify-content: center; gap: 10px; }
+.exit-password-field { display: flex; flex-direction: column; gap: 7px; margin-top: 18px; color: #63798c; font-size: .82rem; font-weight: 700; text-align: left; }
+.exit-password-field input { width: 100%; min-height: 44px; padding: 10px 13px; border: 1px solid #d4e0ea; border-radius: 10px; color: #263d54; background: #f8fafc; font: inherit; outline: none; }
+.exit-password-field input:focus { border-color: #1477c4; box-shadow: 0 0 0 3px rgba(20, 119, 196, .12); }
+.exit-error { margin-top: 10px; color: #b33d45; font-size: .82rem; }
+.security-modal { width: min(460px, 100%); text-align: center; }
+.security-modal .primary-exam-button { margin-top: 18px; }
+.security-count { margin-top: 10px; color: #b33d45 !important; font-size: .82rem; }
+.security-backdrop { background: rgba(24, 45, 65, .58); }
+.exam-page { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+@media print { .exam-page { display: none !important; } }
 @media (max-width: 860px) {
   .exam-topbar { padding: 12px 20px; gap: 14px; }
   .participant-label { display: none; }
+  .security-badge { margin-left: auto; }
   .exam-main { padding: 20px; }
   .exam-workspace { grid-template-columns: 1fr; min-height: auto; }
   .exam-pane { min-height: 360px; }

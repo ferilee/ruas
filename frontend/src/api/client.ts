@@ -85,6 +85,13 @@ export async function checkAnswer(questionId: number, selectedKeys: string[]): P
   });
 }
 
+export async function verifyExamExitPassword(password: string): Promise<void> {
+  await request<{ authorized: true }>('/exam/exit', {
+    method: 'POST',
+    body: JSON.stringify({ password }),
+  });
+}
+
 export async function fetchQuestionCount(topicId: number): Promise<number> {
   const data = await request<{ count: number }>(`/questions/count?topic_id=${topicId}`);
   return data.count;

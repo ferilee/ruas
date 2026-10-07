@@ -7,6 +7,7 @@ import { adminQuestionRoutes } from './routes/admin-questions';
 import { adminTopicsRoutes } from './routes/admin-topics';
 import { adminScheduleRoutes } from './routes/admin-schedule';
 import { assessmentScheduleRoutes } from './routes/assessment-schedule';
+import { examExitRoutes } from './routes/exam-exit';
 import { subjectsRoutes } from './routes/subjects';
 import { topicsRoutes } from './routes/topics';
 import { questionsRoutes } from './routes/questions';
@@ -26,6 +27,7 @@ interface AppConfig {
   appUsername?: string;
   appPassword: string;
   adminPassword?: string;
+  examExitPassword?: string;
 }
 
 export function createApp(config: AppConfig) {
@@ -54,6 +56,7 @@ export function createApp(config: AppConfig) {
     app.use('/api/topics', requireAuth);
     app.use('/api/questions', requireAuth);
     app.use('/api/schedule', requireAuth);
+    app.use('/api/exam/exit', requireAuth);
   }
 
   app.use('/api/admin/questions', requireAdminAuth);
@@ -80,6 +83,7 @@ export function createApp(config: AppConfig) {
   app.route('/api/admin/topics', adminTopicsRoutes(config.pool));
   app.route('/api/schedule', assessmentScheduleRoutes(config.pool));
   app.route('/api/admin/schedule', adminScheduleRoutes(config.pool));
+  app.route('/api/exam/exit', examExitRoutes(config.examExitPassword ?? config.adminPassword ?? ''));
 
   if (process.env.NODE_ENV === 'production') {
     const distDir = '../frontend/dist';

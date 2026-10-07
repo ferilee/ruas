@@ -45,12 +45,12 @@ notifikasi. Buka, kerjakan, tutup.
 ### Prasyarat
 
 - [Bun](https://bun.sh) v1.3+
-- MariaDB / MySQL 8, database `utbk_belajar` sudah dibuat
+- MariaDB / MySQL 8, database `ruas_belajar` sudah dibuat
 
 ### Setup
 
 ```bash
-git clone <repo> utbk2 && cd utbk2
+git clone <repo> ruas2 && cd ruas2
 bun install && bun run install:all
 bun run db:migrate && bun run seed
 bun run dev
@@ -64,13 +64,17 @@ Frontend di `http://localhost:5173`, backend di `http://localhost:3000`.
 DB_HOST=127.0.0.1
 DB_PORT=3306
 DB_HOST_PORT=3308
-DB_USER=utbk
+DB_USER=ruas
 DB_PASSWORD=password-anda
-DB_NAME=utbk_belajar
+DB_NAME=ruas_belajar
 APP_PORT=3000
 FRONTEND_PORT=5173
+APP_USERNAME=P130100230  # kosong = username apa pun, isi = username wajib
 APP_PASSWORD=        # kosong = tanpa login, isi = login required
-ADMIN_PASSWORD=      # kosong = editor nonaktif, isi = aktif di /admin
+# kosong = editor nonaktif
+ADMIN_PASSWORD=
+# kosong = gunakan ADMIN_PASSWORD saat keluar dari ujian
+EXAM_EXIT_PASSWORD=
 CORS_ORIGIN=         # kosong = auto localhost, isi domain untuk production
 ```
 
@@ -79,6 +83,8 @@ CORS_ORIGIN=         # kosong = auto localhost, isi domain untuk production
 Jika `ADMIN_PASSWORD` diisi, buka `/admin` untuk mengelola soal. Editor
 mendukung tambah, edit, hapus, dan import JSON. Password editor terpisah dari
 `APP_PASSWORD`.
+Atur `EXAM_EXIT_PASSWORD` untuk kata sandi pengawas saat peserta keluar dari
+ujian; jika kosong, aplikasi menggunakan `ADMIN_PASSWORD`.
 
 ---
 
