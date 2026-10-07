@@ -110,6 +110,7 @@ ujian; jika kosong, aplikasi menggunakan `ADMIN_PASSWORD`.
 | Arsitektur & API | `docs/ARSITEKTUR.md` |
 | Panduan deploy production | `docs/DEPLOY/` |
 | Format & cara menambah soal | `docs/FORMAT-SOAL/` |
+| Anti-cheat ujian | `docs/ANTI-CHEAT.md` |
 | Struktur direktori | `docs/STRUKTUR.md` |
 | Catatan rilis | `docs/CHANGELOG.md` |
 | Aturan project untuk developer | `RULES.md` |
