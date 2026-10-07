@@ -304,14 +304,20 @@ async function loadQuestions() {
 
 async function loadData() {
   try {
-    const [questionRows, topicRows, schedule] = await Promise.all([
-      fetchAdminQuestions(),
-      fetchAdminTopics(),
-      fetchAdminSchedule(),
-    ]);
+    const [questionRows, topicRows] = await Promise.all([fetchAdminQuestions(), fetchAdminTopics()]);
     questions.value = questionRows;
     topics.value = topicRows;
-    scheduleStartAt.value = toDateTimeLocal(schedule.start_at);
+
+    try {
+      const schedule = await fetchAdminSchedule();
+      scheduleStartAt.value = toDateTimeLocal(schedule.start_at);
+    } catch (error) {
+      scheduleStartAt.value = '';
+      scheduleMessageType.value = 'error';
+      scheduleMessage.value = error instanceof Error
+        ? `Jadwal belum dapat dimuat: ${error.message}`
+        : 'Jadwal belum dapat dimuat.';
+    }
   } catch (error) {
     isAuthenticated.value = false;
     errorMessage.value = error instanceof Error ? error.message : 'Gagal memuat data editor.';
