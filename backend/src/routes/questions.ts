@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import type { Context } from 'hono';
 import { checkAnswer } from '../lib/scoring';
 import type { Pool } from '../db/connection';
 import type { QuestionType } from '../lib/scoring';
@@ -22,12 +23,34 @@ import {
   parseRandomQuestionQuery,
   validateSelectedKeys,
 } from '../validators/question-validator';
+import { getAssessmentScheduleStatusFromDb } from '@/services/assessment-schedule-service';
+
+type QuestionsDb = ReturnType<typeof createQuestionsDb>;
+
+async function requireAssessmentOpen(c: Context, db: QuestionsDb) {
+  const schedule = await getAssessmentScheduleStatusFromDb(db);
+  if (!schedule.is_open) {
+    return c.json(
+      {
+        error: 'assessment_not_started',
+        message: 'Asesmen belum dibuka oleh editor.',
+        schedule,
+      },
+      403,
+    );
+  }
+
+  return null;
+}
 
 export function questionsRoutes(pool: Pool) {
   const db = createQuestionsDb(pool);
   const app = new Hono();
 
   app.get('/count', async (c) => {
+    const scheduleError = await requireAssessmentOpen(c, db);
+    if (scheduleError) return scheduleError;
+
     const parsed = parseRandomQuestionQuery(c.req.query());
 
     if (!parsed.success) {
@@ -39,6 +62,9 @@ export function questionsRoutes(pool: Pool) {
   });
 
   app.get('/random', async (c) => {
+    const scheduleError = await requireAssessmentOpen(c, db);
+    if (scheduleError) return scheduleError;
+
     const parsed = parseRandomQuestionQuery(c.req.query());
 
     if (!parsed.success) {
@@ -57,6 +83,9 @@ export function questionsRoutes(pool: Pool) {
   });
 
   app.post('/:id/check', async (c) => {
+    const scheduleError = await requireAssessmentOpen(c, db);
+    if (scheduleError) return scheduleError;
+
     const id = parseQuestionIdParam(c.req.param('id'));
 
     if (id === null) {

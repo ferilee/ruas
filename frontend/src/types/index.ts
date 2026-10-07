@@ -5,6 +5,22 @@ export interface Subject {
   display_order: number;
 }
 
+export interface AssessmentSchedule {
+  start_at: string | null;
+  is_open: boolean;
+  starts_in_seconds: number;
+}
+
+export interface ParticipantProfile {
+  participant_code: string;
+  name: string;
+  gender: 'male' | 'female';
+  birth_date: string;
+  subject_id: number;
+  subject_label: string;
+  access_token: string;
+}
+
 export interface Topic {
   id: number;
   subject_id: number;

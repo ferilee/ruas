@@ -3,6 +3,7 @@ import type {
   AdminQuestionInput,
   AdminQuestionListItem,
   AdminTopic,
+  AssessmentSchedule,
   CheckResult,
   ImportSummary,
   Question,
@@ -56,6 +57,11 @@ async function adminRequest<T>(url: string, options?: RequestInit): Promise<T> {
 export async function fetchSubjects(): Promise<Subject[]> {
   const data = await request<{ subjects: Subject[] }>('/subjects');
   return data.subjects;
+}
+
+export async function fetchAssessmentSchedule(): Promise<AssessmentSchedule> {
+  const data = await request<{ schedule: AssessmentSchedule }>('/schedule');
+  return data.schedule;
 }
 
 export async function fetchTopics(subjectId: number): Promise<Topic[]> {
@@ -130,6 +136,19 @@ export async function fetchAdminQuestion(id: number): Promise<AdminQuestion> {
 export async function fetchAdminTopics(): Promise<AdminTopic[]> {
   const data = await adminRequest<{ topics: AdminTopic[] }>('/admin/topics');
   return data.topics;
+}
+
+export async function fetchAdminSchedule(): Promise<AssessmentSchedule> {
+  const data = await adminRequest<{ schedule: AssessmentSchedule }>('/admin/schedule');
+  return data.schedule;
+}
+
+export async function updateAdminSchedule(startAt: string | null): Promise<AssessmentSchedule> {
+  const data = await adminRequest<{ schedule: AssessmentSchedule }>('/admin/schedule', {
+    method: 'PUT',
+    body: JSON.stringify({ start_at: startAt }),
+  });
+  return data.schedule;
 }
 
 export async function createAdminQuestion(input: AdminQuestionInput): Promise<number> {

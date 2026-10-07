@@ -27,6 +27,33 @@
     </form>
 
     <template v-else>
+      <section class="panel schedule-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Jadwal Asesmen</h2>
+            <p>Peserta baru dapat mulai mengerjakan setelah waktu ini tiba.</p>
+          </div>
+          <span v-if="scheduleStartAt" class="schedule-status">Terjadwal</span>
+          <span v-else class="schedule-status open">Terbuka</span>
+        </div>
+
+        <form class="schedule-form" @submit.prevent="saveSchedule">
+          <label>Waktu mulai
+            <input v-model="scheduleStartAt" type="datetime-local" />
+          </label>
+          <div class="schedule-actions">
+            <button class="primary-btn" type="submit" :disabled="scheduleSaving">
+              {{ scheduleSaving ? 'Menyimpan...' : 'Simpan Jadwal' }}
+            </button>
+            <button class="secondary-btn" type="button" :disabled="scheduleSaving || !scheduleStartAt" @click="openScheduleNow">
+              Buka Sekarang
+            </button>
+          </div>
+        </form>
+        <p class="field-hint schedule-hint">Kosongkan waktu lalu simpan untuk membuka asesmen segera.</p>
+        <p v-if="scheduleMessage" :class="scheduleMessageType === 'error' ? 'error-text' : 'success-text'">{{ scheduleMessage }}</p>
+      </section>
+
       <div class="toolbar">
         <input v-model="search" class="search-input" placeholder="Cari teks soal atau external_id..." @keyup.enter="loadQuestions" />
         <button class="secondary-btn" :disabled="loading" @click="loadQuestions">Cari</button>
@@ -169,9 +196,11 @@ import {
   fetchAdminAuthStatus,
   fetchAdminQuestion,
   fetchAdminQuestions,
+  fetchAdminSchedule,
   fetchAdminTopics,
   importAdminQuestions,
   updateAdminQuestion,
+  updateAdminSchedule,
 } from '@/api/client';
 import type { AdminQuestionInput, AdminQuestionListItem, AdminTopic, ImportSummary } from '@/types';
 
@@ -194,6 +223,10 @@ const importText = ref('');
 const parsedImport = ref<unknown>(null);
 const importMode = ref<'insert' | 'upsert'>('insert');
 const importSummary = ref<ImportSummary | null>(null);
+const scheduleStartAt = ref('');
+const scheduleSaving = ref(false);
+const scheduleMessage = ref('');
+const scheduleMessageType = ref<'success' | 'error'>('success');
 
 function createDefaultOptions(type: AdminQuestionInput['type']) {
   if (type === 'true_false') {
@@ -271,13 +304,58 @@ async function loadQuestions() {
 
 async function loadData() {
   try {
-    const [questionRows, topicRows] = await Promise.all([fetchAdminQuestions(), fetchAdminTopics()]);
+    const [questionRows, topicRows, schedule] = await Promise.all([
+      fetchAdminQuestions(),
+      fetchAdminTopics(),
+      fetchAdminSchedule(),
+    ]);
     questions.value = questionRows;
     topics.value = topicRows;
+    scheduleStartAt.value = toDateTimeLocal(schedule.start_at);
   } catch (error) {
     isAuthenticated.value = false;
     errorMessage.value = error instanceof Error ? error.message : 'Gagal memuat data editor.';
   }
+}
+
+function toDateTimeLocal(value: string | null) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = (part: number) => String(part).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+async function saveSchedule() {
+  let startAt: string | null = null;
+  if (scheduleStartAt.value) {
+    const date = new Date(scheduleStartAt.value);
+    if (Number.isNaN(date.getTime())) {
+      scheduleMessageType.value = 'error';
+      scheduleMessage.value = 'Waktu mulai tidak valid.';
+      return;
+    }
+    startAt = date.toISOString();
+  }
+
+  scheduleSaving.value = true;
+  scheduleMessage.value = '';
+  try {
+    const schedule = await updateAdminSchedule(startAt);
+    scheduleStartAt.value = toDateTimeLocal(schedule.start_at);
+    scheduleMessageType.value = 'success';
+    scheduleMessage.value = schedule.start_at ? 'Jadwal asesmen berhasil disimpan.' : 'Asesmen dibuka segera.';
+  } catch (error) {
+    scheduleMessageType.value = 'error';
+    scheduleMessage.value = error instanceof Error ? error.message : 'Gagal menyimpan jadwal.';
+  } finally {
+    scheduleSaving.value = false;
+  }
+}
+
+async function openScheduleNow() {
+  scheduleStartAt.value = '';
+  await saveSchedule();
 }
 
 async function editQuestion(id: number) {
@@ -452,4 +530,68 @@ legend { padding: 0 6px; color: #445566; font-weight: 600; }
 .success-text { color: #2f855a; }
 code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 @media (max-width: 720px) { .editor-grid { grid-template-columns: 1fr; } .toolbar { flex-wrap: wrap; } .search-input { max-width: none; flex: 1; } .field-row { grid-template-columns: 1fr; } .admin-header { align-items: flex-start; } }
+</style>
+
+<style scoped>
+.schedule-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.schedule-panel .panel-heading {
+  align-items: flex-start;
+  margin: -20px -20px 0;
+}
+
+.schedule-panel .panel-heading p {
+  margin-top: 4px;
+  font-size: 0.85rem;
+}
+
+.schedule-status {
+  padding: 5px 10px;
+  border-radius: 999px;
+  color: #9b6500;
+  background: #fff2c2;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.schedule-status.open {
+  color: #23734b;
+  background: #dcf7e9;
+}
+
+.schedule-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+}
+
+.schedule-form label {
+  width: min(100%, 320px);
+}
+
+.schedule-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.schedule-hint {
+  margin-top: -4px;
+}
+
+@media (max-width: 620px) {
+  .schedule-form,
+  .schedule-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .schedule-form label {
+    width: 100%;
+  }
+}
 </style>

@@ -3,14 +3,16 @@ import { mount } from '@vue/test-utils';
 import { defineComponent, h } from 'vue';
 import TopicView from '@/views/TopicView.vue';
 
-const { fetchTopics, fetchSubjects } = vi.hoisted(() => ({
+const { fetchTopics, fetchSubjects, fetchAssessmentSchedule } = vi.hoisted(() => ({
   fetchTopics: vi.fn(),
   fetchSubjects: vi.fn(),
+  fetchAssessmentSchedule: vi.fn(),
 }));
 
 vi.mock('@/api/client', () => ({
   fetchTopics,
   fetchSubjects,
+  fetchAssessmentSchedule,
 }));
 
 vi.mock('vue-router', () => ({
@@ -36,6 +38,7 @@ describe('TopicView', () => {
   beforeEach(() => {
     fetchTopics.mockReset();
     fetchSubjects.mockReset();
+    fetchAssessmentSchedule.mockReset();
   });
 
   it('passes subject_id and topic_label to quiz route', async () => {
@@ -45,6 +48,7 @@ describe('TopicView', () => {
     fetchSubjects.mockResolvedValue([
       { id: 7, slug: 'pm', label: 'Penalaran Matematika', display_order: 1 },
     ]);
+    fetchAssessmentSchedule.mockResolvedValue({ start_at: null, is_open: true, starts_in_seconds: 0 });
 
     const wrapper = mount(TopicView, {
       global: {
@@ -54,8 +58,7 @@ describe('TopicView', () => {
       },
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    await wrapper.vm.$nextTick();
+    await vi.waitFor(() => expect(wrapper.findAll('a[data-to]').length).toBe(2));
 
     const links = wrapper.findAll('a[data-to]');
     const quizLink = links.find((link) => link.text().includes('Aljabar'));

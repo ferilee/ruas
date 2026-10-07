@@ -15,11 +15,21 @@ describe('questionsRoutes', () => {
 
   it('returns count for a topic', async () => {
     drizzleMock.mockReturnValue({
-      select: () => ({
+      select: (shape?: unknown) => {
+        if (shape && typeof shape === 'object' && 'start_at' in (shape as Record<string, unknown>)) {
+          return {
+            from: () => ({
+              where: () => ({ limit: async () => [] }),
+            }),
+          };
+        }
+
+        return {
         from: () => ({
           where: () => Promise.resolve([{ total: 7 }]),
         }),
-      }),
+        };
+      },
     });
 
     const { questionsRoutes } = await import('@/routes/questions.js');
@@ -30,9 +40,43 @@ describe('questionsRoutes', () => {
     await expect(res.json()).resolves.toEqual({ count: 7 });
   });
 
+  it('blocks question access before the configured start time', async () => {
+    const startAt = new Date(Date.now() + 60_000);
+    drizzleMock.mockReturnValue({
+      select: (shape?: unknown) => {
+        if (shape && typeof shape === 'object' && 'start_at' in (shape as Record<string, unknown>)) {
+          return {
+            from: () => ({
+              where: () => ({ limit: async () => [{ start_at: startAt }] }),
+            }),
+          };
+        }
+
+        throw new Error('Question query should not run while assessment is closed.');
+      },
+    });
+
+    const { questionsRoutes } = await import('@/routes/questions.js');
+    const app = questionsRoutes({} as never);
+    const res = await app.request('http://localhost/count?topic_id=1');
+    const body = await res.json() as { error: string; schedule: { is_open: boolean } };
+
+    expect(res.status).toBe(403);
+    expect(body.error).toBe('assessment_not_started');
+    expect(body.schedule.is_open).toBe(false);
+  });
+
   it('returns random question payload without answer key', async () => {
     drizzleMock.mockReturnValue({
       select: (shape?: unknown) => {
+        if (shape && typeof shape === 'object' && 'start_at' in (shape as Record<string, unknown>)) {
+          return {
+            from: () => ({
+              where: () => ({ limit: async () => [] }),
+            }),
+          };
+        }
+
         if (shape && typeof shape === 'object' && 'total' in (shape as Record<string, unknown>)) {
           return {
             from: () => ({
@@ -101,6 +145,14 @@ describe('questionsRoutes', () => {
   it('rejects duplicate selected_keys on check', async () => {
     drizzleMock.mockReturnValue({
       select: (shape?: unknown) => {
+        if (shape && typeof shape === 'object' && 'start_at' in (shape as Record<string, unknown>)) {
+          return {
+            from: () => ({
+              where: () => ({ limit: async () => [] }),
+            }),
+          };
+        }
+
         if (shape && typeof shape === 'object' && 'is_correct' in (shape as Record<string, unknown>)) {
           return {
             from: () => ({

@@ -5,6 +5,8 @@ import { authRoutes } from './routes/auth';
 import { adminAuthRoutes } from './routes/admin-auth';
 import { adminQuestionRoutes } from './routes/admin-questions';
 import { adminTopicsRoutes } from './routes/admin-topics';
+import { adminScheduleRoutes } from './routes/admin-schedule';
+import { assessmentScheduleRoutes } from './routes/assessment-schedule';
 import { subjectsRoutes } from './routes/subjects';
 import { topicsRoutes } from './routes/topics';
 import { questionsRoutes } from './routes/questions';
@@ -21,6 +23,7 @@ declare module 'hono' {
 interface AppConfig {
   pool: Pool;
   corsOrigin: string;
+  appUsername?: string;
   appPassword: string;
   adminPassword?: string;
 }
@@ -43,17 +46,19 @@ export function createApp(config: AppConfig) {
     }),
   );
 
-  app.route('/api/auth', authRoutes(config.appPassword));
+  app.route('/api/auth', authRoutes(config.appUsername ?? '', config.appPassword));
   app.route('/api/admin/auth', adminAuthRoutes(config.adminPassword ?? ''));
 
   if (config.appPassword) {
     app.use('/api/subjects', requireAuth);
     app.use('/api/topics', requireAuth);
     app.use('/api/questions', requireAuth);
+    app.use('/api/schedule', requireAuth);
   }
 
   app.use('/api/admin/questions', requireAdminAuth);
   app.use('/api/admin/topics', requireAdminAuth);
+  app.use('/api/admin/schedule', requireAdminAuth);
 
   app.onError((err, c) => {
     const requestId = c.get('requestId') ?? 'unknown';
@@ -73,6 +78,8 @@ export function createApp(config: AppConfig) {
   app.route('/api/questions', questionsRoutes(config.pool));
   app.route('/api/admin/questions', adminQuestionRoutes(config.pool));
   app.route('/api/admin/topics', adminTopicsRoutes(config.pool));
+  app.route('/api/schedule', assessmentScheduleRoutes(config.pool));
+  app.route('/api/admin/schedule', adminScheduleRoutes(config.pool));
 
   if (process.env.NODE_ENV === 'production') {
     const distDir = '../frontend/dist';

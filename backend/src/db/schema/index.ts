@@ -2,3 +2,4 @@ export { subjects } from './subjects';
 export { topics } from './topics';
 export { questions } from './questions';
 export { questionOptions } from './question-options';
+export { assessmentSchedule } from './assessment-schedule';
