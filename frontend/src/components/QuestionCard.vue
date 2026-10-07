@@ -4,12 +4,13 @@
       <span class="question-type-badge">{{ typeLabel }}</span>
       <span class="question-difficulty-badge" :class="difficulty">{{ difficultyLabel }}</span>
     </div>
-    <p class="question-text">{{ text }}</p>
+    <div class="question-text"><MathText :text="text" /></div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import MathText from '@/components/MathText.vue';
 
 const props = defineProps<{
   type: string;

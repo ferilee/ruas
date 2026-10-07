@@ -13,7 +13,7 @@
 
     <div class="explanation-body">
       <strong>Pembahasan:</strong>
-      <p>{{ explanation }}</p>
+      <div class="explanation-copy"><MathText :text="explanation" /></div>
     </div>
 
     <button v-if="is_last" class="explanation-next" @click="$emit('finish')">
@@ -27,6 +27,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import MathText from '@/components/MathText.vue';
 
 const props = defineProps<{
   correct: boolean;
@@ -112,6 +113,11 @@ const correctKeysDisplay = computed(() => props.correct_keys.join(', '));
 }
 
 .explanation-body p {
+  margin-top: 6px;
+  color: #445566;
+}
+
+.explanation-copy {
   margin-top: 6px;
   color: #445566;
 }

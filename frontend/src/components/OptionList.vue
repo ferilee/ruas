@@ -21,13 +21,14 @@
         </span>
       </span>
       <span class="option-key">{{ option.key }}</span>
-      <span class="option-text">{{ option.text }}</span>
+      <div class="option-text"><MathText :text="option.text" /></div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import MathText from '@/components/MathText.vue';
 import type { QuestionOption } from '@/types';
 
 const props = defineProps<{

@@ -52,7 +52,7 @@
             @click="editQuestion(item.id)"
           >
             <span class="row-meta">#{{ item.id }} · {{ item.topic_label }} · {{ difficultyLabel(item.difficulty) }}</span>
-            <strong>{{ item.question_text }}</strong>
+            <strong><MathText :text="item.question_text" /></strong>
             <span v-if="item.external_id" class="row-id">{{ item.external_id }}</span>
           </button>
         </div>
@@ -96,7 +96,12 @@
 
             <label>Pertanyaan
               <textarea v-model="draft.question_text" rows="5" required placeholder="Tulis pertanyaan..."></textarea>
+              <small class="field-hint">Rumus: \( ... \) untuk inline atau \[ ... \] untuk blok. Format lama seperti c^2 dan akar(100) juga didukung.</small>
             </label>
+            <div v-if="draft.question_text.trim()" class="math-preview">
+              <span class="preview-label">Preview pertanyaan</span>
+              <MathText :text="draft.question_text" />
+            </div>
 
             <fieldset>
               <legend>Opsi Jawaban</legend>
@@ -113,7 +118,12 @@
 
             <label>Pembahasan
               <textarea v-model="draft.explanation_text" rows="5" required placeholder="Tulis pembahasan..."></textarea>
+              <small class="field-hint">Gunakan sintaks LaTeX dengan delimiter agar rumus panjang tampil sebagai satu persamaan.</small>
             </label>
+            <div v-if="draft.explanation_text.trim()" class="math-preview">
+              <span class="preview-label">Preview pembahasan</span>
+              <MathText :text="draft.explanation_text" />
+            </div>
 
             <p v-if="formMessage" :class="formMessageType === 'error' ? 'error-text' : 'success-text'">{{ formMessage }}</p>
             <button class="primary-btn full-btn" type="submit" :disabled="saving">
@@ -151,6 +161,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import MathText from '@/components/MathText.vue';
 import {
   adminLogin,
   createAdminQuestion,
@@ -418,6 +429,9 @@ onMounted(async () => {
 .panel-empty { padding: 24px 20px; color: #778899; }
 .form-panel form { display: flex; flex-direction: column; gap: 14px; padding: 20px; }
 label { display: flex; flex-direction: column; gap: 6px; color: #445566; font-weight: 600; }
+.field-hint { color: #778899; font-weight: 400; font-size: .8rem; }
+.math-preview { padding: 12px; border: 1px dashed #b8c5d5; border-radius: 8px; background: #f8fafc; color: #445566; }
+.preview-label { display: block; margin-bottom: 6px; color: #778899; font-size: .8rem; font-weight: 700; }
 textarea { resize: vertical; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 fieldset { border: 1px solid #d4dde6; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
