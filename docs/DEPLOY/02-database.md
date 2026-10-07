@@ -4,7 +4,8 @@
 
 Compose membuat service `mariadb` dan database `utbk_belajar` secara otomatis.
 Data disimpan di volume `utbk_mariadb_data`, sehingga tetap ada ketika
-container dibuat ulang.
+container dibuat ulang. Port host default-nya `3308` agar tidak bertabrakan
+dengan MariaDB lain yang mungkin sudah memakai `3306`.
 
 ```bash
 docker compose up -d mariadb

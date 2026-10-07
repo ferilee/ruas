@@ -34,6 +34,7 @@ Contoh isi:
 ```env
 DB_HOST=mariadb
 DB_PORT=3306
+DB_HOST_PORT=3308
 DB_USER=utbk
 DB_PASSWORD=ganti-password-mysql
 DB_ROOT_PASSWORD=ganti-root-password-mysql
@@ -48,5 +49,6 @@ Catatan:
 - `APP_PASSWORD` — kosongkan jika auth nonaktif
 - `CORS_ORIGIN` — isi domain publik final
 - `DB_HOST=mariadb` — nama service MariaDB di Docker Compose
+- `DB_HOST_PORT` — port MariaDB di host untuk koneksi development langsung; port internal tetap `3306`
 - `DB_PASSWORD` — password user aplikasi database
 - `DB_ROOT_PASSWORD` — password root MariaDB untuk administrasi

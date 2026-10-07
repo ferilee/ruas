@@ -4,7 +4,7 @@ services:
     container_name: utbk-mariadb
     restart: unless-stopped
     ports:
-      - '127.0.0.1:${DB_PORT:-3306}:3306'
+      - '127.0.0.1:${DB_HOST_PORT:-3308}:3306'
     environment:
       MARIADB_DATABASE: ${DB_NAME:-utbk_belajar}
       MARIADB_USER: utbk
