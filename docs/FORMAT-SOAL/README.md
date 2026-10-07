@@ -1,6 +1,10 @@
 # Panduan Memasukkan Soal
 
-Soal dimasukkan melalui file `seed.json` di root project.
+Soal dapat dikelola melalui halaman `/admin` atau dimasukkan secara massal
+melalui file `seed.json` di root project.
+
+Editor admin membutuhkan `ADMIN_PASSWORD` di `.env`. Import JSON di editor
+menerima array soal atau object seed dengan properti `questions`.
 
 Workflow resminya:
 

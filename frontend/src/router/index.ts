@@ -3,6 +3,7 @@ import AuthView from '@/views/AuthView.vue';
 import HomeView from '@/views/HomeView.vue';
 import TopicView from '@/views/TopicView.vue';
 import QuizView from '@/views/QuizView.vue';
+import AdminView from '@/views/AdminView.vue';
 
 async function getAuthEnabled(): Promise<boolean> {
   try {
@@ -20,6 +21,7 @@ const routes = [
   { path: '/', name: 'home', component: HomeView, meta: { requiresAuth: true } },
   { path: '/topics/:id', name: 'topics', component: TopicView, meta: { requiresAuth: true } },
   { path: '/quiz/:id', name: 'quiz', component: QuizView, meta: { requiresAuth: true } },
+  { path: '/admin', name: 'admin', component: AdminView },
 ];
 
 export async function buildRouter() {

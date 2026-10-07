@@ -12,7 +12,7 @@ Dokumentasi dipecah per topik. Pilih yang sesuai kebutuhan:
 |---|---|
 | Paham arsitektur, API, model data | `ARSITEKTUR.md` |
 | Melihat fitur apa saja yang sudah jadi | `CHANGELOG.md` |
-| Menambah/mengedit/validasi soal | `FORMAT-SOAL/` |
+| Menambah/mengedit/validasi soal | `/admin` atau `FORMAT-SOAL/` |
 | Deploy ke VPS dengan Docker + NPM | `DEPLOY/` |
 | Rencana pengembangan ke depan | `RENCANA-PROFESIONALISASI.md` |
 | Navigasi folder project | `STRUKTUR.md` |

@@ -9,6 +9,7 @@ export interface AppConfig {
   APP_PORT: number;
   FRONTEND_PORT: number;
   APP_PASSWORD: string;
+  ADMIN_PASSWORD: string;
   CORS_ORIGIN: string;
   DB_HOST: string;
   DB_PORT: number;
@@ -61,6 +62,7 @@ export function loadConfig(): AppConfig {
     APP_PORT: Number(getEnvValue(process.env.APP_PORT, fileEnv.APP_PORT, '3000')) || 3000,
     FRONTEND_PORT: frontendPort,
     APP_PASSWORD: getEnvValue(process.env.APP_PASSWORD, fileEnv.APP_PASSWORD, ''),
+    ADMIN_PASSWORD: getEnvValue(process.env.ADMIN_PASSWORD, fileEnv.ADMIN_PASSWORD, ''),
     CORS_ORIGIN: getEnvValue(process.env.CORS_ORIGIN, fileEnv.CORS_ORIGIN, `http://localhost:${frontendPort}`),
     DB_HOST: getEnvValue(process.env.DB_HOST, fileEnv.DB_HOST, '127.0.0.1'),
     DB_PORT: Number(getEnvValue(process.env.DB_PORT, fileEnv.DB_PORT, '3306')) || 3306,

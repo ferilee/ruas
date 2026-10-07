@@ -69,14 +69,22 @@ Frontend di `http://localhost:5173`, backend di `http://localhost:3000`.
 ```env
 DB_HOST=127.0.0.1
 DB_PORT=3306
-DB_USER=root
+DB_HOST_PORT=3308
+DB_USER=utbk
 DB_PASSWORD=password-anda
 DB_NAME=utbk_belajar
 APP_PORT=3000
 FRONTEND_PORT=5173
 APP_PASSWORD=        # kosong = tanpa login, isi = login required
+ADMIN_PASSWORD=      # kosong = editor nonaktif, isi = aktif di /admin
 CORS_ORIGIN=         # kosong = auto localhost, isi domain untuk production
 ```
+
+### Editor Admin
+
+Jika `ADMIN_PASSWORD` diisi, buka `/admin` untuk mengelola soal. Editor
+mendukung tambah, edit, hapus, dan import JSON. Password editor terpisah dari
+`APP_PASSWORD`.
 
 ---
 
@@ -117,7 +125,7 @@ A: Tidak. Hanya jika `APP_PASSWORD` diisi di `.env`.
 A: Scope aplikasi latihan per soal tanpa history tersimpan.
 
 **Q: Bisakah menambah soal lewat UI?**  
-A: Tidak. Soal masuk lewat `seed.json` → `bun run seed`. Lihat `docs/FORMAT-SOAL/`.
+A: Bisa melalui `/admin` jika `ADMIN_PASSWORD` diaktifkan. Import massal tetap bisa dilakukan melalui `seed.json` → `bun run seed`.
 
 **Q: Timer countdown atau stopwatch?**  
 A: Stopwatch per soal, bukan countdown.

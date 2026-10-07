@@ -2,10 +2,14 @@ import { Hono } from 'hono';
 import { serveStatic } from 'hono/bun';
 import { cors } from 'hono/cors';
 import { authRoutes } from './routes/auth';
+import { adminAuthRoutes } from './routes/admin-auth';
+import { adminQuestionRoutes } from './routes/admin-questions';
+import { adminTopicsRoutes } from './routes/admin-topics';
 import { subjectsRoutes } from './routes/subjects';
 import { topicsRoutes } from './routes/topics';
 import { questionsRoutes } from './routes/questions';
 import { requireAuth } from './middleware/require-auth';
+import { requireAdminAuth } from './middleware/require-admin-auth';
 import type { Pool } from './db/connection';
 
 declare module 'hono' {
@@ -18,6 +22,7 @@ interface AppConfig {
   pool: Pool;
   corsOrigin: string;
   appPassword: string;
+  adminPassword?: string;
 }
 
 export function createApp(config: AppConfig) {
@@ -39,12 +44,16 @@ export function createApp(config: AppConfig) {
   );
 
   app.route('/api/auth', authRoutes(config.appPassword));
+  app.route('/api/admin/auth', adminAuthRoutes(config.adminPassword ?? ''));
 
   if (config.appPassword) {
     app.use('/api/subjects', requireAuth);
     app.use('/api/topics', requireAuth);
     app.use('/api/questions', requireAuth);
   }
+
+  app.use('/api/admin/questions', requireAdminAuth);
+  app.use('/api/admin/topics', requireAdminAuth);
 
   app.onError((err, c) => {
     const requestId = c.get('requestId') ?? 'unknown';
@@ -62,6 +71,8 @@ export function createApp(config: AppConfig) {
   app.route('/api/subjects', subjectsRoutes(config.pool));
   app.route('/api/topics', topicsRoutes(config.pool));
   app.route('/api/questions', questionsRoutes(config.pool));
+  app.route('/api/admin/questions', adminQuestionRoutes(config.pool));
+  app.route('/api/admin/topics', adminTopicsRoutes(config.pool));
 
   if (process.env.NODE_ENV === 'production') {
     const distDir = '../frontend/dist';

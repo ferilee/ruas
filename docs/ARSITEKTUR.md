@@ -190,6 +190,23 @@ Response (benar/salah):
 }
 ```
 
+### Admin editor
+
+Admin memakai password terpisah dari `APP_PASSWORD` melalui `ADMIN_PASSWORD`.
+Token admin dikirim dengan header `x-admin-token`.
+
+| Method | Path | Fungsi |
+|---|---|---|
+| GET | `/api/admin/auth` | Cek status editor admin |
+| POST | `/api/admin/auth` | Login editor |
+| GET | `/api/admin/topics` | Daftar topik untuk form editor |
+| GET | `/api/admin/questions` | Daftar soal |
+| GET | `/api/admin/questions/:id` | Detail soal termasuk kunci jawaban |
+| POST | `/api/admin/questions` | Tambah soal |
+| PUT | `/api/admin/questions/:id` | Edit soal dan opsi |
+| DELETE | `/api/admin/questions/:id` | Hapus soal |
+| POST | `/api/admin/questions/import` | Preview atau terapkan import JSON |
+
 ---
 
 ## 6. Autentikasi
@@ -284,6 +301,7 @@ frontend/src/
 │
 ├── views/
 │   ├── AuthView.vue                      # Login form
+│   ├── AdminView.vue                     # Editor soal dan import JSON
 │   ├── HomeView.vue                      # Daftar subject
 │   ├── TopicView.vue                     # Daftar topic + count
 │   └── QuizView.vue                      # Quiz container (tipis)
@@ -321,6 +339,7 @@ DB_NAME=utbk_belajar
 APP_PORT=3000
 FRONTEND_PORT=5173
 APP_PASSWORD=
+ADMIN_PASSWORD=
 CORS_ORIGIN=
 ```
 
@@ -330,6 +349,7 @@ CORS_ORIGIN=
 | `APP_PORT` | Port backend |
 | `FRONTEND_PORT` | Port Vite dev + fallback CORS |
 | `APP_PASSWORD` | Kosong = auth nonaktif. Diisi = login required |
+| `ADMIN_PASSWORD` | Kosong = editor nonaktif. Diisi = akses `/admin` |
 | `CORS_ORIGIN` | Kosong = `http://localhost:FRONTEND_PORT`. Isi untuk production. |
 
 ---
@@ -374,6 +394,6 @@ bun run seed:check     # Validasi seed.json
 2. **Auth opsional** — password via env, nonaktif jika dikosongkan
 3. **Tanpa state server** — sesi belajar di frontend saja
 4. **Tanpa riwayat** — tidak ada tabel attempt/history
-5. **Seed-first** — data masuk via JSON, bukan UI admin
+5. **Seed dan editor admin** — data dapat masuk via JSON atau halaman `/admin`; subjects dan topics tetap seed-managed
 6. **Timer per soal** — stopwatch dari tampil sampai submit
 7. **All-or-nothing** — multiple_response harus tepat semua

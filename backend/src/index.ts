@@ -13,6 +13,7 @@ const app = createApp({
   pool,
   corsOrigin: config.CORS_ORIGIN,
   appPassword: config.APP_PASSWORD,
+  adminPassword: config.ADMIN_PASSWORD,
 });
 
 const port = config.APP_PORT;

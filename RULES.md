@@ -48,8 +48,8 @@ Aplikasi bisa diakses langsung tanpa login.
 ### 3.2 Tidak Ada Riwayat / Skor Tersimpan
 Setiap soal selesai dibahas, selesai. Tidak ada tabel attempt, answer, snapshot, atau penyimpanan hasil apa pun di database.
 
-### 3.3 Seed-First, Bukan Admin Panel
-Data soal masuk via file `seed.json` di root project. Tidak perlu UI admin untuk CRUD soal. Tidak perlu endpoint POST/PUT/DELETE untuk subjects, topics, atau questions.
+### 3.3 Seed dan Admin Editor
+Data soal dapat masuk melalui file `seed.json` atau halaman `/admin`. Editor admin mendukung CRUD questions dan import JSON. Subjects dan topics tetap dikelola melalui seed; editor hanya memilih topic yang sudah ada.
 
 ### 3.4 Timer Per Soal
 Timer dihitung per soal: mulai saat soal tampil, berhenti saat user submit jawaban. Bukan countdown. Waktu hanya ditampilkan, tidak ada batas waktu pengerjaan.
@@ -61,7 +61,7 @@ Untuk tipe `multiple_response`, semua opsi benar harus terpilih dan tidak ada op
 
 ## 4. API Design Rules
 
-### 4.1 Endpoints (Hanya Ini)
+### 4.1 Endpoint Belajar
 
 | Method | Path | Fungsi |
 |---|---|---|
@@ -69,6 +69,9 @@ Untuk tipe `multiple_response`, semua opsi benar harus terpilih dan tidak ada op
 | GET | `/api/topics?subject_id=` | Topics dalam subject |
 | GET | `/api/questions/random?topic_id=` | 1 soal acak (opsi tanpa is_correct) |
 | POST | `/api/questions/:id/check` | Cek jawaban, return pembahasan |
+
+Endpoint editor admin dijelaskan di `docs/ARSITEKTUR.md`. Endpoint tersebut
+wajib memakai `x-admin-token` dan hanya aktif jika `ADMIN_PASSWORD` diisi.
 
 ### 4.2 Response Format
 
@@ -230,9 +233,9 @@ Pastikan database MariaDB/MySQL sudah running dan database `utbk_belajar` sudah 
 
 ## 10. Larangan (Jangan Pernah Lakukan)
 
-1. **Jangan** tambah fitur di luar scope (auth, riwayat, leaderboard, dll)
+1. **Jangan** tambah fitur di luar scope (riwayat, leaderboard, dll)
 2. **Jangan** ubah stack tanpa diskusi (pindah ke Express, Prisma, React, dll)
-3. **Jangan** buat endpoint POST/PUT/DELETE untuk data master (cukup seed)
+3. **Jangan** buat endpoint POST/PUT/DELETE untuk subjects atau topics; CRUD questions tersedia melalui editor admin
 4. **Jangan** simpan state user di server (semua di frontend)
 5. **Jangan** gunakan AI untuk generate kode yang melanggar aturan di atas
 6. **Jangan** tambah dependency yang tidak diperlukan
