@@ -8,42 +8,45 @@ Periksa:
 3. App benar-benar menerima request `/api/*`
 4. Jika NPM dalam Docker, target upstream bukan `127.0.0.1` melainkan hostname service yang benar
 
-## Container tidak bisa konek ke MySQL
+## MariaDB container tidak siap
 
 Error:
 
 ```
-connect ECONNREFUSED 172.17.0.1:3306
+connect ECONNREFUSED mariadb:3306
 ```
 
 Kemungkinan:
-1. MySQL hanya bind ke `127.0.0.1`
-2. Firewall blokir port 3306
+1. MariaDB masih melakukan inisialisasi pertama
+2. Password wajib di `.env` belum diisi
+3. Container MariaDB berhenti karena konfigurasi atau volume bermasalah
 
 Cek:
 
 ```bash
-sudo grep bind-address /etc/mysql/mariadb.conf.d/50-server.cnf
+docker compose ps
+docker compose logs mariadb
+docker compose exec mariadb mariadb-admin ping -u root -p
 ```
 
-Jika perlu, ubah bind address lalu restart MySQL:
+Jika MariaDB berhenti, periksa log lalu jalankan ulang:
 
 ```bash
-sudo systemctl restart mariadb
+docker compose restart mariadb
 ```
 
-## User MySQL tidak bisa login via TCP
+## Password database diubah setelah container pertama kali dibuat
+
+Nilai `MARIADB_*` hanya digunakan saat volume database pertama kali dibuat.
+Mengubah password di `.env` tidak mengubah user yang sudah ada di volume.
+Ubah password dari dalam MariaDB atau gunakan volume baru jika datanya boleh
+dihapus.
+
+Untuk mengubah password user aplikasi:
 
 ```bash
-sudo mysql -u root
-```
-
-Beri akses dari IP Docker:
-
-```sql
-CREATE USER IF NOT EXISTS 'root'@'172.17.0.%' IDENTIFIED BY 'PASSWORD';
-CREATE USER IF NOT EXISTS 'root'@'127.0.0.1' IDENTIFIED BY 'PASSWORD';
-FLUSH PRIVILEGES;
+docker compose exec mariadb mariadb -u root -p -e \
+  "ALTER USER 'utbk'@'%' IDENTIFIED BY 'PASSWORD_BARU'; FLUSH PRIVILEGES;"
 ```
 
 ## Network `hasanNet` tidak ditemukan saat `docker compose up`
@@ -56,7 +59,7 @@ docker compose up -d
 Cek apakah container sudah join:
 
 ```bash
-docker inspect app | grep hasanNet
+docker inspect utbk | grep hasanNet
 ```
 
 Jika bridge Docker bermasalah, pakai host networking:
@@ -121,5 +124,5 @@ docker compose up -d
 Cek apakah container sudah join:
 
 ```bash
-docker inspect app 2>/dev/null | grep hasanNet
+docker inspect utbk 2>/dev/null | grep hasanNet
 ```

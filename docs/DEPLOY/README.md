@@ -29,8 +29,8 @@ App container (Bun + Hono)
 ## Prasyarat
 
 - Docker dan Docker Compose terpasang di VPS
-- Database MySQL/MariaDB sudah berjalan di host
-- Database `utbk_belajar` sudah dibuat
+- Docker network `hasanNet` sudah dibuat jika memakai Nginx Proxy Manager
+- MariaDB akan dibuat oleh `docker-compose.yml` dengan volume persisten
 
 ## Struktur Folder
 

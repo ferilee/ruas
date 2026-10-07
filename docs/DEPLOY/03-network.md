@@ -43,7 +43,7 @@ App harus join ke network yang sama dengan NPM. Gunakan `expose` bukan `ports`:
 
 ```yaml
 services:
-  app:
+  utbk:
     image: oven/bun:1.3.14
     restart: unless-stopped
     expose:
@@ -72,7 +72,7 @@ networks:
     external: true
 ```
 
-NPM upstream: `app:3000`.
+NPM upstream: `utbk:3000`.
 
 ### Ingin tetap bisa `curl` dari host?
 
@@ -83,7 +83,7 @@ ports:
   - "127.0.0.1:3000:3000"
 ```
 
-Container tetap bisa diakses via `app:3000` dari internal Docker, dan via `127.0.0.1:3000` dari host.
+Container tetap bisa diakses via `utbk:3000` dari internal Docker, dan via `127.0.0.1:3000` dari host.
 
 ## Contoh Stack NPM + App
 
@@ -113,7 +113,7 @@ networks:
 
 ```yaml
 services:
-  app:
+  utbk:
     image: oven/bun:1.3.14
     restart: unless-stopped
     expose:
@@ -142,4 +142,4 @@ networks:
     external: true
 ```
 
-NPM dan app tidak harus dalam file compose yang sama. Yang penting keduanya join ke `npm_network`.
+NPM dan `utbk` tidak harus dalam file compose yang sama. Yang penting keduanya join ke `npm_network`.

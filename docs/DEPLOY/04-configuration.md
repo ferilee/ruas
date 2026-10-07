@@ -1,6 +1,6 @@
 # Konfigurasi
 
-## Jalankan Container App
+## Jalankan Container App dan MariaDB
 
 ```bash
 docker compose up -d
@@ -19,7 +19,7 @@ docker compose up -d
 
 - Domain Names: `domain-anda.com`
 - Scheme: `http`
-- Forward Hostname / IP: `app`
+- Forward Hostname / IP: `utbk`
 - Forward Port: `3000`
 
 Catatan:
@@ -38,13 +38,13 @@ Di tab SSL pada NPM:
 ## Jalankan Migrasi dan Seed
 
 ```bash
-docker compose exec app bun src/db/migrate.ts
-docker compose exec app bun src/lib/seed.ts
+docker compose exec utbk bun src/db/migrate.ts
+docker compose exec utbk bun src/lib/seed.ts
 ```
 
 Jika `seed.json` diubah di server:
 
 ```bash
 bun run seed:check
-docker compose exec app bun src/lib/seed.ts
+docker compose exec utbk bun src/lib/seed.ts
 ```

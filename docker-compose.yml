@@ -1,8 +1,32 @@
 services:
+  mariadb:
+    image: mariadb:11.4
+    container_name: utbk-mariadb
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:${DB_PORT:-3306}:3306'
+    environment:
+      MARIADB_DATABASE: ${DB_NAME:-utbk_belajar}
+      MARIADB_USER: utbk
+      MARIADB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD wajib diisi di .env}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD wajib diisi di .env}
+    volumes:
+      - utbk_mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ['CMD', 'healthcheck.sh', '--connect', '--innodb_initialized']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - hasanNet
+
   utbk:
     image: oven/bun:1.3.14
     container_name: utbk
     restart: unless-stopped
+    depends_on:
+      mariadb:
+        condition: service_healthy
     ports:
       - '127.0.0.1:${APP_PORT:-3000}:${APP_PORT:-3000}'
     volumes:
@@ -12,10 +36,10 @@ services:
     working_dir: /app/backend
     command: ['bun', 'src/index.ts']
     environment:
-      DB_HOST: ${DB_HOST:-172.17.0.1}
-      DB_PORT: ${DB_PORT:-3306}
-      DB_USER: ${DB_USER:-root}
-      DB_PASSWORD: ${DB_PASSWORD:-}
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      DB_USER: utbk
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD wajib diisi di .env}
       DB_NAME: ${DB_NAME:-utbk_belajar}
       APP_PORT: ${APP_PORT:-3000}
       APP_PASSWORD: ${APP_PASSWORD:-}
@@ -26,3 +50,6 @@ services:
 networks:
   hasanNet:
     external: true
+
+volumes:
+  utbk_mariadb_data:

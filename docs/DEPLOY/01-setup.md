@@ -32,10 +32,11 @@ nano .env
 Contoh isi:
 
 ```env
-DB_HOST=172.17.0.1
+DB_HOST=mariadb
 DB_PORT=3306
-DB_USER=root
+DB_USER=utbk
 DB_PASSWORD=ganti-password-mysql
+DB_ROOT_PASSWORD=ganti-root-password-mysql
 DB_NAME=utbk_belajar
 APP_PORT=3000
 FRONTEND_PORT=5173
@@ -46,4 +47,6 @@ CORS_ORIGIN=https://domain-anda.com
 Catatan:
 - `APP_PASSWORD` — kosongkan jika auth nonaktif
 - `CORS_ORIGIN` — isi domain publik final
-- `DB_HOST=172.17.0.1` — gateway Docker bridge (Linux). Alternatif: `host.docker.internal`, atau pakai `network_mode: host`
+- `DB_HOST=mariadb` — nama service MariaDB di Docker Compose
+- `DB_PASSWORD` — password user aplikasi database
+- `DB_ROOT_PASSWORD` — password root MariaDB untuk administrasi

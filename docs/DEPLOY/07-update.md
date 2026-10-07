@@ -8,8 +8,8 @@ bun run install:all:frozen
 bun run build:frontend
 bun run seed:check
 docker compose restart
-docker compose exec app bun src/db/migrate.ts
-docker compose exec app bun src/lib/seed.ts
+docker compose exec utbk bun src/db/migrate.ts
+docker compose exec utbk bun src/lib/seed.ts
 ```
 
 Setelah update:
