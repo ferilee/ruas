@@ -7,6 +7,12 @@ async function bootstrap() {
   const app = createApp(App);
   app.use(router);
   app.mount('#app');
+
+  if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      void navigator.serviceWorker.register('/sw.js');
+    });
+  }
 }
 
 bootstrap();

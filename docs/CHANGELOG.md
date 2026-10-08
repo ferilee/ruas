@@ -9,6 +9,7 @@
 - Admin dapat menambah, mengubah, mencari, menghapus, dan mengimpor pengguna melalui `/admin`.
 - Import mendukung CSV atau JSON dengan preview dan mode tambah baru/upsert.
 - Pengelolaan mata pelajaran memperjelas slug duplikat dan mendukung penghapusan topik/soal terkait dengan konfirmasi.
+- Metadata Open Graph, favicon, manifest PWA, ikon instalasi, dan service worker ditambahkan.
 
 ---
 

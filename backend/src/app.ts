@@ -105,6 +105,15 @@ export function createApp(config: AppConfig) {
   if (process.env.NODE_ENV === 'production') {
     const distDir = '../frontend/dist';
     app.get('/assets/*', serveStatic({ root: distDir }));
+    app.get('/favicon.svg', serveStatic({ root: distDir }));
+    app.get('/manifest.webmanifest', serveStatic({ root: distDir }));
+    app.get('/sw.js', serveStatic({ root: distDir }));
+    app.get('/pwa-192.svg', serveStatic({ root: distDir }));
+    app.get('/pwa-512.svg', serveStatic({ root: distDir }));
+    app.get('/pwa-192.png', serveStatic({ root: distDir }));
+    app.get('/pwa-512.png', serveStatic({ root: distDir }));
+    app.get('/apple-touch-icon.png', serveStatic({ root: distDir }));
+    app.get('/og-image.png', serveStatic({ root: distDir }));
     app.get('/*', () => {
       const file = Bun.file(`${distDir}/index.html`);
       return new Response(file, {

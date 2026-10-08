@@ -92,6 +92,8 @@ Password editor terpisah dari `APP_PASSWORD`.
 Profil peserta, sesi ujian, jawaban, hasil, dan aktivitas anti-cheat disimpan
 permanen di MariaDB. Token sesi login tetap bersifat sementara di browser dan
 memori backend.
+Frontend juga menyediakan favicon, Open Graph metadata, dan PWA yang dapat
+dipasang dari browser yang mendukung instalasi aplikasi.
 Atur `EXAM_EXIT_PASSWORD` untuk kata sandi pengawas saat peserta keluar dari
 ujian; jika kosong, aplikasi menggunakan `ADMIN_PASSWORD`.
 

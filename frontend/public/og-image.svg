@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#f3f7ff"/>
+      <stop offset="1" stop-color="#c9dcff"/>
+    </linearGradient>
+    <linearGradient id="button" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#238bff"/>
+      <stop offset="1" stop-color="#1649dc"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#background)"/>
+  <circle cx="-35" cy="-35" r="270" fill="#fff" opacity=".42"/>
+  <circle cx="1170" cy="620" r="300" fill="#9abaff" opacity=".25"/>
+  <rect x="88" y="93" width="444" height="444" rx="92" fill="#fff" opacity=".65"/>
+  <rect x="154" y="159" width="312" height="312" rx="72" fill="url(#button)"/>
+  <circle cx="310" cy="315" r="116" fill="#fff" opacity=".12"/>
+  <path d="m211 285 99-58 99 58-99 58-99-58Z" fill="none" stroke="#fff" stroke-linejoin="round" stroke-width="18"/>
+  <path d="M247 316v46c36 27 90 27 126 0v-46m36-24v66" fill="none" stroke="#fff" stroke-linecap="round" stroke-width="18"/>
+  <circle cx="409" cy="367" r="11" fill="#fff"/>
+  <text x="616" y="245" fill="#10265e" font-family="Arial, sans-serif" font-size="68" font-weight="800" letter-spacing="8">RUAS</text>
+  <text x="620" y="300" fill="#59709d" font-family="Arial, sans-serif" font-size="24" font-weight="700" letter-spacing="7">RUANG ASESMEN</text>
+  <text x="620" y="394" fill="#203969" font-family="Arial, sans-serif" font-size="42" font-weight="700">Belajar dengan terarah.</text>
+  <text x="620" y="440" fill="#6076a2" font-family="Arial, sans-serif" font-size="24">Latihan dan asesmen sekolah dalam satu ruang.</text>
+</svg>
