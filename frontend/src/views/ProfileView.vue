@@ -42,18 +42,22 @@
       <section class="profile-card" aria-labelledby="profile-title">
         <div class="card-watermark" aria-hidden="true">RA</div>
         <h1 id="profile-title">Konfirmasi Data Peserta</h1>
-        <p class="profile-intro">Isi data berikut sebelum memulai asesmen.</p>
+        <p class="profile-intro">Periksa data dari admin, lalu lengkapi informasi yang masih diperlukan.</p>
 
         <form class="profile-form" @submit.prevent="submitProfile">
-          <label class="profile-field">
-            <span>Kode peserta / NIK</span>
-            <input v-model.trim="form.participant_code" type="text" placeholder="Contoh: P130100230" autocomplete="off" required />
-          </label>
+          <div class="profile-summary-grid">
+            <div class="profile-readonly"><span>Username / kode peserta</span><strong>{{ form.username || form.participant_code || 'Memuat...' }}</strong></div>
+            <div class="profile-readonly"><span>Nama lengkap</span><strong>{{ form.name || 'Memuat...' }}</strong></div>
+          </div>
 
-          <label class="profile-field">
-            <span>Nama peserta</span>
-            <input v-model.trim="form.name" type="text" placeholder="Ketikkan nama peserta" autocomplete="name" required />
-          </label>
+          <div class="profile-assignment">
+            <span class="assignment-title">Penetapan dari admin</span>
+            <div class="assignment-grid">
+              <div class="profile-readonly"><span>Kelas</span><strong>{{ form.class_label || 'Belum ditetapkan' }}</strong></div>
+              <div class="profile-readonly"><span>Jenis asesmen</span><strong>{{ form.assessment_type_label || 'Belum ditetapkan' }}</strong></div>
+              <div class="profile-readonly assignment-subject"><span>Mata pelajaran</span><strong>{{ form.subject_label || 'Belum ditetapkan' }}</strong></div>
+            </div>
+          </div>
 
           <label class="profile-field">
             <span>Jenis kelamin</span>
@@ -61,18 +65,6 @@
               <option value="" disabled>Pilih jenis kelamin</option>
               <option value="male">Laki-laki</option>
               <option value="female">Perempuan</option>
-            </select>
-          </label>
-
-          <label class="profile-field">
-            <span>Mata pelajaran pertama</span>
-            <select v-model="form.subject_id" :disabled="subjectsLoading || subjects.length === 0" required>
-              <option value="" disabled>
-                {{ subjectsLoading ? 'Memuat mata pelajaran...' : 'Pilih mata pelajaran' }}
-              </option>
-              <option v-for="subject in subjects" :key="subject.id" :value="subject.id">
-                {{ subject.label }}
-              </option>
             </select>
           </label>
 
@@ -88,8 +80,8 @@
 
           <p v-if="error" class="profile-error" role="alert">{{ error }}</p>
 
-          <button class="profile-submit" type="submit" :disabled="saving || subjectsLoading || subjects.length === 0">
-            {{ saving ? 'Menyimpan...' : 'Simpan & Mulai' }}
+          <button class="profile-submit" type="submit" :disabled="saving || profileLoading || !form.subject_id">
+            {{ saving ? 'Menyimpan...' : 'Konfirmasi dan Mulai' }}
           </button>
         </form>
       </section>
@@ -100,73 +92,76 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { fetchParticipantProfile, fetchSubjects, saveParticipantProfile } from '@/api/client';
-import type { Subject } from '@/types';
+import { fetchParticipantProfile, saveParticipantProfile } from '@/api/client';
+import type { ParticipantProfileInput } from '@/types';
 
 type ProfileForm = {
+  username: string;
   participant_code: string;
   name: string;
   gender: '' | 'male' | 'female';
   birth_date: string;
-  subject_id: number | '';
+  subject_id: number | null;
+  subject_label: string;
+  class_label: string;
+  assessment_type_label: string;
   access_token: string;
 };
 
 const router = useRouter();
-const subjects = ref<Subject[]>([]);
-const subjectsLoading = ref(true);
+const profileLoading = ref(true);
 const saving = ref(false);
 const error = ref('');
 const form = reactive<ProfileForm>({
+  username: '',
   participant_code: '',
   name: '',
   gender: '',
   birth_date: '',
-  subject_id: '',
+  subject_id: null,
+  subject_label: '',
+  class_label: '',
+  assessment_type_label: '',
   access_token: '',
 });
 
-async function loadSubjects() {
-  subjectsLoading.value = true;
-  error.value = '';
-
-  try {
-    subjects.value = await fetchSubjects();
-    if (subjects.value.length === 1) form.subject_id = subjects.value[0].id;
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Mata pelajaran gagal dimuat.';
-  } finally {
-    subjectsLoading.value = false;
-  }
-}
-
 async function loadProfile() {
+  profileLoading.value = true;
   try {
     const profile = await fetchParticipantProfile();
-    if (profile) Object.assign(form, profile);
+    if (!profile) {
+      error.value = 'Data peserta belum disiapkan oleh admin.';
+      return;
+    }
+    Object.assign(form, profile);
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Profil peserta gagal dimuat.';
+  } finally {
+    profileLoading.value = false;
   }
 }
 
 async function submitProfile() {
-  const selectedSubject = subjects.value.find((subject) => subject.id === form.subject_id);
-  if (!selectedSubject || !form.gender) {
+  if (!form.subject_id || !form.gender || !form.birth_date) {
     error.value = 'Lengkapi semua data wajib terlebih dahulu.';
     return;
   }
 
   saving.value = true;
   try {
+    const gender = form.gender;
     await saveParticipantProfile({
       participant_code: form.participant_code,
       name: form.name,
-      gender: form.gender,
+      gender,
       birth_date: form.birth_date,
-      subject_id: selectedSubject.id,
-      subject_label: selectedSubject.label,
+      subject_id: form.subject_id,
+      subject_label: form.subject_label,
       access_token: form.access_token,
-    });
+      username: form.username,
+      class_label: form.class_label,
+      assessment_type_label: form.assessment_type_label,
+    } satisfies ParticipantProfileInput);
     router.replace('/');
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Profil peserta gagal disimpan.';
@@ -175,7 +170,7 @@ async function submitProfile() {
   }
 }
 
-onMounted(() => { void Promise.all([loadSubjects(), loadProfile()]); });
+onMounted(() => { void loadProfile(); });
 </script>
 
 <style scoped>
@@ -404,6 +399,55 @@ onMounted(() => { void Promise.all([loadSubjects(), loadProfile()]); });
   margin-top: 22px;
 }
 
+.profile-summary-grid,
+.assignment-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.profile-assignment {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid rgba(94, 130, 198, 0.18);
+  border-radius: 15px;
+  background: rgba(235, 243, 255, 0.52);
+}
+
+.assignment-title {
+  color: #58709e;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.profile-readonly {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 13px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.profile-readonly span {
+  color: #7187ad;
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+.profile-readonly strong {
+  overflow: hidden;
+  color: #203969;
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .profile-field {
   display: flex;
   flex-direction: column;
@@ -514,6 +558,11 @@ onMounted(() => { void Promise.all([loadSubjects(), loadProfile()]); });
 
   .profile-card {
     padding: 25px 24px 31px;
+  }
+
+  .profile-summary-grid,
+  .assignment-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

@@ -13,6 +13,7 @@ import type {
   ImportSummary,
   UserImportSummary,
   ParticipantProfile,
+  ParticipantProfileInput,
   Question,
   Subject,
   Topic,
@@ -77,7 +78,7 @@ export async function fetchParticipantProfile(): Promise<ParticipantProfile | nu
   return data.profile;
 }
 
-export async function saveParticipantProfile(profile: ParticipantProfile): Promise<ParticipantProfile> {
+export async function saveParticipantProfile(profile: ParticipantProfileInput | ParticipantProfile): Promise<ParticipantProfile> {
   const data = await request<{ profile: ParticipantProfile }>('/profile', {
     method: 'PUT',
     body: JSON.stringify(profile),

@@ -1,6 +1,7 @@
 import { asc, eq, like, or } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/mysql2';
 import { users } from '@/db/schema/users';
+import { subjects } from '@/db/schema/subjects';
 import type { Pool } from '@/db/connection';
 import { hashPassword, verifyPassword } from '@/lib/password';
 
@@ -12,12 +13,13 @@ export interface UserInput {
   username: string;
   password?: string;
   display_name: string;
+  subject_id: number | null;
   role: UserRole;
   active: boolean;
 }
 
 export function createUserDb(pool: Pool) {
-  return drizzle(pool, { schema: { users }, mode: 'default' });
+  return drizzle(pool, { schema: { subjects, users }, mode: 'default' });
 }
 
 export function toPublicUser(user: typeof users.$inferSelect) {
@@ -25,6 +27,7 @@ export function toPublicUser(user: typeof users.$inferSelect) {
     id: user.id,
     username: user.username,
     display_name: user.display_name,
+    subject_id: user.subject_id,
     role: user.role,
     active: Boolean(user.active),
     created_at: user.created_at,
@@ -68,6 +71,7 @@ export async function createUser(db: UserDb, input: UserInput) {
     username: input.username,
     password_hash: hashPassword(input.password ?? ''),
     display_name: input.display_name,
+    subject_id: input.subject_id,
     role: input.role,
     active: input.active ? 1 : 0,
   });
@@ -78,6 +82,7 @@ export async function updateUser(db: UserDb, id: number, input: UserInput) {
   const values: {
     username: string;
     display_name: string;
+    subject_id: number | null;
     role: UserRole;
     active: number;
     password_hash?: string;
@@ -85,6 +90,7 @@ export async function updateUser(db: UserDb, id: number, input: UserInput) {
   } = {
     username: input.username,
     display_name: input.display_name,
+    subject_id: input.subject_id,
     role: input.role,
     active: input.active ? 1 : 0,
     updated_at: new Date(),

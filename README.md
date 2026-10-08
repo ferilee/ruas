@@ -86,7 +86,8 @@ yang sama digunakan untuk mengatur kelas, jenis asesmen, serta mata pelajaran
 beserta cakupannya. Pilihan tersebut langsung digunakan pada halaman awal
 peserta. Dashboard admin memisahkan Ringkasan, Struktur Asesmen, Bank Soal,
 dan Jadwal agar setiap pekerjaan dapat dilakukan dari menu yang jelas. Menu
-Pengguna juga tersedia untuk menambah akun manual atau import CSV/JSON.
+Pengguna juga tersedia untuk menambah akun manual atau import CSV/JSON. Admin
+dapat menetapkan mata pelajaran peserta dari menu ini.
 Password editor terpisah dari `APP_PASSWORD`.
 Profil peserta, sesi ujian, jawaban, hasil, dan aktivitas anti-cheat disimpan
 permanen di MariaDB. Token sesi login tetap bersifat sementara di browser dan

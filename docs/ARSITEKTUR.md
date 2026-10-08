@@ -77,11 +77,13 @@ Setiap jawaban masuk ke `exam_answers`, sedangkan aktivitas integritas masuk ke
 | username | varchar(100) unique | Identitas login |
 | password_hash | varchar(255) | Password hasil hashing scrypt |
 | display_name | varchar(150) | Nama yang ditampilkan admin |
+| subject_id | int nullable FK | Mata pelajaran yang ditetapkan admin |
 | role | enum | `admin`, `editor`, `participant` |
 | active | int | Status akun |
 
-Password pengguna tidak disimpan dalam bentuk plaintext. Profil peserta tetap
-diisi setelah login pertama dan dihubungkan dengan username akun.
+Password pengguna tidak disimpan dalam bentuk plaintext. Admin menetapkan mata
+pelajaran pada akun peserta. Profil peserta hanya melengkapi jenis kelamin,
+tanggal lahir, dan token sesi setelah login pertama.
 
 ### subjects
 

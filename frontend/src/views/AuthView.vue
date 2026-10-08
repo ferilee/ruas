@@ -152,7 +152,7 @@ async function login() {
       profile = await saveParticipantProfile(legacyProfile);
       clearLegacyParticipantProfile();
     }
-    router.push(profile ? '/' : '/profile');
+    router.push(profile?.is_complete && profile.subject_id ? '/' : '/profile');
   } catch {
     error.value = 'Tidak dapat terhubung ke server.';
   } finally {

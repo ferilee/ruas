@@ -5,13 +5,14 @@
         <div class="panel-heading">
           <div>
             <h2>{{ editingId === null ? 'Tambah pengguna' : `Edit pengguna #${editingId}` }}</h2>
-            <p>Akun peserta dan editor disimpan aman di database.</p>
+            <p>Akun dan penetapan mata pelajaran disimpan aman di database.</p>
           </div>
           <button v-if="editingId !== null" class="text-button" type="button" @click="resetForm">Batal</button>
         </div>
         <form class="user-form" @submit.prevent="saveUser">
           <label>Username<input v-model.trim="form.username" required autocomplete="off" placeholder="Contoh: P130100230" /></label>
           <label>Nama tampilan<input v-model.trim="form.display_name" required placeholder="Nama peserta" /></label>
+          <label>Mata pelajaran peserta<select v-model="form.subject_id"><option :value="null">Belum ditetapkan</option><option v-for="subject in subjects" :key="subject.id" :value="subject.id">{{ subject.label }}</option></select></label>
           <label>Password {{ editingId === null ? '' : '(kosongkan jika tidak diubah)' }}<input v-model="form.password" :required="editingId === null" type="password" autocomplete="new-password" placeholder="Password akun" /></label>
           <div class="user-fields-row">
             <label>Peran<select v-model="form.role"><option value="participant">Peserta</option><option value="editor">Editor</option><option value="admin">Admin</option></select></label>
@@ -24,7 +25,7 @@
 
       <div class="panel import-users-panel">
         <div class="panel-heading">
-          <div><h2>Import pengguna</h2><p>CSV: <code>username,password,display_name,role,active</code></p></div>
+          <div><h2>Import pengguna</h2><p>CSV: <code>username,password,display_name,role,active,subject_id</code></p></div>
           <select v-model="importMode" aria-label="Mode import"><option value="insert">Tambah baru</option><option value="upsert">Tambah atau perbarui</option></select>
         </div>
         <input ref="fileInput" type="file" accept=".csv,.json,application/json,text/csv" @change="readFile" />
@@ -39,17 +40,18 @@
       <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
       <div v-if="loading" class="panel-empty">Memuat pengguna...</div>
       <div v-else-if="users.length === 0" class="panel-empty">Belum ada pengguna.</div>
-      <div v-else class="user-table-wrap"><table class="user-table"><thead><tr><th>Pengguna</th><th>Peran</th><th>Status</th><th>Aksi</th></tr></thead><tbody><tr v-for="user in users" :key="user.id"><td><strong>{{ user.display_name }}</strong><small>{{ user.username }}</small></td><td><span class="role-badge">{{ roleLabel(user.role) }}</span></td><td><span :class="['status-badge', { inactive: !user.active }]">{{ user.active ? 'Aktif' : 'Nonaktif' }}</span></td><td class="user-actions"><button class="text-button" type="button" @click="editUser(user)">Edit</button><button class="danger-link" type="button" @click="removeUser(user)">Hapus</button></td></tr></tbody></table></div>
+      <div v-else class="user-table-wrap"><table class="user-table"><thead><tr><th>Pengguna</th><th>Peran / penetapan</th><th>Status</th><th>Aksi</th></tr></thead><tbody><tr v-for="user in users" :key="user.id"><td><strong>{{ user.display_name }}</strong><small>{{ user.username }}</small></td><td><span class="role-badge">{{ roleLabel(user.role) }}</span><small>{{ subjectLabel(user.subject_id) }}</small></td><td><span :class="['status-badge', { inactive: !user.active }]">{{ user.active ? 'Aktif' : 'Nonaktif' }}</span></td><td class="user-actions"><button class="text-button" type="button" @click="editUser(user)">Edit</button><button class="danger-link" type="button" @click="removeUser(user)">Hapus</button></td></tr></tbody></table></div>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
-import { createAdminUser, deleteAdminUser, fetchAdminUsers, importAdminUsers, updateAdminUser } from '@/api/client';
-import type { AdminUser, AdminUserInput, UserImportSummary, UserRole } from '@/types';
+import { createAdminUser, deleteAdminUser, fetchAdminCurriculum, fetchAdminUsers, importAdminUsers, updateAdminUser } from '@/api/client';
+import type { AdminUser, AdminUserInput, Subject, UserImportSummary, UserRole } from '@/types';
 
 const users = ref<AdminUser[]>([]);
+const subjects = ref<Subject[]>([]);
 const loading = ref(false);
 const saving = ref(false);
 const importing = ref(false);
@@ -62,10 +64,10 @@ const importText = ref('');
 const parsedImport = ref<unknown>(null);
 const importMode = ref<'insert' | 'upsert'>('insert');
 const importSummary = ref<UserImportSummary | null>(null);
-const form = reactive<AdminUserInput>({ username: '', password: '', display_name: '', role: 'participant', active: true });
+const form = reactive<AdminUserInput>({ username: '', password: '', display_name: '', subject_id: null, role: 'participant', active: true });
 
-function resetForm() { Object.assign(form, { username: '', password: '', display_name: '', role: 'participant', active: true }); editingId.value = null; formMessage.value = ''; }
-function editUser(user: AdminUser) { Object.assign(form, { username: user.username, password: '', display_name: user.display_name, role: user.role, active: user.active }); editingId.value = user.id; formMessage.value = ''; window.scrollTo({ top: 0, behavior: 'smooth' }); }
+function resetForm() { Object.assign(form, { username: '', password: '', display_name: '', subject_id: null, role: 'participant', active: true }); editingId.value = null; formMessage.value = ''; }
+function editUser(user: AdminUser) { Object.assign(form, { username: user.username, password: '', display_name: user.display_name, subject_id: user.subject_id, role: user.role, active: user.active }); editingId.value = user.id; formMessage.value = ''; window.scrollTo({ top: 0, behavior: 'smooth' }); }
 async function loadUsers() { loading.value = true; errorMessage.value = ''; try { users.value = await fetchAdminUsers(search.value); } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Gagal memuat pengguna.'; } finally { loading.value = false; } }
 async function saveUser() { saving.value = true; formMessage.value = ''; const currentId = editingId.value; try { const input = { ...form }; if (currentId === null) await createAdminUser(input); else await updateAdminUser(currentId, input); formMessageType.value = 'success'; resetForm(); formMessage.value = currentId === null ? 'Pengguna berhasil ditambahkan.' : 'Pengguna berhasil diperbarui.'; await loadUsers(); } catch (error) { formMessageType.value = 'error'; formMessage.value = error instanceof Error ? error.message : 'Gagal menyimpan pengguna.'; } finally { saving.value = false; } }
 async function removeUser(user: AdminUser) { if (!window.confirm(`Hapus pengguna ${user.username}?`)) return; try { await deleteAdminUser(user.id); await loadUsers(); } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Gagal menghapus pengguna.'; } }
@@ -74,7 +76,8 @@ function parseImportText() { const value = importText.value.trim(); try { parsed
 async function previewImport() { parseImportText(); importing.value = true; try { importSummary.value = await importAdminUsers(parsedImport.value, importMode.value, true); } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Import tidak valid.'; } finally { importing.value = false; } }
 async function applyImport() { if (parsedImport.value === null || !window.confirm('Terapkan import pengguna ini?')) return; importing.value = true; try { importSummary.value = await importAdminUsers(parsedImport.value, importMode.value, false); await loadUsers(); } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Gagal menerapkan import.'; } finally { importing.value = false; } }
 function roleLabel(role: UserRole) { return { admin: 'Admin', editor: 'Editor', participant: 'Peserta' }[role]; }
-onMounted(loadUsers);
+function subjectLabel(subjectId: number | null) { return subjects.value.find((subject) => subject.id === subjectId)?.label ?? 'Belum ditetapkan'; }
+onMounted(async () => { await Promise.all([loadUsers(), fetchAdminCurriculum().then((data) => { subjects.value = data.subjects; }).catch(() => undefined)]); });
 </script>
 
 <style scoped>

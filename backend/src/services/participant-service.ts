@@ -1,32 +1,71 @@
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/mysql2';
 import { participantProfiles } from '@/db/schema/participant-profiles';
+import { assessmentTypes } from '@/db/schema/assessment-types';
+import { educationClasses } from '@/db/schema/education-classes';
 import { subjects } from '@/db/schema/subjects';
+import { users } from '@/db/schema/users';
 import type { Pool } from '@/db/connection';
 
 type ParticipantDb = ReturnType<typeof drizzle>;
 
 export function createParticipantDb(pool: Pool) {
-  return drizzle(pool, { schema: { participantProfiles, subjects }, mode: 'default' });
+  return drizzle(pool, { schema: { assessmentTypes, educationClasses, participantProfiles, subjects, users }, mode: 'default' });
 }
 
 export async function findParticipantProfile(db: ParticipantDb, identityKey: string) {
-  const [profile] = await db
-    .select({
-      participant_code: participantProfiles.participant_code,
-      name: participantProfiles.name,
-      gender: participantProfiles.gender,
-      birth_date: participantProfiles.birth_date,
-      subject_id: participantProfiles.subject_id,
-      subject_label: subjects.label,
-      access_token: participantProfiles.access_token,
-    })
-    .from(participantProfiles)
-    .leftJoin(subjects, eq(participantProfiles.subject_id, subjects.id))
-    .where(eq(participantProfiles.identity_key, identityKey))
-    .limit(1);
+  const [[profile], [account]] = await Promise.all([
+    db
+      .select({
+        participant_code: participantProfiles.participant_code,
+        name: participantProfiles.name,
+        gender: participantProfiles.gender,
+        birth_date: participantProfiles.birth_date,
+        subject_id: participantProfiles.subject_id,
+        subject_label: subjects.label,
+        access_token: participantProfiles.access_token,
+      })
+      .from(participantProfiles)
+      .leftJoin(subjects, eq(participantProfiles.subject_id, subjects.id))
+      .where(eq(participantProfiles.identity_key, identityKey))
+      .limit(1),
+    db
+      .select({ username: users.username, display_name: users.display_name, subject_id: users.subject_id })
+      .from(users)
+      .where(eq(users.username, identityKey))
+      .limit(1),
+  ]);
 
-  return profile ? { ...profile, access_token: profile.access_token ?? '' } : null;
+  if (!profile && !account) return null;
+
+  const subjectId = account ? account.subject_id : profile?.subject_id ?? null;
+  let subjectContext: { label: string; class_label: string; assessment_type_label: string } | null = null;
+  if (subjectId) {
+    const [subject] = await db
+      .select({ label: subjects.label, class_label: educationClasses.label, assessment_type_label: assessmentTypes.label })
+      .from(subjects)
+      .leftJoin(educationClasses, eq(subjects.class_id, educationClasses.id))
+      .leftJoin(assessmentTypes, eq(subjects.assessment_type_id, assessmentTypes.id))
+      .where(eq(subjects.id, subjectId))
+      .limit(1);
+    subjectContext = subject
+      ? { label: subject.label, class_label: subject.class_label ?? 'Semua kelas', assessment_type_label: subject.assessment_type_label ?? 'Semua jenis' }
+      : null;
+  }
+
+  return {
+    username: account?.username ?? identityKey,
+    participant_code: account?.username ?? profile?.participant_code ?? identityKey,
+    name: account?.display_name ?? profile?.name ?? '',
+    gender: profile?.gender ?? '',
+    birth_date: profile?.birth_date ?? '',
+    subject_id: subjectId,
+    subject_label: subjectContext?.label ?? profile?.subject_label ?? '',
+    class_label: subjectContext?.class_label ?? '',
+    assessment_type_label: subjectContext?.assessment_type_label ?? '',
+    access_token: profile?.access_token ?? '',
+    is_complete: Boolean(profile),
+  };
 }
 
 export async function findParticipantId(db: ParticipantDb, identityKey: string) {

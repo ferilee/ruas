@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import { users } from '@/db/schema/users';
+import { subjects } from '@/db/schema/subjects';
 import type { Pool } from '@/db/connection';
 import {
   createUser,
@@ -19,6 +20,7 @@ const createUserSchema = z.object({
   username: z.string().trim().min(1).max(100).regex(/^[A-Za-z0-9._@+-]+$/, 'Username mengandung karakter yang tidak didukung.'),
   password: z.string().min(1).max(200),
   display_name: z.string().trim().min(1).max(150),
+  subject_id: z.preprocess((value) => (value === '' || value === undefined ? null : value), z.coerce.number().int().positive().nullable()).default(null),
   role: roleSchema,
   active: z.boolean().default(true),
 });
@@ -102,9 +104,15 @@ function validateImportRow(value: unknown) {
     username: row.username,
     password: row.password,
     display_name: row.display_name || row.name || row.username,
+    subject_id: row.subject_id,
     role: row.role || 'participant',
     active: parseBoolean(row.active),
   });
+}
+
+async function subjectExists(db: ReturnType<typeof createUserDb>, subjectId: number) {
+  const [subject] = await db.select({ id: subjects.id }).from(subjects).where(eq(subjects.id, subjectId)).limit(1);
+  return Boolean(subject);
 }
 
 export function adminUserRoutes(pool: Pool) {
@@ -116,6 +124,7 @@ export function adminUserRoutes(pool: Pool) {
   app.post('/', async (c) => {
     const parsed = createUserSchema.safeParse(await c.req.json());
     if (!parsed.success) return c.json({ error: 'invalid_body', message: 'Data pengguna tidak valid.' }, 400);
+    if (parsed.data.subject_id && !(await subjectExists(db, parsed.data.subject_id))) return c.json({ error: 'invalid_reference', message: 'Mata pelajaran tidak ditemukan.' }, 400);
     const [duplicate] = await db.select({ id: users.id }).from(users).where(eq(users.username, parsed.data.username)).limit(1);
     if (duplicate) {
       return c.json({ error: 'duplicate_username', message: 'Username sudah digunakan.' }, 409);
@@ -131,14 +140,16 @@ export function adminUserRoutes(pool: Pool) {
     const rows = parseImportRows(parsedRequest.data.data);
     const summary = { inserted: 0, updated: 0, skipped: 0, errors: [] as string[] };
     const validRows: Array<{ row: ImportRow; line: number }> = [];
-    rows.forEach((value, index) => {
+    for (const [index, value] of rows.entries()) {
       const parsed = validateImportRow(value);
       if (!parsed.success) {
         summary.errors.push(`Baris ${index + 1}: username, password, display_name, dan role wajib valid.`);
+      } else if (parsed.data.subject_id && !(await subjectExists(db, parsed.data.subject_id))) {
+        summary.errors.push(`Baris ${index + 1}: mata pelajaran tidak ditemukan.`);
       } else {
         validRows.push({ row: parsed.data, line: index + 1 });
       }
-    });
+    }
 
     for (const { row, line } of validRows) {
       const [existing] = await db.select().from(users).where(eq(users.username, row.username)).limit(1);
@@ -171,6 +182,7 @@ export function adminUserRoutes(pool: Pool) {
     const id = parseId(c.req.param('id'));
     const parsed = updateUserSchema.safeParse(await c.req.json());
     if (!id || !parsed.success) return c.json({ error: 'invalid_body', message: 'Data pengguna tidak valid.' }, 400);
+    if (parsed.data.subject_id && !(await subjectExists(db, parsed.data.subject_id))) return c.json({ error: 'invalid_reference', message: 'Mata pelajaran tidak ditemukan.' }, 400);
     const existing = await findUserById(db, id);
     if (!existing) return c.json({ error: 'not_found', message: 'Pengguna tidak ditemukan.' }, 404);
     const duplicate = await db.select({ id: users.id }).from(users).where(eq(users.username, parsed.data.username)).limit(1);

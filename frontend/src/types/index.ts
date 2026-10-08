@@ -34,12 +34,29 @@ export interface AssessmentSchedule {
 }
 
 export interface ParticipantProfile {
+  username: string;
+  participant_code: string;
+  name: string;
+  gender: '' | 'male' | 'female';
+  birth_date: string;
+  subject_id: number | null;
+  subject_label: string;
+  class_label: string;
+  assessment_type_label: string;
+  access_token: string;
+  is_complete: boolean;
+}
+
+export interface ParticipantProfileInput {
+  username?: string;
   participant_code: string;
   name: string;
   gender: 'male' | 'female';
   birth_date: string;
   subject_id: number;
-  subject_label: string;
+  subject_label?: string;
+  class_label?: string;
+  assessment_type_label?: string;
   access_token: string;
 }
 
@@ -117,6 +134,7 @@ export interface AdminUser {
   id: number;
   username: string;
   display_name: string;
+  subject_id: number | null;
   role: UserRole;
   active: boolean;
   created_at: string;
@@ -127,6 +145,7 @@ export interface AdminUserInput {
   username: string;
   password?: string;
   display_name: string;
+  subject_id: number | null;
   role: UserRole;
   active: boolean;
 }
