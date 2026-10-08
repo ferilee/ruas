@@ -8,6 +8,7 @@
 - Tabel akun `users` dengan username unik, role, status aktif, dan password hash scrypt.
 - Admin dapat menambah, mengubah, mencari, menghapus, dan mengimpor pengguna melalui `/admin`.
 - Import mendukung CSV atau JSON dengan preview dan mode tambah baru/upsert.
+- Pengelolaan mata pelajaran memperjelas slug duplikat dan mendukung penghapusan topik/soal terkait dengan konfirmasi.
 
 ---
 

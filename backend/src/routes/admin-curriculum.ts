@@ -8,8 +8,10 @@ import type { Pool } from '@/db/connection';
 import {
   countSubjectsForAssessmentType,
   countSubjectsForClass,
-  countTopicsForSubject,
+  countAttemptsForSubject,
+  countProfilesForSubject,
   createCurriculumDb,
+  deleteSubjectWithContent,
   findAssessmentType,
   findClass,
   findSubject,
@@ -30,6 +32,12 @@ const subjectSchema = itemSchema.extend({
 function parseId(value: string) {
   const id = Number(value);
   return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+function isDuplicateKeyError(error: unknown) {
+  if (!error || typeof error !== 'object') return false;
+  const candidate = error as { code?: string; errno?: number };
+  return candidate.code === 'ER_DUP_ENTRY' || candidate.errno === 1062;
 }
 
 export function adminCurriculumRoutes(pool: Pool) {
@@ -93,8 +101,13 @@ export function adminCurriculumRoutes(pool: Pool) {
     if (!parsed.success) return c.json({ error: 'invalid_body', message: 'Mata pelajaran tidak valid.' }, 400);
     if (parsed.data.class_id && !(await findClass(db, parsed.data.class_id))) return c.json({ error: 'invalid_reference', message: 'Kelas tidak ditemukan.' }, 400);
     if (parsed.data.assessment_type_id && !(await findAssessmentType(db, parsed.data.assessment_type_id))) return c.json({ error: 'invalid_reference', message: 'Jenis asesmen tidak ditemukan.' }, 400);
-    const [result] = await db.insert(subjects).values(parsed.data);
-    return c.json({ id: Number(result.insertId) }, 201);
+    try {
+      const [result] = await db.insert(subjects).values(parsed.data);
+      return c.json({ id: Number(result.insertId) }, 201);
+    } catch (error) {
+      if (isDuplicateKeyError(error)) return c.json({ error: 'duplicate_slug', message: 'Slug mata pelajaran sudah digunakan.' }, 409);
+      throw error;
+    }
   });
 
   app.put('/subjects/:id', async (c) => {
@@ -104,17 +117,24 @@ export function adminCurriculumRoutes(pool: Pool) {
     if (!(await findSubject(db, id))) return c.json({ error: 'not_found', message: 'Mata pelajaran tidak ditemukan.' }, 404);
     if (parsed.data.class_id && !(await findClass(db, parsed.data.class_id))) return c.json({ error: 'invalid_reference', message: 'Kelas tidak ditemukan.' }, 400);
     if (parsed.data.assessment_type_id && !(await findAssessmentType(db, parsed.data.assessment_type_id))) return c.json({ error: 'invalid_reference', message: 'Jenis asesmen tidak ditemukan.' }, 400);
-    await db.update(subjects).set(parsed.data).where(eq(subjects.id, id));
-    return c.json({ updated: true });
+    try {
+      await db.update(subjects).set(parsed.data).where(eq(subjects.id, id));
+      return c.json({ updated: true });
+    } catch (error) {
+      if (isDuplicateKeyError(error)) return c.json({ error: 'duplicate_slug', message: 'Slug mata pelajaran sudah digunakan.' }, 409);
+      throw error;
+    }
   });
 
   app.delete('/subjects/:id', async (c) => {
     const id = parseId(c.req.param('id'));
     if (!id) return c.json({ error: 'invalid_param', message: 'ID mata pelajaran tidak valid.' }, 400);
-    if ((await countTopicsForSubject(db, id)) > 0) return c.json({ error: 'in_use', message: 'Mata pelajaran masih memiliki topik.' }, 409);
     if (!(await findSubject(db, id))) return c.json({ error: 'not_found', message: 'Mata pelajaran tidak ditemukan.' }, 404);
-    await db.delete(subjects).where(eq(subjects.id, id));
-    return c.json({ deleted: true });
+    if ((await countProfilesForSubject(db, id)) > 0 || (await countAttemptsForSubject(db, id)) > 0) {
+      return c.json({ error: 'in_use', message: 'Mata pelajaran sudah dipakai oleh profil atau riwayat ujian dan tidak dapat dihapus.' }, 409);
+    }
+    const deleted = await deleteSubjectWithContent(db, id);
+    return c.json({ deleted: true, ...deleted });
   });
 
   return app;

@@ -249,7 +249,7 @@ Token admin dikirim dengan header `x-admin-token`.
 | GET | `/api/admin/curriculum` | Daftar kelas, jenis asesmen, dan mata pelajaran |
 | POST/PUT/DELETE | `/api/admin/curriculum/classes/:id` | Kelola kelas |
 | POST/PUT/DELETE | `/api/admin/curriculum/assessment-types/:id` | Kelola jenis asesmen |
-| POST/PUT/DELETE | `/api/admin/curriculum/subjects/:id` | Kelola mata pelajaran dan cakupannya |
+| POST/PUT/DELETE | `/api/admin/curriculum/subjects/:id` | Kelola mata pelajaran; DELETE menghapus topik/soal terkait |
 
 Endpoint kurikulum peserta `GET /api/curriculum` memakai sesi peserta dan
 menyediakan data yang sama untuk halaman awal. Mata pelajaran dapat berlaku
