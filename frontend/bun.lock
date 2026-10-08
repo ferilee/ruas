@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "utbk-frontend",
+      "name": "ruas-frontend",
       "dependencies": {
         "katex": "^0.19.0",
         "vue": "^3.5.0",

@@ -13,7 +13,7 @@
 9. jalankan NPM
 10. jalankan app dan MariaDB dengan `docker compose up -d`
 11. migrasi + seed
-12. buat Proxy Host di NPM ke `utbk:3000`
+12. buat Proxy Host di NPM ke `ruas:3000`
 13. aktifkan SSL
 14. cek `https://domain-anda.com/health`
 15. cek `https://domain-anda.com/api/auth`

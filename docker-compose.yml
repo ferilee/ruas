@@ -1,17 +1,17 @@
 services:
   mariadb:
     image: mariadb:11.4
-    container_name: utbk-mariadb
+    container_name: ruas-mariadb
     restart: unless-stopped
     ports:
       - '127.0.0.1:${DB_HOST_PORT:-3308}:3306'
     environment:
-      MARIADB_DATABASE: ${DB_NAME:-utbk_belajar}
-      MARIADB_USER: utbk
+      MARIADB_DATABASE: ${DB_NAME:-ruas_belajar}
+      MARIADB_USER: ruas
       MARIADB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD wajib diisi di .env}
       MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD wajib diisi di .env}
     volumes:
-      - utbk_mariadb_data:/var/lib/mysql
+      - ruas_mariadb_data:/var/lib/mysql
     healthcheck:
       test: ['CMD', 'healthcheck.sh', '--connect', '--innodb_initialized']
       interval: 5s
@@ -20,9 +20,9 @@ services:
     networks:
       - ferileenet
 
-  utbk:
+  ruas:
     image: oven/bun:1.3.14
-    container_name: utbk
+    container_name: ruas
     restart: unless-stopped
     depends_on:
       mariadb:
@@ -38,10 +38,11 @@ services:
     environment:
       DB_HOST: mariadb
       DB_PORT: 3306
-      DB_USER: utbk
+      DB_USER: ruas
       DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD wajib diisi di .env}
-      DB_NAME: ${DB_NAME:-utbk_belajar}
+      DB_NAME: ${DB_NAME:-ruas_belajar}
       APP_PORT: ${APP_PORT:-3000}
+      APP_USERNAME: ${APP_USERNAME:-}
       APP_PASSWORD: ${APP_PASSWORD:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       NODE_ENV: production
@@ -53,4 +54,4 @@ networks:
     external: true
 
 volumes:
-  utbk_mariadb_data:
+  ruas_mariadb_data:

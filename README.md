@@ -70,7 +70,7 @@ DB_NAME=ruas_belajar
 APP_PORT=3000
 FRONTEND_PORT=5173
 APP_USERNAME=P130100230  # kosong = username apa pun, isi = username wajib
-APP_PASSWORD=        # kosong = tanpa login, isi = login required
+APP_PASSWORD=        # akun legacy; akun DB juga dapat dipakai
 # kosong = editor nonaktif
 ADMIN_PASSWORD=
 # kosong = gunakan ADMIN_PASSWORD saat keluar dari ujian
@@ -81,8 +81,16 @@ CORS_ORIGIN=         # kosong = auto localhost, isi domain untuk production
 ### Editor Admin
 
 Jika `ADMIN_PASSWORD` diisi, buka `/admin` untuk mengelola soal. Editor
-mendukung tambah, edit, hapus, dan import JSON. Password editor terpisah dari
-`APP_PASSWORD`.
+mendukung tambah, edit, hapus, dan import JSON. Panel **Kurikulum** di halaman
+yang sama digunakan untuk mengatur kelas, jenis asesmen, serta mata pelajaran
+beserta cakupannya. Pilihan tersebut langsung digunakan pada halaman awal
+peserta. Dashboard admin memisahkan Ringkasan, Struktur Asesmen, Bank Soal,
+dan Jadwal agar setiap pekerjaan dapat dilakukan dari menu yang jelas. Menu
+Pengguna juga tersedia untuk menambah akun manual atau import CSV/JSON.
+Password editor terpisah dari `APP_PASSWORD`.
+Profil peserta, sesi ujian, jawaban, hasil, dan aktivitas anti-cheat disimpan
+permanen di MariaDB. Token sesi login tetap bersifat sementara di browser dan
+memori backend.
 Atur `EXAM_EXIT_PASSWORD` untuk kata sandi pengawas saat peserta keluar dari
 ujian; jika kosong, aplikasi menggunakan `ADMIN_PASSWORD`.
 
@@ -120,13 +128,16 @@ ujian; jika kosong, aplikasi menggunakan `ADMIN_PASSWORD`.
 ## FAQ
 
 **Q: Apakah aplikasi selalu pakai login?**  
-A: Tidak. Hanya jika `APP_PASSWORD` diisi di `.env`.
+A: Auth aktif jika `APP_PASSWORD` diisi atau sudah ada akun pada tabel `users`.
 
 **Q: Kenapa tidak ada riwayat nilai?**  
 A: Scope aplikasi latihan per soal tanpa history tersimpan.
 
 **Q: Bisakah menambah soal lewat UI?**  
 A: Bisa melalui `/admin` jika `ADMIN_PASSWORD` diaktifkan. Import massal tetap bisa dilakukan melalui `seed.json` → `bun run seed`.
+
+**Q: Bisakah admin menambahkan pengguna?**  
+A: Bisa melalui menu **Pengguna** di `/admin`, secara manual atau import CSV/JSON.
 
 **Q: Timer countdown atau stopwatch?**  
 A: Stopwatch per soal, bukan countdown.

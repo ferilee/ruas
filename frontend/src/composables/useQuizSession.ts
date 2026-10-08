@@ -1,11 +1,16 @@
 import { computed, ref } from 'vue';
 import {
-  checkAnswer as apiCheckAnswer,
+  abandonExamAttempt,
+  completeExamAttempt,
+  createExamAttempt,
+  fetchActiveExamAttempt,
   fetchQuestionCount,
   fetchRandomQuestion,
   fetchTopic,
+  saveExamAnswer,
+  saveExamIntegrityEvent,
 } from '@/api/client';
-import type { CheckResult, Question } from '@/types';
+import type { CheckResult, ExamAttempt, Question } from '@/types';
 
 export type QuizState = 'loading' | 'ready' | 'answering' | 'reviewing' | 'resume' | 'error';
 
@@ -36,6 +41,8 @@ export function useQuizSession(options: UseQuizSessionOptions) {
   const answeredIds = ref<Set<number>>(new Set());
   const sessionResults = ref<SessionResult[]>([]);
   const showExitModal = ref(false);
+  const attemptId = ref<number | null>(null);
+  const persistedAttempt = ref<ExamAttempt | null>(null);
 
   const currentQuestionNumber = computed(() => {
     if (state.value === 'reviewing') return answeredIds.value.size;
@@ -68,7 +75,7 @@ export function useQuizSession(options: UseQuizSessionOptions) {
       const nextQuestion = await fetchRandomQuestion(options.getTopicId(), excludeArr);
 
       if (!nextQuestion) {
-        state.value = 'resume';
+        await finishSession();
         return;
       }
 
@@ -117,7 +124,12 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     timerRunning.value = false;
 
     try {
-      const checkResult = await apiCheckAnswer(question.value.id, selectedKeys.value);
+      if (!attemptId.value) throw new Error('Sesi ujian belum tersimpan. Silakan muat ulang halaman.');
+      const checkResult = await saveExamAnswer(attemptId.value, {
+        question_id: question.value.id,
+        selected_keys: selectedKeys.value,
+        elapsed_seconds: finalTime.value,
+      });
       result.value = checkResult;
       answeredIds.value.add(question.value.id);
       sessionResults.value.push({ correct: checkResult.correct, elapsed: finalTime.value });
@@ -168,22 +180,39 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     await loadQuestion();
   }
 
+  async function recordIntegrityEvent(type: string, occurredAt: string) {
+    if (!attemptId.value) return;
+    await saveExamIntegrityEvent(attemptId.value, type, occurredAt);
+  }
+
+  async function finishSession() {
+    if (attemptId.value) {
+      try {
+        persistedAttempt.value = await completeExamAttempt(attemptId.value);
+      } catch (error) {
+        errorMessage.value = error instanceof Error ? error.message : 'Hasil ujian gagal disimpan.';
+        state.value = 'error';
+        return;
+      }
+    }
+    state.value = 'resume';
+  }
+
   function resetSession() {
     answeredIds.value = new Set();
     sessionResults.value = [];
     autoStart.value = false;
-  }
-
-  function finishSession() {
-    state.value = 'resume';
+    attemptId.value = null;
+    persistedAttempt.value = null;
   }
 
   function cancelExit() {
     showExitModal.value = false;
   }
 
-  function confirmExitState() {
+  async function confirmExitState() {
     showExitModal.value = false;
+    if (attemptId.value) await abandonExamAttempt(attemptId.value);
     resetSession();
     state.value = 'ready';
     question.value = null;
@@ -198,11 +227,29 @@ export function useQuizSession(options: UseQuizSessionOptions) {
 
   async function initializeSession() {
     await Promise.all([loadTopicInfo(), loadQuestionCount()]);
+    try {
+      const active = await fetchActiveExamAttempt(options.getTopicId());
+      if (active.attempt) {
+        attemptId.value = active.attempt.id;
+        persistedAttempt.value = active.attempt;
+        answeredIds.value = new Set(active.answers.map((answer) => answer.question_id));
+        sessionResults.value = active.answers.map((answer) => ({ correct: answer.is_correct, elapsed: answer.elapsed_seconds }));
+      } else {
+        const attempt = await createExamAttempt({ subject_id: subjectId.value, topic_id: options.getTopicId(), total_questions: questionCount.value });
+        attemptId.value = attempt.id;
+        persistedAttempt.value = attempt;
+      }
+    } catch (error) {
+      errorMessage.value = error instanceof Error ? error.message : 'Sesi ujian gagal disimpan.';
+      state.value = 'error';
+      return;
+    }
     await loadQuestion();
   }
 
   return {
     accuracy,
+    attemptId,
     answeredIds,
     cancelExit,
     confirmExitState,
@@ -225,6 +272,7 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     question,
     questionCount,
     resetSession,
+    recordIntegrityEvent,
     result,
     retryCurrentState,
     selectedKeys,

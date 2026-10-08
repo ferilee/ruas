@@ -1,10 +1,10 @@
 # STRUKTUR FOLDER REFERENCE
 
-Referensi struktur direktori project `utbk2`.
+Referensi struktur direktori project `ruas2`.
 Dokumen ini disesuaikan dengan implementasi saat ini.
 
 ```text
-utbk2/
+ruas2/
 ├── .env
 ├── .env.example
 ├── .env.production.example

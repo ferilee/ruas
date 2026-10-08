@@ -21,6 +21,16 @@ vi.mock('@/routes/questions', () => ({
   questionsRoutes: () => new Hono(),
 }));
 
+vi.mock('@/routes/admin-questions', () => ({ adminQuestionRoutes: () => new Hono() }));
+vi.mock('@/routes/admin-topics', () => ({ adminTopicsRoutes: () => new Hono() }));
+vi.mock('@/routes/admin-schedule', () => ({ adminScheduleRoutes: () => new Hono() }));
+vi.mock('@/routes/assessment-schedule', () => ({ assessmentScheduleRoutes: () => new Hono() }));
+vi.mock('@/routes/curriculum', () => ({ curriculumRoutes: () => new Hono() }));
+vi.mock('@/routes/admin-curriculum', () => ({ adminCurriculumRoutes: () => new Hono() }));
+vi.mock('@/routes/participant-profile', () => ({ participantProfileRoutes: () => new Hono() }));
+vi.mock('@/routes/exam-attempts', () => ({ examAttemptRoutes: () => new Hono() }));
+vi.mock('@/routes/admin-users', () => ({ adminUserRoutes: () => new Hono() }));
+
 import { createApp } from '@/app.js';
 
 describe('createApp', () => {

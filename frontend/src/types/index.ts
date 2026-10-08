@@ -3,6 +3,28 @@ export interface Subject {
   slug: string;
   label: string;
   display_order: number;
+  class_id?: number | null;
+  assessment_type_id?: number | null;
+}
+
+export interface CurriculumClass {
+  id: number;
+  slug: string;
+  label: string;
+  display_order: number;
+}
+
+export interface AssessmentType {
+  id: number;
+  slug: string;
+  label: string;
+  display_order: number;
+}
+
+export interface CurriculumData {
+  classes: CurriculumClass[];
+  assessment_types: AssessmentType[];
+  subjects: Subject[];
 }
 
 export interface AssessmentSchedule {
@@ -89,8 +111,64 @@ export interface ImportSummary {
   errors: string[];
 }
 
+export type UserRole = 'admin' | 'editor' | 'participant';
+
+export interface AdminUser {
+  id: number;
+  username: string;
+  display_name: string;
+  role: UserRole;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AdminUserInput {
+  username: string;
+  password?: string;
+  display_name: string;
+  role: UserRole;
+  active: boolean;
+}
+
+export interface UserImportSummary {
+  inserted: number;
+  updated: number;
+  skipped: number;
+  errors: string[];
+}
+
 export interface CheckResult {
   correct: boolean;
   correct_keys: string[];
   explanation: string;
+}
+
+export interface ExamAttempt {
+  id: number;
+  participant_id: number;
+  subject_id: number;
+  topic_id: number;
+  status: 'in_progress' | 'completed' | 'abandoned';
+  total_questions: number;
+  answered_questions: number;
+  correct_count: number;
+  incorrect_count: number;
+  total_time_seconds: number;
+  accuracy: number;
+  violation_count: number;
+  integrity_penalty: number;
+  final_score: number;
+  started_at: string;
+  completed_at: string | null;
+}
+
+export interface ExamAnswerRecord {
+  id: number;
+  attempt_id: number;
+  question_id: number;
+  selected_keys: string[];
+  is_correct: boolean;
+  elapsed_seconds: number;
+  answered_at: string;
 }

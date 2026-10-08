@@ -11,49 +11,51 @@
       </div>
 
       <h1 id="selection-title">Simulasi Asesmen</h1>
-      <p class="selection-subtitle">Pilih kelas dan mata pelajaran untuk memulai asesmen</p>
+      <p class="selection-subtitle">Pilih kelas, jenis asesmen, dan mata pelajaran untuk memulai asesmen</p>
 
       <div class="selection-form">
         <label class="select-field">
           <span class="field-label"><span class="field-icon">◆</span> Kelas:</span>
-          <select disabled aria-label="Kelas">
-            <option>Kelas 10 / 11 / 12</option>
+          <select v-model="selectedClassId" :disabled="curriculumLoading || curriculum.classes.length === 0" aria-label="Kelas">
+            <option value="" disabled>Pilih kelas...</option>
+            <option v-for="item in curriculum.classes" :key="item.id" :value="item.id">{{ item.label }}</option>
           </select>
         </label>
 
         <label class="select-field">
           <span class="field-label"><span class="field-icon">▣</span> Jenis Asesmen:</span>
-          <select disabled aria-label="Jenis asesmen">
-            <option>Asesmen Ruas</option>
+          <select v-model="selectedAssessmentTypeId" :disabled="curriculumLoading || curriculum.assessment_types.length === 0" aria-label="Jenis asesmen">
+            <option value="" disabled>Pilih jenis asesmen...</option>
+            <option v-for="item in curriculum.assessment_types" :key="item.id" :value="item.id">{{ item.label }}</option>
           </select>
         </label>
 
         <label class="select-field">
           <span class="field-label"><span class="field-icon">▤</span> Mata Pelajaran:</span>
-          <select v-model="selectedSubjectId" :disabled="loading || subjects.length === 0" aria-label="Mata pelajaran">
+          <select v-model="selectedSubjectId" :disabled="curriculumLoading || filteredSubjects.length === 0" aria-label="Mata pelajaran">
             <option value="" disabled>
-              {{ loading ? 'Memuat mata pelajaran...' : 'Pilih mata pelajaran...' }}
+              {{ curriculumLoading ? 'Memuat mata pelajaran...' : 'Pilih mata pelajaran...' }}
             </option>
-            <option v-for="subject in subjects" :key="subject.id" :value="subject.id">
+            <option v-for="subject in filteredSubjects" :key="subject.id" :value="subject.id">
               {{ subject.label }}
             </option>
           </select>
         </label>
 
         <p v-if="error" class="home-error" role="alert">{{ error }}</p>
-        <p v-else-if="subjects.length === 0 && !loading" class="home-empty">Belum ada mata pelajaran yang tersedia.</p>
+        <p v-else-if="filteredSubjects.length === 0 && !curriculumLoading" class="home-empty">Belum ada mata pelajaran untuk pilihan ini.</p>
         <p v-if="scheduleError" class="home-error" role="alert">{{ scheduleError }}</p>
         <p v-else-if="schedule && !schedule.is_open" class="schedule-notice">
           Asesmen dibuka pada {{ formatStartAt(schedule.start_at) }}.
           <strong>{{ formatRemaining(scheduleRemainingSeconds) }}</strong>
         </p>
 
-        <button class="start-button" :disabled="loading || scheduleLoading || !selectedSubjectId || !canStart" @click="startAssessment">
+        <button class="start-button" :disabled="curriculumLoading || scheduleLoading || !selectedSubjectId || !canStart" @click="startAssessment">
           <span aria-hidden="true">▶</span>
-          {{ loading || scheduleLoading ? 'Memuat...' : canStart ? 'Mulai Asesmen' : 'Menunggu Jadwal' }}
+          {{ curriculumLoading || scheduleLoading ? 'Memuat...' : canStart ? 'Mulai Asesmen' : 'Menunggu Jadwal' }}
         </button>
 
-        <button v-if="error || scheduleError || (!loading && subjects.length === 0)" class="reload-button" @click="loadData">
+        <button v-if="error || scheduleError || (!curriculumLoading && filteredSubjects.length === 0)" class="reload-button" @click="loadData">
           Coba Lagi
         </button>
       </div>
@@ -64,15 +66,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { fetchAssessmentSchedule, fetchSubjects } from '@/api/client';
-import type { AssessmentSchedule, Subject } from '@/types';
+import { fetchAssessmentSchedule, fetchCurriculum } from '@/api/client';
+import type { AssessmentSchedule, CurriculumData } from '@/types';
 
 const router = useRouter();
-const subjects = ref<Subject[]>([]);
+const curriculum = ref<CurriculumData>({ classes: [], assessment_types: [], subjects: [] });
+const selectedClassId = ref<number | ''>('');
+const selectedAssessmentTypeId = ref<number | ''>('');
 const selectedSubjectId = ref<number | ''>('');
-const loading = ref(true);
+const curriculumLoading = ref(true);
 const error = ref<string | null>(null);
 const schedule = ref<AssessmentSchedule | null>(null);
 const scheduleLoading = ref(true);
@@ -81,18 +85,24 @@ const scheduleRemainingSeconds = ref(0);
 let scheduleTimer: ReturnType<typeof setInterval> | undefined;
 
 const canStart = computed(() => schedule.value?.is_open === true && scheduleRemainingSeconds.value === 0);
+const filteredSubjects = computed(() => curriculum.value.subjects.filter((subject) => {
+  const classMatches = subject.class_id == null || subject.class_id === Number(selectedClassId.value);
+  const typeMatches = subject.assessment_type_id == null || subject.assessment_type_id === Number(selectedAssessmentTypeId.value);
+  return classMatches && typeMatches;
+}));
 
-async function loadSubjects() {
-  loading.value = true;
+async function loadCurriculum() {
+  curriculumLoading.value = true;
   error.value = null;
 
   try {
-    subjects.value = await fetchSubjects();
-    selectedSubjectId.value = subjects.value.length === 1 ? subjects.value[0].id : '';
+    curriculum.value = await fetchCurriculum();
+    selectedClassId.value = curriculum.value.classes[0]?.id ?? '';
+    selectedAssessmentTypeId.value = curriculum.value.assessment_types[0]?.id ?? '';
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Gagal memuat data.';
   } finally {
-    loading.value = false;
+    curriculumLoading.value = false;
   }
 }
 
@@ -112,7 +122,7 @@ async function loadSchedule() {
 }
 
 async function loadData() {
-  await Promise.all([loadSubjects(), loadSchedule()]);
+  await Promise.all([loadCurriculum(), loadSchedule()]);
 }
 
 function formatStartAt(value: string | null) {
@@ -136,6 +146,12 @@ function startAssessment() {
     router.push(`/topics/${selectedSubjectId.value}`);
   }
 }
+
+function chooseFirstSubject() {
+  selectedSubjectId.value = filteredSubjects.value.length === 1 ? filteredSubjects.value[0].id : '';
+}
+
+watch([selectedClassId, selectedAssessmentTypeId], chooseFirstSubject);
 
 onMounted(() => {
   loadData();

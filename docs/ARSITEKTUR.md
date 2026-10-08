@@ -10,7 +10,7 @@
 Aplikasi web latihan dan ujian sekolah. Alur: pilih mata pelajaran → pilih topik → mulai → soal acak → timer → jawab → lihat pembahasan → lanjut → resume akhir.
 
 - Single-user, auth opsional (password)
-- Tanpa riwayat — setiap sesi dimulai dari nol
+- Riwayat ujian tersimpan — sesi, jawaban, hasil, dan aktivitas integritas dicatat
 - Fokus pada latihan per soal dengan pembahasan langsung
 
 ---
@@ -56,10 +56,32 @@ NPM → app:3000
 ## 4. Model Data
 
 ```
+participant_profiles  ──<  exam_attempts  ──<  exam_answers
+                                      └──<  exam_integrity_events
 subjects  ──<  topics  ──<  questions  ──<  question_options
 ```
 
-4 tabel, relasi one-to-many. Tanpa tabel riwayat (attempt, answer, snapshot).
+12 tabel digunakan. Data akun pengguna, profil peserta, percobaan ujian, jawaban, dan aktivitas
+integritas disimpan permanen di MariaDB. `identity_key` menghubungkan profil
+dengan username login atau client ID ketika autentikasi aplikasi dinonaktifkan.
+
+`exam_attempts` menyimpan status `in_progress`, `completed`, atau `abandoned`.
+Setiap jawaban masuk ke `exam_answers`, sedangkan aktivitas integritas masuk ke
+`exam_integrity_events`.
+
+### users
+
+| Kolom | Tipe | Keterangan |
+|---|---|---|
+| id | int auto_increment | PK |
+| username | varchar(100) unique | Identitas login |
+| password_hash | varchar(255) | Password hasil hashing scrypt |
+| display_name | varchar(150) | Nama yang ditampilkan admin |
+| role | enum | `admin`, `editor`, `participant` |
+| active | int | Status akun |
+
+Password pengguna tidak disimpan dalam bentuk plaintext. Profil peserta tetap
+diisi setelah login pertama dan dihubungkan dengan username akun.
 
 ### subjects
 
@@ -126,7 +148,8 @@ Cek status auth.
 
 ### `POST /api/auth`
 
-Login. Hanya valid jika `APP_PASSWORD` diisi. Jika `APP_USERNAME` diisi, username juga harus cocok.
+Login memeriksa akun pada tabel `users`. `APP_USERNAME`/`APP_PASSWORD` tetap
+tersedia sebagai fallback untuk instalasi lama.
 
 Request:
 ```json
@@ -190,6 +213,19 @@ Response (benar/salah):
 }
 ```
 
+### Persistensi peserta dan ujian
+
+| Method | Path | Fungsi |
+|---|---|---|
+| GET | `/api/profile` | Memuat profil peserta dari database |
+| PUT | `/api/profile` | Menyimpan atau memperbarui profil peserta |
+| POST | `/api/exam/attempts` | Membuat sesi ujian |
+| GET | `/api/exam/attempts/active?topic_id=<id>` | Memulihkan sesi yang belum selesai |
+| POST | `/api/exam/attempts/:id/answers` | Menyimpan dan mengoreksi jawaban |
+| POST | `/api/exam/attempts/:id/events` | Menyimpan aktivitas integritas |
+| POST | `/api/exam/attempts/:id/complete` | Menutup dan menyimpan hasil ujian |
+| POST | `/api/exam/attempts/:id/abandon` | Menandai sesi yang ditinggalkan |
+
 ### Admin editor
 
 Admin memakai password terpisah dari `APP_PASSWORD` melalui `ADMIN_PASSWORD`.
@@ -206,6 +242,19 @@ Token admin dikirim dengan header `x-admin-token`.
 | PUT | `/api/admin/questions/:id` | Edit soal dan opsi |
 | DELETE | `/api/admin/questions/:id` | Hapus soal |
 | POST | `/api/admin/questions/import` | Preview atau terapkan import JSON |
+| GET | `/api/admin/users` | Daftar akun pengguna |
+| POST | `/api/admin/users` | Tambah akun manual |
+| PUT/DELETE | `/api/admin/users/:id` | Edit atau hapus akun |
+| POST | `/api/admin/users/import` | Preview atau terapkan import CSV/JSON |
+| GET | `/api/admin/curriculum` | Daftar kelas, jenis asesmen, dan mata pelajaran |
+| POST/PUT/DELETE | `/api/admin/curriculum/classes/:id` | Kelola kelas |
+| POST/PUT/DELETE | `/api/admin/curriculum/assessment-types/:id` | Kelola jenis asesmen |
+| POST/PUT/DELETE | `/api/admin/curriculum/subjects/:id` | Kelola mata pelajaran dan cakupannya |
+
+Endpoint kurikulum peserta `GET /api/curriculum` memakai sesi peserta dan
+menyediakan data yang sama untuk halaman awal. Mata pelajaran dapat berlaku
+untuk semua kelas/jenis asesmen atau dibatasi dengan `class_id` dan
+`assessment_type_id`.
 
 ---
 
@@ -213,8 +262,8 @@ Token admin dikirim dengan header `x-admin-token`.
 
 | `APP_PASSWORD` | Efek |
 |---|---|
-| Kosong | Auth nonaktif. Frontend tidak redirect ke /auth. API tidak perlu token. |
-| Diisi | Halaman /auth muncul. Semua request API butuh header `x-auth-token`. |
+| Kosong dan belum ada akun DB | Auth nonaktif. Frontend tidak redirect ke /auth. |
+| Diisi atau sudah ada akun DB | Halaman /auth muncul. Semua request API butuh header `x-auth-token`. |
 
 Token bersifat in-memory di server. Hilang saat restart.
 
@@ -258,16 +307,20 @@ backend/src/
 ├── db/
 │   ├── connection.ts          # MySQL pool
 │   ├── migrate.ts             # Migration runner
-│   └── schema/                # Drizzle schema (4 tabel)
+│   └── schema/                # Drizzle schema (12 tabel)
 │
 ├── routes/
 │   ├── auth.ts                # GET (status), POST (login)
 │   ├── subjects.ts            # GET list
 │   ├── topics.ts              # GET list + count
-│   └── questions.ts           # GET random, GET count, POST check
+│   ├── questions.ts           # GET random, GET count, POST check
+│   ├── participant-profile.ts # GET/PUT profil peserta
+│   ├── exam-attempts.ts       # Sesi, jawaban, hasil, dan aktivitas ujian
+│   └── admin-users.ts         # CRUD dan import pengguna
 │
 ├── services/
-│   └── question-service.ts     # Query logic (random, count, check)
+│   ├── question-service.ts     # Query logic (random, count, check)
+│   └── user-service.ts         # Akun, hashing, dan autentikasi DB
 │
 ├── validators/
 │   └── question-validator.ts   # Zod + manual validation
@@ -280,6 +333,7 @@ backend/src/
 │
 ├── lib/
 │   ├── auth-store.ts           # In-memory token storage
+│   ├── password.ts             # Hash dan verifikasi password scrypt
 │   ├── scoring.ts              # Answer evaluation
 │   ├── seed.ts                 # Seed runner
 │   └── seed-check.ts           # Seed validator
@@ -307,6 +361,7 @@ frontend/src/
 │   └── QuizView.vue                      # Quiz container (tipis)
 │
 ├── components/
+│   ├── UsersPanel.vue                   # CRUD dan import pengguna admin
 │   ├── QuestionCard.vue                  # Soal + type/difficulty badge
 │   ├── TimerBar.vue                      # Stopwatch display
 │   ├── OptionList.vue                    # Opsi (radio/checkbox)
@@ -394,8 +449,7 @@ bun run seed:check     # Validasi seed.json
 
 1. **Kesederhanaan** — fitur minimum yang berguna
 2. **Auth opsional** — password via env, nonaktif jika dikosongkan
-3. **Tanpa state server** — sesi belajar di frontend saja
-4. **Tanpa riwayat** — tidak ada tabel attempt/history
-5. **Seed dan editor admin** — data dapat masuk via JSON atau halaman `/admin`; subjects dan topics tetap seed-managed
-6. **Timer per soal** — stopwatch dari tampil sampai submit
-7. **All-or-nothing** — multiple_response harus tepat semua
+3. **Persistensi ujian** — profil, jawaban, hasil, dan aktivitas integritas tersimpan di database
+4. **Seed dan editor admin** — data dapat masuk via JSON atau halaman `/admin`; subjects dan topics tetap seed-managed
+5. **Timer per soal** — stopwatch dari tampil sampai submit
+6. **All-or-nothing** — multiple_response harus tepat semua

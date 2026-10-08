@@ -9,6 +9,6 @@ export default {
     port: 3306,
     user: 'root',
     password: 'rahaSi4Hasan',
-    database: 'utbk_belajar',
+    database: 'ruas_belajar',
   },
 } satisfies Config;

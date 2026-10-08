@@ -1,4 +1,4 @@
-# RULES — UTBK Belajar
+# RULES — RUAS Belajar
 
 > Dokumen ini WAIB dibaca oleh siapa pun (manusia atau AI) sebelum
 > mengerjakan perubahan pada project ini. Setiap model/editor baru
@@ -8,10 +8,10 @@
 
 ## 1. Gambaran Project
 
-Aplikasi web belajar soal UTBK. Single-user, tanpa login, tanpa riwayat.
+Aplikasi web belajar soal RUAS. Single-user, tanpa login, tanpa riwayat.
 Flow: pilih topik -> soal acak -> timer -> jawab -> lihat pembahasan -> lanjut.
 
-Lokasi: `/home/DATA/Proyek/AHE/utbk2/`
+Lokasi: `/home/DATA/Proyek/AHE/ruas2/`
 
 ---
 
@@ -39,6 +39,7 @@ Aturan berikut TIDAK BOLEH diubah tanpa diskusi eksplisit:
 ### 3.1 Autentikasi Opsional
 Aplikasi punya lapisan password sederhana. Jika `APP_PASSWORD` diisi di `.env`:
 - User harus login via halaman `/auth` sebelum bisa mengakses
+- Login menggunakan `APP_USERNAME` dan `APP_PASSWORD` jika `APP_USERNAME` diisi
 - Backend mewajibkan header `x-auth-token` untuk semua request API
 - Token bersifat in-memory di server (hilang saat server restart)
 
@@ -188,7 +189,7 @@ otomatis jalan ulang tiap perubahan file.
 
 ### 8.3 File Structure
 ```
-utbk2/
+ruas2/
 ├── .env                 # Hanya di local, jangan commit
 ├── seed.json            # Data soal
 ├── RULES.md             # WAJIB BACA
@@ -227,7 +228,7 @@ bun run dev          # Vite dev server (dengan proxy ke backend)
 bun run test         # Test
 ```
 
-Pastikan database MariaDB/MySQL sudah running dan database `utbk_belajar` sudah dibuat sebelum menjalankan backend.
+Pastikan database MariaDB/MySQL sudah running dan database `ruas_belajar` sudah dibuat sebelum menjalankan backend.
 
 ---
 

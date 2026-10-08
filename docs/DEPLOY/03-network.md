@@ -43,7 +43,7 @@ App harus join ke network yang sama dengan NPM. Gunakan `expose` bukan `ports`:
 
 ```yaml
 services:
-  utbk:
+  ruas:
     image: oven/bun:1.3.14
     restart: unless-stopped
     expose:
@@ -59,8 +59,9 @@ services:
       DB_PORT: "3306"
       DB_USER: ${DB_USER:-root}
       DB_PASSWORD: ${DB_PASSWORD:-}
-      DB_NAME: ${DB_NAME:-utbk_belajar}
+      DB_NAME: ${DB_NAME:-ruas_belajar}
       APP_PORT: "3000"
+      APP_USERNAME: ${APP_USERNAME:-}
       APP_PASSWORD: ${APP_PASSWORD:-}
       CORS_ORIGIN: ${CORS_ORIGIN:-https://domain-anda.com}
       NODE_ENV: production
@@ -72,7 +73,7 @@ networks:
     external: true
 ```
 
-NPM upstream: `utbk:3000`.
+NPM upstream: `ruas:3000`.
 
 ### Ingin tetap bisa `curl` dari host?
 
@@ -83,7 +84,7 @@ ports:
   - "127.0.0.1:3000:3000"
 ```
 
-Container tetap bisa diakses via `utbk:3000` dari internal Docker, dan via `127.0.0.1:3000` dari host.
+Container tetap bisa diakses via `ruas:3000` dari internal Docker, dan via `127.0.0.1:3000` dari host.
 
 ## Contoh Stack NPM + App
 
@@ -113,7 +114,7 @@ networks:
 
 ```yaml
 services:
-  utbk:
+  ruas:
     image: oven/bun:1.3.14
     restart: unless-stopped
     expose:
@@ -129,8 +130,9 @@ services:
       DB_PORT: "3306"
       DB_USER: ${DB_USER:-root}
       DB_PASSWORD: ${DB_PASSWORD:-}
-      DB_NAME: ${DB_NAME:-utbk_belajar}
+      DB_NAME: ${DB_NAME:-ruas_belajar}
       APP_PORT: "3000"
+      APP_USERNAME: ${APP_USERNAME:-}
       APP_PASSWORD: ${APP_PASSWORD:-}
       CORS_ORIGIN: ${CORS_ORIGIN:-https://domain-anda.com}
       NODE_ENV: production
@@ -142,4 +144,4 @@ networks:
     external: true
 ```
 
-NPM dan `utbk` tidak harus dalam file compose yang sama. Yang penting keduanya join ke `ferileenet`.
+NPM dan `ruas` tidak harus dalam file compose yang sama. Yang penting keduanya join ke `ferileenet`.

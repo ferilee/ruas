@@ -1,7 +1,7 @@
 # Contributing
 
-Dokumen ini menjelaskan workflow kerja lokal untuk repo `utbk2`.
-Gunakan ini bersama [RULES.md](/home/DATA/Proyek/AHE/utbk2/RULES.md:1).
+Dokumen ini menjelaskan workflow kerja lokal untuk repo `ruas2`.
+Gunakan ini bersama [RULES.md](/home/DATA/Proyek/AHE/ruas2/RULES.md:1).
 
 ---
 
@@ -97,6 +97,6 @@ Sebelum menambah fitur:
 
 Jika ragu, baca kembali:
 
-- [RULES.md](/home/DATA/Proyek/AHE/utbk2/RULES.md:1)
-- [README.md](/home/DATA/Proyek/AHE/utbk2/README.md:1)
-- [docs/RENCANA-PROFESIONALISASI.md](/home/DATA/Proyek/AHE/utbk2/docs/RENCANA-PROFESIONALISASI.md:1)
+- [RULES.md](/home/DATA/Proyek/AHE/ruas2/RULES.md:1)
+- [README.md](/home/DATA/Proyek/AHE/ruas2/README.md:1)
+- [docs/RENCANA-PROFESIONALISASI.md](/home/DATA/Proyek/AHE/ruas2/docs/RENCANA-PROFESIONALISASI.md:1)

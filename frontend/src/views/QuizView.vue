@@ -248,7 +248,7 @@ const {
   accuracy, answeredIds, cancelExit: dismissExitModal, confirmExitState, correctCount,
   currentQuestionNumber, elapsedTime, errorMessage, finalTime, finishSession, hasActiveSession,
   incorrectCount, initializeSession, isLastQuestion, nextQuestion, onSelectKeys, question,
-  questionCount, resetSession, result, retryCurrentState, selectedKeys, showExitModal,
+  questionCount, recordIntegrityEvent, resetSession, result, retryCurrentState, selectedKeys, showExitModal,
   startQuiz, state, subjectId, submitAnswer, topicLabel, totalTime, timerRunning, onTime,
 } = useQuizSession({
   getTopicId,
@@ -342,6 +342,9 @@ function handleViolation(violation: ExamViolation) {
     blocked_shortcut: 'Shortcut yang tidak diizinkan terdeteksi.',
   };
   securityMessage.value = `${messages[violation.type]} Ujian dijeda sampai kamu kembali.`;
+  void recordIntegrityEvent(violation.type, violation.occurred_at).catch(() => {
+    securityMessage.value += ' Aktivitas belum berhasil disimpan ke server.';
+  });
   showSecurityWarning.value = true;
   if (state.value === 'answering') timerRunning.value = false;
 }
@@ -377,7 +380,12 @@ async function confirmExit() {
 
   examGuard.deactivate();
   await examGuard.exitFullscreen();
-  confirmExitState();
+  try {
+    await confirmExitState();
+  } catch (error) {
+    exitError.value = error instanceof Error ? error.message : 'Sesi ujian gagal disimpan.';
+    return;
+  }
   exitPassword.value = '';
   router.push(`/topics/${subjectId.value}`);
 }

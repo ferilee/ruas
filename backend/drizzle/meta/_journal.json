@@ -22,6 +22,27 @@
       "when": 1791359209200,
       "tag": "0002_legal_unus",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1791373627254,
+      "tag": "0003_luxuriant_thing",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1791378757824,
+      "tag": "0004_free_junta",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1791429132521,
+      "tag": "0005_parched_gressill",
+      "breakpoints": true
     }
   ]
 }

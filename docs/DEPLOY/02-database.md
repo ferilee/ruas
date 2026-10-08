@@ -2,8 +2,8 @@
 
 ## MariaDB di Docker Compose
 
-Compose membuat service `mariadb` dan database `utbk_belajar` secara otomatis.
-Data disimpan di volume `utbk_mariadb_data`, sehingga tetap ada ketika
+Compose membuat service `mariadb` dan database `ruas_belajar` secara otomatis.
+Data disimpan di volume `ruas_mariadb_data`, sehingga tetap ada ketika
 container dibuat ulang. Port host default-nya `3308` agar tidak bertabrakan
 dengan MariaDB lain yang mungkin sudah memakai `3306`.
 
@@ -21,7 +21,7 @@ docker compose exec mariadb mariadb -u root -p
 
 Password root berasal dari `DB_ROOT_PASSWORD` di `.env`.
 
-Jangan menghapus volume `utbk_mariadb_data` kecuali memang ingin menghapus
+Jangan menghapus volume `ruas_mariadb_data` kecuali memang ingin menghapus
 seluruh data database.
 
 ## Validasi Seed Sebelum Deploy

@@ -1,6 +1,6 @@
 <template>
   <div :class="wrapperClasses">
-    <header v-if="!isExamRoute && !isAuthRoute && !isProfileRoute" :class="['app-header', { 'home-header': isHomeRoute || isTopicRoute }]">
+    <header v-if="!isExamRoute && !isAuthRoute && !isProfileRoute && !isAdminRoute" :class="['app-header', { 'home-header': isHomeRoute || isTopicRoute }]">
       <router-link to="/" class="app-logo">
         <span v-if="isHomeRoute || isTopicRoute" class="brand-mark" aria-hidden="true">
           <svg viewBox="0 0 48 48">
@@ -18,7 +18,7 @@
       </router-link>
       <router-link to="/admin" class="admin-link">Editor</router-link>
     </header>
-    <main :class="['app-main', { 'home-main': isHomeRoute, 'auth-main': isAuthRoute, 'profile-main-shell': isProfileRoute, 'topic-main': isTopicRoute }]">
+    <main :class="['app-main', { 'home-main': isHomeRoute, 'auth-main': isAuthRoute, 'profile-main-shell': isProfileRoute, 'topic-main': isTopicRoute, 'admin-main': isAdminRoute }]">
       <router-view />
     </main>
   </div>
@@ -34,12 +34,14 @@ const isHomeRoute = computed(() => route.name === 'home');
 const isAuthRoute = computed(() => route.name === 'auth');
 const isProfileRoute = computed(() => route.name === 'profile');
 const isTopicRoute = computed(() => route.name === 'topics');
+const isAdminRoute = computed(() => route.name === 'admin');
 const wrapperClasses = computed(() => {
   if (isExamRoute.value) return 'app-wrapper exam-wrapper';
   if (isAuthRoute.value) return 'auth-shell';
   if (isProfileRoute.value) return 'profile-shell';
   if (isHomeRoute.value) return 'home-shell';
   if (isTopicRoute.value) return 'topic-shell';
+  if (isAdminRoute.value) return 'admin-shell';
   return 'app-wrapper';
 });
 </script>
@@ -87,7 +89,19 @@ body {
   width: 100%;
 }
 
+.admin-shell {
+  min-height: 100vh;
+  width: 100%;
+  background: #f4f7fb;
+}
+
 .exam-wrapper {
+  max-width: none;
+  padding: 0;
+}
+
+.admin-main {
+  width: 100%;
   max-width: none;
   padding: 0;
 }

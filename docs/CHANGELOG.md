@@ -3,6 +3,12 @@
 > Catatan perubahan dan fitur yang sudah diimplementasikan.
 > Dari awal (Juni 2026) sampai kondisi terkini.
 
+### Manajemen Pengguna
+
+- Tabel akun `users` dengan username unik, role, status aktif, dan password hash scrypt.
+- Admin dapat menambah, mengubah, mencari, menghapus, dan mengimpor pengguna melalui `/admin`.
+- Import mendukung CSV atau JSON dengan preview dan mode tambah baru/upsert.
+
 ---
 
 ## v1.0 — Launch
@@ -10,6 +16,7 @@
 ### Backend
 
 - Hono API dengan 7 endpoint: subjects, topics (list + detail), questions (random, count, check), auth, health
+- Persistensi peserta dan ujian: profil, attempt, jawaban, hasil, dan aktivitas anti-cheat
 - Drizzle ORM + 4 tabel: subjects, topics, questions (+ `external_id`), question_options
 - Service layer (`question-service.ts`) — query terpusat
 - Validator layer (`question-validator.ts`) — Zod + validasi manual

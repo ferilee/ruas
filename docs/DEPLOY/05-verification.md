@@ -35,7 +35,7 @@ Jika `auth_enabled: true` → ambil token:
 ```bash
 TOKEN=$(curl -s https://domain-anda.com/api/auth \
   -X POST -H 'Content-Type: application/json' \
-  -d '{"password":"PASSWORD_APP_ANDA"}' | python3 -c 'import sys,json; print(json.load(sys.stdin)["token"])')
+  -d '{"username":"USERNAME_ANDA","password":"PASSWORD_APP_ANDA"}' | python3 -c 'import sys,json; print(json.load(sys.stdin)["token"])')
 
 curl https://domain-anda.com/api/subjects -H "x-auth-token: $TOKEN"
 ```

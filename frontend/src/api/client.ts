@@ -3,13 +3,21 @@ import type {
   AdminQuestionInput,
   AdminQuestionListItem,
   AdminTopic,
+  AdminUser,
+  AdminUserInput,
   AssessmentSchedule,
+  CurriculumData,
   CheckResult,
+  ExamAttempt,
+  ExamAnswerRecord,
   ImportSummary,
+  UserImportSummary,
+  ParticipantProfile,
   Question,
   Subject,
   Topic,
 } from '@/types';
+import { getParticipantClientId } from '@/lib/participant-profile';
 
 const BASE = '/api';
 
@@ -17,6 +25,7 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const token = sessionStorage.getItem('auth_token');
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) headers['x-auth-token'] = token;
+  headers['x-client-id'] = getParticipantClientId();
 
   const mergedHeaders = { ...headers, ...(options?.headers as Record<string, string>) };
   const res = await fetch(`${BASE}${url}`, { ...options, headers: mergedHeaders });
@@ -59,6 +68,23 @@ export async function fetchSubjects(): Promise<Subject[]> {
   return data.subjects;
 }
 
+export async function fetchCurriculum(): Promise<CurriculumData> {
+  return request<CurriculumData>('/curriculum');
+}
+
+export async function fetchParticipantProfile(): Promise<ParticipantProfile | null> {
+  const data = await request<{ profile: ParticipantProfile | null }>('/profile');
+  return data.profile;
+}
+
+export async function saveParticipantProfile(profile: ParticipantProfile): Promise<ParticipantProfile> {
+  const data = await request<{ profile: ParticipantProfile }>('/profile', {
+    method: 'PUT',
+    body: JSON.stringify(profile),
+  });
+  return data.profile;
+}
+
 export async function fetchAssessmentSchedule(): Promise<AssessmentSchedule> {
   const data = await request<{ schedule: AssessmentSchedule }>('/schedule');
   return data.schedule;
@@ -83,6 +109,33 @@ export async function checkAnswer(questionId: number, selectedKeys: string[]): P
     method: 'POST',
     body: JSON.stringify({ selected_keys: selectedKeys }),
   });
+}
+
+export async function createExamAttempt(input: { subject_id: number; topic_id: number; total_questions: number }): Promise<ExamAttempt> {
+  const data = await request<{ attempt: ExamAttempt }>('/exam/attempts', { method: 'POST', body: JSON.stringify(input) });
+  return data.attempt;
+}
+
+export async function fetchActiveExamAttempt(topicId: number): Promise<{ attempt: ExamAttempt | null; answers: ExamAnswerRecord[] }> {
+  return request<{ attempt: ExamAttempt | null; answers: ExamAnswerRecord[] }>(`/exam/attempts/active?topic_id=${topicId}`);
+}
+
+export async function saveExamAnswer(attemptId: number, input: { question_id: number; selected_keys: string[]; elapsed_seconds: number }): Promise<CheckResult> {
+  return request<CheckResult>(`/exam/attempts/${attemptId}/answers`, { method: 'POST', body: JSON.stringify(input) });
+}
+
+export async function saveExamIntegrityEvent(attemptId: number, eventType: string, occurredAt: string): Promise<void> {
+  await request(`/exam/attempts/${attemptId}/events`, { method: 'POST', body: JSON.stringify({ event_type: eventType, occurred_at: occurredAt }) });
+}
+
+export async function completeExamAttempt(attemptId: number): Promise<ExamAttempt> {
+  const data = await request<{ attempt: ExamAttempt }>(`/exam/attempts/${attemptId}/complete`, { method: 'POST' });
+  return data.attempt;
+}
+
+export async function abandonExamAttempt(attemptId: number): Promise<ExamAttempt> {
+  const data = await request<{ attempt: ExamAttempt }>(`/exam/attempts/${attemptId}/abandon`, { method: 'POST' });
+  return data.attempt;
 }
 
 export async function verifyExamExitPassword(password: string): Promise<void> {
@@ -143,6 +196,74 @@ export async function fetchAdminQuestion(id: number): Promise<AdminQuestion> {
 export async function fetchAdminTopics(): Promise<AdminTopic[]> {
   const data = await adminRequest<{ topics: AdminTopic[] }>('/admin/topics');
   return data.topics;
+}
+
+export async function fetchAdminUsers(search?: string): Promise<AdminUser[]> {
+  const query = search ? `?search=${encodeURIComponent(search)}` : '';
+  const data = await adminRequest<{ users: AdminUser[] }>(`/admin/users${query}`);
+  return data.users;
+}
+
+export async function createAdminUser(input: AdminUserInput): Promise<AdminUser> {
+  const data = await adminRequest<{ user: AdminUser }>('/admin/users', { method: 'POST', body: JSON.stringify(input) });
+  return data.user;
+}
+
+export async function updateAdminUser(id: number, input: AdminUserInput): Promise<AdminUser> {
+  const data = await adminRequest<{ user: AdminUser }>(`/admin/users/${id}`, { method: 'PUT', body: JSON.stringify(input) });
+  return data.user;
+}
+
+export async function deleteAdminUser(id: number): Promise<void> {
+  await adminRequest(`/admin/users/${id}`, { method: 'DELETE' });
+}
+
+export async function importAdminUsers(data: unknown, mode: 'insert' | 'upsert', dryRun: boolean): Promise<UserImportSummary> {
+  const response = await adminRequest<{ summary: UserImportSummary }>('/admin/users/import', {
+    method: 'POST',
+    body: JSON.stringify({ data, mode, dry_run: dryRun }),
+  });
+  return response.summary;
+}
+
+export type CurriculumItemInput = { slug: string; label: string; display_order: number };
+export type CurriculumSubjectInput = CurriculumItemInput & { class_id: number | null; assessment_type_id: number | null };
+
+export async function fetchAdminCurriculum(): Promise<CurriculumData> {
+  return adminRequest<CurriculumData>('/admin/curriculum');
+}
+
+async function createCurriculumItem<T>(path: string, input: CurriculumItemInput): Promise<number> {
+  const data = await adminRequest<{ id: number }>(`/admin/curriculum/${path}`, { method: 'POST', body: JSON.stringify(input) });
+  return data.id;
+}
+
+async function updateCurriculumItem(path: string, id: number, input: CurriculumItemInput): Promise<void> {
+  await adminRequest(`/admin/curriculum/${path}/${id}`, { method: 'PUT', body: JSON.stringify(input) });
+}
+
+async function deleteCurriculumItem(path: string, id: number): Promise<void> {
+  await adminRequest(`/admin/curriculum/${path}/${id}`, { method: 'DELETE' });
+}
+
+export const createAdminClass = (input: CurriculumItemInput) => createCurriculumItem('classes', input);
+export const updateAdminClass = (id: number, input: CurriculumItemInput) => updateCurriculumItem('classes', id, input);
+export const deleteAdminClass = (id: number) => deleteCurriculumItem('classes', id);
+export const createAdminAssessmentType = (input: CurriculumItemInput) => createCurriculumItem('assessment-types', input);
+export const updateAdminAssessmentType = (id: number, input: CurriculumItemInput) => updateCurriculumItem('assessment-types', id, input);
+export const deleteAdminAssessmentType = (id: number) => deleteCurriculumItem('assessment-types', id);
+
+export async function createAdminSubject(input: CurriculumSubjectInput): Promise<number> {
+  const data = await adminRequest<{ id: number }>('/admin/curriculum/subjects', { method: 'POST', body: JSON.stringify(input) });
+  return data.id;
+}
+
+export async function updateAdminSubject(id: number, input: CurriculumSubjectInput): Promise<void> {
+  await adminRequest(`/admin/curriculum/subjects/${id}`, { method: 'PUT', body: JSON.stringify(input) });
+}
+
+export async function deleteAdminSubject(id: number): Promise<void> {
+  await deleteCurriculumItem('subjects', id);
 }
 
 export async function fetchAdminSchedule(): Promise<AssessmentSchedule> {

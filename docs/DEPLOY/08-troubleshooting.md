@@ -46,7 +46,7 @@ Untuk mengubah password user aplikasi:
 
 ```bash
 docker compose exec mariadb mariadb -u root -p -e \
-  "ALTER USER 'utbk'@'%' IDENTIFIED BY 'PASSWORD_BARU'; FLUSH PRIVILEGES;"
+  "ALTER USER 'ruas'@'%' IDENTIFIED BY 'PASSWORD_BARU'; FLUSH PRIVILEGES;"
 ```
 
 ## Network `ferileenet` tidak ditemukan saat `docker compose up`
@@ -59,7 +59,7 @@ docker compose up -d
 Cek apakah container sudah join:
 
 ```bash
-docker inspect utbk | grep ferileenet
+docker inspect ruas | grep ferileenet
 ```
 
 Jika bridge Docker bermasalah, pakai host networking:
@@ -81,8 +81,9 @@ services:
       DB_PORT: "3306"
       DB_USER: root
       DB_PASSWORD: ${DB_PASSWORD:-}
-      DB_NAME: utbk_belajar
+      DB_NAME: ruas_belajar
       APP_PORT: "3000"
+      APP_USERNAME: ${APP_USERNAME:-}
       FRONTEND_PORT: "5173"
       APP_PASSWORD: ${APP_PASSWORD:-}
       NODE_ENV: production
@@ -124,5 +125,5 @@ docker compose up -d
 Cek apakah container sudah join:
 
 ```bash
-docker inspect utbk 2>/dev/null | grep ferileenet
+docker inspect ruas 2>/dev/null | grep ferileenet
 ```
