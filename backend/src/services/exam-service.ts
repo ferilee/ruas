@@ -6,13 +6,26 @@ import { examAnswers } from '@/db/schema/exam-answers';
 import { examAttempts } from '@/db/schema/exam-attempts';
 import { examIntegrityEvents } from '@/db/schema/exam-integrity-events';
 import { participantProfiles } from '@/db/schema/participant-profiles';
+import { questions } from '@/db/schema/questions';
 import type { Pool } from '@/db/connection';
 import { users } from '@/db/schema/users';
 
 type ExamDb = ReturnType<typeof drizzle>;
 
 export function createExamDb(pool: Pool) {
-  return drizzle(pool, { schema: { examAnswers, examAttempts, examIntegrityEvents, participantProfiles, subjects, topics, users }, mode: 'default' });
+  return drizzle(pool, { schema: { examAnswers, examAttempts, examIntegrityEvents, participantProfiles, questions, subjects, topics, users }, mode: 'default' });
+}
+
+export async function getQuestionExplanationMode(db: ExamDb, questionId: number) {
+  const [row] = await db
+    .select({ explanation_mode: subjects.explanation_mode })
+    .from(questions)
+    .innerJoin(topics, eq(questions.topic_id, topics.id))
+    .innerJoin(subjects, eq(topics.subject_id, subjects.id))
+    .where(eq(questions.id, questionId))
+    .limit(1);
+
+  return row?.explanation_mode ?? 'hidden';
 }
 
 async function findAssignedSubjectId(db: ExamDb, identityKey: string, profileSubjectId: number) {
@@ -95,6 +108,34 @@ export async function findAttemptAnswers(db: ExamDb, attemptId: number, identity
   const attempt = await findAttempt(db, attemptId, identityKey);
   if (!attempt) return null;
   return db.select().from(examAnswers).where(eq(examAnswers.attempt_id, attemptId)).orderBy(asc(examAnswers.id));
+}
+
+export async function getExamReview(db: ExamDb, attemptId: number, identityKey: string) {
+  const attempt = await findAttempt(db, attemptId, identityKey);
+  if (!attempt) return null;
+
+  const [subject] = await db
+    .select({ explanation_mode: subjects.explanation_mode })
+    .from(subjects)
+    .where(eq(subjects.id, attempt.subject_id))
+    .limit(1);
+  const mode = subject?.explanation_mode ?? 'hidden';
+  if (mode !== 'after_exam' || attempt.status !== 'completed') return { mode, items: [] };
+
+  const rows = await db
+    .select({
+      question_id: examAnswers.question_id,
+      question_text: questions.question_text,
+      explanation: questions.explanation_text,
+      is_correct: examAnswers.is_correct,
+      elapsed_seconds: examAnswers.elapsed_seconds,
+    })
+    .from(examAnswers)
+    .innerJoin(questions, eq(examAnswers.question_id, questions.id))
+    .where(eq(examAnswers.attempt_id, attemptId))
+    .orderBy(asc(examAnswers.id));
+
+  return { mode, items: rows };
 }
 
 export async function createAttempt(db: ExamDb, identityKey: string, input: { subject_id: number; topic_id: number; total_questions: number }) {

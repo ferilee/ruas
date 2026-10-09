@@ -13,6 +13,7 @@ import {
   createQuestionsDb,
   findQuestionAnswerKey,
   findQuestionById,
+  findQuestionExplanationMode,
   findQuestionOptions,
   findRandomQuestion,
 } from '../services/question-service';
@@ -118,8 +119,8 @@ export function questionsRoutes(pool: Pool) {
     }
 
     const result = checkAnswer(question.type as QuestionType, parsed.data.selected_keys, options);
-
-    return c.json(mapCheckAnswerResponse(question, result));
+    const explanationMode = await findQuestionExplanationMode(db, id);
+    return c.json(mapCheckAnswerResponse(question, result, explanationMode === 'after_answer' ? question.explanation_text : null, explanationMode));
   });
 
   return app;

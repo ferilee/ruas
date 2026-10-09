@@ -3,9 +3,13 @@ export interface Subject {
   slug: string;
   label: string;
   display_order: number;
+  max_attempts: number;
+  explanation_mode: ExplanationMode;
   class_id?: number | null;
   assessment_type_id?: number | null;
 }
+
+export type ExplanationMode = 'after_answer' | 'after_exam' | 'hidden';
 
 export interface CurriculumClass {
   id: number;
@@ -160,7 +164,21 @@ export interface UserImportSummary {
 export interface CheckResult {
   correct: boolean;
   correct_keys: string[];
+  explanation: string | null;
+  explanation_mode: ExplanationMode;
+}
+
+export interface ExamReviewItem {
+  question_id: number;
+  question_text: string;
   explanation: string;
+  is_correct: boolean;
+  elapsed_seconds: number;
+}
+
+export interface ExamReviewResponse {
+  mode: ExplanationMode;
+  items: ExamReviewItem[];
 }
 
 export interface ExamAttempt {
@@ -182,6 +200,14 @@ export interface ExamAttempt {
   completed_at: string | null;
 }
 
+export interface ExamAttemptAvailability {
+  max_attempts: number;
+  attempts_used: number;
+  remaining_attempts: number | null;
+  can_start: boolean;
+  has_active_attempt: boolean;
+}
+
 export interface ExamAnswerRecord {
   id: number;
   attempt_id: number;
@@ -190,4 +216,84 @@ export interface ExamAnswerRecord {
   is_correct: boolean;
   elapsed_seconds: number;
   answered_at: string;
+}
+
+export type ReportStatus = 'all' | 'in_progress' | 'completed' | 'abandoned';
+
+export interface AdminReportFilters {
+  status: ReportStatus;
+  subject_id?: number;
+  class_id?: number;
+  assessment_type_id?: number;
+  from?: string;
+  to?: string;
+  search?: string;
+}
+
+export interface AdminReportSummary {
+  total_attempts: number;
+  completed_attempts: number;
+  in_progress_attempts: number;
+  abandoned_attempts: number;
+  average_score: number;
+  average_accuracy: number;
+  average_time_seconds: number;
+  total_violations: number;
+}
+
+export interface AdminReportRow {
+  attempt_id: number;
+  participant_id: number;
+  participant_code: string;
+  participant_name: string;
+  username: string;
+  subject_id: number;
+  subject_label: string;
+  class_id: number | null;
+  class_label: string | null;
+  assessment_type_id: number | null;
+  assessment_type_label: string | null;
+  topic_id: number | null;
+  topic_label: string | null;
+  status: 'in_progress' | 'completed' | 'abandoned';
+  total_questions: number;
+  answered_questions: number;
+  correct_count: number;
+  incorrect_count: number;
+  total_time_seconds: number;
+  accuracy: number;
+  violation_count: number;
+  integrity_penalty: number;
+  final_score: number;
+  started_at: string;
+  completed_at: string | null;
+}
+
+export interface AdminReportAnswer {
+  id: number;
+  attempt_id: number;
+  question_id: number;
+  question_text: string;
+  selected_keys: string[];
+  is_correct: boolean;
+  elapsed_seconds: number;
+  answered_at: string;
+}
+
+export interface AdminReportIntegrityEvent {
+  id: number;
+  attempt_id: number;
+  event_type: string;
+  occurred_at: string;
+}
+
+export interface AdminReportDetail extends AdminReportRow {
+  answers: AdminReportAnswer[];
+  integrity_events: AdminReportIntegrityEvent[];
+}
+
+export interface AdminReportData {
+  filters: AdminReportFilters;
+  summary: AdminReportSummary;
+  rows: AdminReportRow[];
 }

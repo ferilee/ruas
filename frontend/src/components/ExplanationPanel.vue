@@ -29,14 +29,16 @@
 import { computed } from 'vue';
 import MathText from '@/components/MathText.vue';
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   correct: boolean;
   correct_keys: string[];
   explanation: string;
   elapsed_seconds: number;
   is_last?: boolean;
   showActions?: boolean;
-}>();
+}>(), {
+  showActions: true,
+});
 
 defineEmits<{
   (e: 'next'): void;

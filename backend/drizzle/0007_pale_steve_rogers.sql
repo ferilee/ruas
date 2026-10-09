@@ -1,0 +1,1 @@
+ALTER TABLE `subjects` ADD `max_attempts` int DEFAULT 1 NOT NULL;

@@ -67,6 +67,7 @@
           <label><span>Nama mata pelajaran</span><input v-model.trim="subjectForm.label" placeholder="Contoh: Penalaran Matematika" required /></label>
           <label><span>Urutan tampil</span><input v-model.number="subjectForm.display_order" type="number" min="1" placeholder="1" required /></label>
           <label><span>Jumlah attempts</span><input v-model.number="subjectForm.max_attempts" type="number" min="0" max="100" placeholder="1" title="Jumlah percobaan siswa. Isi 0 untuk tak terbatas." required /><small>0 = tanpa batas</small></label>
+          <label><span>Pembahasan siswa</span><RuasSelect v-model="subjectForm.explanation_mode" :options="explanationModeOptions" aria-label="Waktu tampil pembahasan" /></label>
           <label><span>Kelas</span><RuasSelect v-model="subjectForm.class_id" :options="classOptions" aria-label="Kelas mata pelajaran" /></label>
           <label><span>Jenis asesmen</span><RuasSelect v-model="subjectForm.assessment_type_id" :options="assessmentTypeOptions" aria-label="Jenis asesmen mata pelajaran" /></label>
           <div class="form-actions">
@@ -76,7 +77,7 @@
         </form>
         <div class="curriculum-items">
           <div v-for="item in curriculum.subjects" :key="item.id" class="curriculum-item">
-            <div><strong>{{ item.label }}</strong><small>{{ item.slug }} · {{ scopeLabel(item) }} · {{ attemptsLabel(item.max_attempts) }}</small></div>
+            <div><strong>{{ item.label }}</strong><small>{{ item.slug }} · {{ scopeLabel(item) }} · {{ attemptsLabel(item.max_attempts) }} · {{ explanationModeLabel(item.explanation_mode) }}</small></div>
             <div class="item-actions"><button type="button" @click="editSubject(item)">Edit</button><button type="button" class="delete-action" @click="removeSubject(item.id)">Hapus</button></div>
           </div>
         </div>
@@ -119,7 +120,12 @@ const mobileTabs: Array<{ value: MobileCurriculumTab; label: string }> = [
 ];
 const classForm = reactive<CurriculumItemInput>({ slug: '', label: '', display_order: 1 });
 const typeForm = reactive<CurriculumItemInput>({ slug: '', label: '', display_order: 1 });
-const subjectForm = reactive<CurriculumSubjectInput>({ slug: '', label: '', display_order: 1, max_attempts: 1, class_id: null, assessment_type_id: null });
+const subjectForm = reactive<CurriculumSubjectInput>({ slug: '', label: '', display_order: 1, max_attempts: 1, explanation_mode: 'hidden', class_id: null, assessment_type_id: null });
+const explanationModeOptions = [
+  { value: 'after_answer', label: 'Setelah menjawab' },
+  { value: 'after_exam', label: 'Setelah asesmen selesai' },
+  { value: 'hidden', label: 'Jangan tampilkan' },
+];
 const classOptions = computed(() => [{ value: null, label: 'Semua kelas' }, ...curriculum.value.classes.map((item) => ({ value: item.id, label: item.label }))]);
 const assessmentTypeOptions = computed(() => [{ value: null, label: 'Semua jenis asesmen' }, ...curriculum.value.assessment_types.map((item) => ({ value: item.id, label: item.label }))]);
 
@@ -129,7 +135,7 @@ async function loadData() { loading.value = true; try { curriculum.value = await
 function clearForm(form: CurriculumItemInput) { form.slug = ''; form.label = ''; form.display_order = 1; }
 function resetClass() { editingClassId.value = null; clearForm(classForm); mobileFormOpen.value = false; }
 function resetType() { editingTypeId.value = null; clearForm(typeForm); mobileFormOpen.value = false; }
-function resetSubject() { editingSubjectId.value = null; subjectForm.slug = ''; subjectForm.label = ''; subjectForm.display_order = 1; subjectForm.max_attempts = 1; subjectForm.class_id = null; subjectForm.assessment_type_id = null; mobileFormOpen.value = false; }
+function resetSubject() { editingSubjectId.value = null; subjectForm.slug = ''; subjectForm.label = ''; subjectForm.display_order = 1; subjectForm.max_attempts = 1; subjectForm.explanation_mode = 'hidden'; subjectForm.class_id = null; subjectForm.assessment_type_id = null; mobileFormOpen.value = false; }
 function openClassForm() { resetClass(); mobileTab.value = 'classes'; mobileFormOpen.value = true; }
 function openTypeForm() { resetType(); mobileTab.value = 'types'; mobileFormOpen.value = true; }
 function openSubjectForm() { resetSubject(); mobileTab.value = 'subjects'; mobileFormOpen.value = true; }
@@ -139,7 +145,7 @@ function closeConfirmation() { confirmOpen.value = false; pendingConfirmation.va
 async function runConfirmation() { const action = pendingConfirmation.value; closeConfirmation(); if (action) await action(); }
 function editClass(item: CurriculumClass) { editingClassId.value = item.id; Object.assign(classForm, item); mobileTab.value = 'classes'; mobileFormOpen.value = true; }
 function editType(item: AssessmentType) { editingTypeId.value = item.id; Object.assign(typeForm, item); mobileTab.value = 'types'; mobileFormOpen.value = true; }
-function editSubject(item: Subject) { editingSubjectId.value = item.id; Object.assign(subjectForm, { slug: item.slug, label: item.label, display_order: item.display_order, max_attempts: item.max_attempts ?? 1, class_id: item.class_id ?? null, assessment_type_id: item.assessment_type_id ?? null }); mobileTab.value = 'subjects'; mobileFormOpen.value = true; }
+function editSubject(item: Subject) { editingSubjectId.value = item.id; Object.assign(subjectForm, { slug: item.slug, label: item.label, display_order: item.display_order, max_attempts: item.max_attempts ?? 1, explanation_mode: item.explanation_mode ?? 'hidden', class_id: item.class_id ?? null, assessment_type_id: item.assessment_type_id ?? null }); mobileTab.value = 'subjects'; mobileFormOpen.value = true; }
 
 async function saveClass() {
   try {
@@ -176,6 +182,7 @@ function removeType(id: number) { askConfirmation('Hapus jenis asesmen?', 'Jenis
 function removeSubject(id: number) { askConfirmation('Hapus mata pelajaran?', 'Mata pelajaran beserta topik dan soal yang terkait akan dihapus. Tindakan ini tidak dapat dibatalkan.', async () => { try { await deleteAdminSubject(id); await loadData(); showSuccess('Mata pelajaran beserta topik dan soal terkait berhasil dihapus.'); } catch (error) { showError(error); } }); }
 function scopeLabel(subject: Subject) { const classLabel = curriculum.value.classes.find((item) => item.id === subject.class_id)?.label ?? 'Semua kelas'; const typeLabel = curriculum.value.assessment_types.find((item) => item.id === subject.assessment_type_id)?.label ?? 'Semua jenis'; return `${classLabel} · ${typeLabel}`; }
 function attemptsLabel(value: number) { return value === 0 ? 'Attempts tak terbatas' : `${value} attempt${value === 1 ? '' : 's'}`; }
+function explanationModeLabel(value: Subject['explanation_mode']) { return { after_answer: 'Pembahasan setelah menjawab', after_exam: 'Pembahasan setelah asesmen', hidden: 'Pembahasan disembunyikan' }[value] ?? 'Pembahasan disembunyikan'; }
 onMounted(loadData);
 </script>
 
@@ -197,7 +204,7 @@ onMounted(loadData);
 .curriculum-group h3 { color: #233d61; font-size: 1rem; }
 .mobile-curriculum-tabs, .mobile-add-btn, .mobile-form-heading { display: none; }
 .curriculum-form { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.5fr) 80px; gap: 8px; }
-.subject-group .curriculum-form { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) 80px minmax(150px, 1.15fr) minmax(0, 1fr) minmax(0, 1fr) auto; }
+.subject-group .curriculum-form { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) 80px minmax(145px, 1.1fr) minmax(170px, 1.3fr) minmax(0, 1fr) minmax(0, 1fr) auto; }
 .curriculum-form > label { display: flex; min-width: 0; flex-direction: column; align-items: stretch; gap: 5px; color: #496482; font-size: .7rem; font-weight: 700; }
 .curriculum-form > label small { color: #8292a6; font-size: .66rem; font-weight: 400; }
 .curriculum-form input, .curriculum-form select { min-width: 0; width: 100%; padding: 9px 10px; border: 1px solid #d4dde6; border-radius: 8px; background: #fff; color: #334b68; font: inherit; font-size: .82rem; font-weight: 400; }

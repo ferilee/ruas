@@ -2,25 +2,40 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useQuizSession } from '@/composables/useQuizSession';
 
 const {
-  checkAnswer,
+  abandonExamAttempt,
+  completeExamAttempt,
+  createExamAttempt,
+  fetchActiveExamAttempt,
+  fetchExamReview,
   fetchQuestionCount,
   fetchRandomQuestion,
-  fetchSubjects,
-  fetchTopics,
+  fetchTopic,
+  saveExamAnswer,
+  saveExamIntegrityEvent,
 } = vi.hoisted(() => ({
-  checkAnswer: vi.fn(),
+  abandonExamAttempt: vi.fn(),
+  completeExamAttempt: vi.fn(),
+  createExamAttempt: vi.fn(),
+  fetchActiveExamAttempt: vi.fn(),
+  fetchExamReview: vi.fn(),
   fetchQuestionCount: vi.fn(),
   fetchRandomQuestion: vi.fn(),
-  fetchSubjects: vi.fn(),
-  fetchTopics: vi.fn(),
+  fetchTopic: vi.fn(),
+  saveExamAnswer: vi.fn(),
+  saveExamIntegrityEvent: vi.fn(),
 }));
 
 vi.mock('@/api/client', () => ({
-  checkAnswer,
+  abandonExamAttempt,
+  completeExamAttempt,
+  createExamAttempt,
+  fetchActiveExamAttempt,
+  fetchExamReview,
   fetchQuestionCount,
   fetchRandomQuestion,
-  fetchSubjects,
-  fetchTopics,
+  fetchTopic,
+  saveExamAnswer,
+  saveExamIntegrityEvent,
 }));
 
 const firstQuestion = {
@@ -47,11 +62,19 @@ const secondQuestion = {
 
 describe('useQuizSession', () => {
   beforeEach(() => {
-    checkAnswer.mockReset();
+    abandonExamAttempt.mockReset();
+    completeExamAttempt.mockReset();
+    createExamAttempt.mockReset();
+    fetchActiveExamAttempt.mockReset();
+    fetchExamReview.mockReset();
     fetchQuestionCount.mockReset();
     fetchRandomQuestion.mockReset();
-    fetchSubjects.mockReset();
-    fetchTopics.mockReset();
+    fetchTopic.mockReset();
+    saveExamAnswer.mockReset();
+    saveExamIntegrityEvent.mockReset();
+    fetchActiveExamAttempt.mockResolvedValue({ attempt: null, answers: [] });
+    createExamAttempt.mockResolvedValue({ id: 501 });
+    fetchExamReview.mockResolvedValue({ mode: 'after_answer', items: [] });
   });
 
   it('initializes session from route query without extra topic lookup', async () => {
@@ -66,8 +89,7 @@ describe('useQuizSession', () => {
 
     await session.initializeSession();
 
-    expect(fetchSubjects).not.toHaveBeenCalled();
-    expect(fetchTopics).not.toHaveBeenCalled();
+    expect(fetchTopic).not.toHaveBeenCalled();
     expect(fetchQuestionCount).toHaveBeenCalledWith(11);
     expect(fetchRandomQuestion).toHaveBeenCalledWith(11, []);
     expect(session.subjectId.value).toBe(7);
@@ -80,10 +102,11 @@ describe('useQuizSession', () => {
   it('submits an answer and moves into reviewing state with summary updated', async () => {
     fetchQuestionCount.mockResolvedValue(1);
     fetchRandomQuestion.mockResolvedValue(firstQuestion);
-    checkAnswer.mockResolvedValue({
+    saveExamAnswer.mockResolvedValue({
       correct: true,
       correct_keys: ['B'],
       explanation: 'Pembahasan benar.',
+      explanation_mode: 'after_answer',
     });
 
     const session = useQuizSession({
@@ -99,12 +122,17 @@ describe('useQuizSession', () => {
     session.onTime(42);
     await session.submitAnswer();
 
-    expect(checkAnswer).toHaveBeenCalledWith(101, ['B']);
+    expect(saveExamAnswer).toHaveBeenCalledWith(501, {
+      question_id: 101,
+      selected_keys: ['B'],
+      elapsed_seconds: 42,
+    });
     expect(session.state.value).toBe('reviewing');
     expect(session.result.value).toEqual({
       correct: true,
       correct_keys: ['B'],
       explanation: 'Pembahasan benar.',
+      explanation_mode: 'after_answer',
     });
     expect(session.correctCount.value).toBe(1);
     expect(session.incorrectCount.value).toBe(0);
@@ -118,10 +146,11 @@ describe('useQuizSession', () => {
     fetchRandomQuestion
       .mockResolvedValueOnce(firstQuestion)
       .mockResolvedValueOnce(secondQuestion);
-    checkAnswer.mockResolvedValue({
+    saveExamAnswer.mockResolvedValue({
       correct: false,
       correct_keys: ['B'],
       explanation: 'Pembahasan salah.',
+      explanation_mode: 'after_answer',
     });
 
     const session = useQuizSession({

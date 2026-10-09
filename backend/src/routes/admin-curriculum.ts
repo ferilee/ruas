@@ -25,6 +25,8 @@ const itemSchema = z.object({
 });
 
 const subjectSchema = itemSchema.extend({
+  max_attempts: z.coerce.number().int().min(0).max(100).default(1),
+  explanation_mode: z.enum(['after_answer', 'after_exam', 'hidden']).default('hidden'),
   class_id: z.coerce.number().int().positive().nullable(),
   assessment_type_id: z.coerce.number().int().positive().nullable(),
 });

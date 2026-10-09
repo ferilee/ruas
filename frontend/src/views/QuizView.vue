@@ -83,6 +83,24 @@
             <small>Aktivitas ini dapat ditinjau pengawas sesuai kebijakan ujian.</small>
           </template>
         </section>
+        <section v-if="explanationMode" class="exam-review-result" aria-labelledby="review-title">
+          <div class="review-heading">
+            <div>
+              <span class="state-kicker">PEMBAHASAN</span>
+              <h3 id="review-title">Review jawaban</h3>
+            </div>
+            <span v-if="examReview.length" class="review-count">{{ examReview.length }} soal</span>
+          </div>
+          <p v-if="explanationMode === 'hidden'" class="review-note">Pembahasan disembunyikan oleh admin untuk asesmen ini.</p>
+          <p v-else-if="explanationMode === 'after_answer'" class="review-note">Pembahasan telah ditampilkan setelah setiap jawaban.</p>
+          <template v-else-if="examReview.length">
+            <article v-for="item in examReview" :key="item.question_id" class="review-item">
+              <div class="review-item-heading"><strong>Soal #{{ item.question_id }}</strong><span :class="item.is_correct ? 'review-correct' : 'review-incorrect'">{{ item.is_correct ? 'Benar' : 'Salah' }}</span></div>
+              <MathText :text="item.question_text" />
+              <div class="review-explanation"><strong>Pembahasan</strong><MathText :text="item.explanation" /></div>
+            </article>
+          </template>
+        </section>
         <router-link :to="`/topics/${subjectId}`" class="primary-exam-button">Pilih Ujian Lain</router-link>
       </div>
 
@@ -126,14 +144,17 @@
               />
 
               <ExplanationPanel
-                v-if="state === 'reviewing' && result"
+                v-if="state === 'reviewing' && result && result.explanation"
                 :correct="result.correct"
                 :correct_keys="result.correct_keys"
-                :explanation="result.explanation"
+                :explanation="result.explanation || ''"
                 :elapsed_seconds="finalTime"
                 :is_last="isLastQuestion"
                 :show-actions="false"
               />
+              <div v-else-if="state === 'reviewing' && result" class="explanation-unavailable">
+                {{ result.explanation_mode === 'after_exam' ? 'Pembahasan akan ditampilkan setelah asesmen selesai.' : 'Pembahasan disembunyikan oleh admin.' }}
+              </div>
             </div>
           </section>
         </div>
@@ -245,8 +266,8 @@ const examPageRef = ref<HTMLElement | null>(null);
 function getTopicId(): number { return Number(route.params.id); }
 
 const {
-  accuracy, answeredIds, cancelExit: dismissExitModal, confirmExitState, correctCount,
-  currentQuestionNumber, elapsedTime, errorMessage, finalTime, finishSession, hasActiveSession,
+  accuracy, cancelExit: dismissExitModal, confirmExitState, correctCount,
+  currentQuestionNumber, elapsedTime, errorMessage, examReview, explanationMode, finalTime, finishSession, hasActiveSession,
   incorrectCount, initializeSession, isLastQuestion, nextQuestion, onSelectKeys, question,
   questionCount, recordIntegrityEvent, resetSession, result, retryCurrentState, selectedKeys, showExitModal,
   startQuiz, state, subjectId, submitAnswer, topicLabel, totalTime, timerRunning, onTime,
@@ -476,6 +497,18 @@ onMounted(() => { initializeSession(); });
 .integrity-result p { margin-top: 5px; max-width: none; font-size: .78rem; line-height: 1.5; }
 .integrity-result ul { margin: 8px 0 4px 18px; font-size: .78rem; line-height: 1.6; }
 .integrity-result small { display: block; margin-top: 7px; font-size: .72rem; }
+.exam-review-result { width: min(760px, 100%); margin: 10px 0 16px; padding: 18px; border: 1px solid #d5e3f1; border-radius: 14px; color: #345577; background: #f8fbff; text-align: left; }
+.review-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.review-heading h3 { margin-top: 3px; color: #173e7f; font-size: 1.05rem; }
+.review-count { color: #6d88aa; font-size: .75rem; font-weight: 700; }
+.review-note { color: #66809e; font-size: .8rem; }
+.review-item { margin-top: 11px; padding: 14px; border: 1px solid #dce8f5; border-radius: 11px; background: #fff; font-size: .82rem; line-height: 1.55; }
+.review-item-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; color: #294e7d; }
+.review-correct, .review-incorrect { font-size: .7rem; font-weight: 800; }
+.review-correct { color: #25815f; }.review-incorrect { color: #c1604e; }
+.review-explanation { margin-top: 11px; padding: 10px 12px; border-radius: 9px; color: #4b6785; background: #f1f7ff; }
+.review-explanation strong { display: block; margin-bottom: 4px; color: #245da5; font-size: .75rem; }
+.explanation-unavailable { margin-top: 14px; padding: 12px; border: 1px dashed #bdd2e8; border-radius: 10px; color: #66809e; background: #f7fbff; font-size: .8rem; }
 .error-card h2 { color: #b33d45; }
 .exam-modal-backdrop { position: fixed; inset: 0; z-index: 20; padding: 20px; display: grid; place-items: center; background: rgba(24, 45, 65, .42); }
 .exam-modal { position: relative; width: min(520px, 100%); padding: 30px; border-radius: 14px; background: #fff; box-shadow: 0 18px 50px rgba(24, 45, 65, .22); }

@@ -88,6 +88,18 @@ export async function findQuestionById(db: QuestionsDb, questionId: number) {
   return question ?? null;
 }
 
+export async function findQuestionExplanationMode(db: QuestionsDb, questionId: number) {
+  const [row] = await db
+    .select({ explanation_mode: schema.subjects.explanation_mode })
+    .from(questions)
+    .innerJoin(schema.topics, eq(questions.topic_id, schema.topics.id))
+    .innerJoin(schema.subjects, eq(schema.topics.subject_id, schema.subjects.id))
+    .where(eq(questions.id, questionId))
+    .limit(1);
+
+  return row?.explanation_mode ?? 'hidden';
+}
+
 export async function findQuestionAnswerKey(
   db: QuestionsDb,
   questionId: number,

@@ -4,13 +4,14 @@ import {
   completeExamAttempt,
   createExamAttempt,
   fetchActiveExamAttempt,
+  fetchExamReview,
   fetchQuestionCount,
   fetchRandomQuestion,
   fetchTopic,
   saveExamAnswer,
   saveExamIntegrityEvent,
 } from '@/api/client';
-import type { CheckResult, ExamAttempt, Question } from '@/types';
+import type { CheckResult, ExamAttempt, ExamReviewItem, ExplanationMode, Question } from '@/types';
 
 export type QuizState = 'loading' | 'ready' | 'answering' | 'reviewing' | 'resume' | 'error';
 
@@ -43,6 +44,8 @@ export function useQuizSession(options: UseQuizSessionOptions) {
   const showExitModal = ref(false);
   const attemptId = ref<number | null>(null);
   const persistedAttempt = ref<ExamAttempt | null>(null);
+  const examReview = ref<ExamReviewItem[]>([]);
+  const explanationMode = ref<ExplanationMode | null>(null);
 
   const currentQuestionNumber = computed(() => {
     if (state.value === 'reviewing') return answeredIds.value.size;
@@ -189,6 +192,13 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     if (attemptId.value) {
       try {
         persistedAttempt.value = await completeExamAttempt(attemptId.value);
+        try {
+          const review = await fetchExamReview(attemptId.value);
+          explanationMode.value = review.mode;
+          examReview.value = review.items;
+        } catch {
+          examReview.value = [];
+        }
       } catch (error) {
         errorMessage.value = error instanceof Error ? error.message : 'Hasil ujian gagal disimpan.';
         state.value = 'error';
@@ -204,6 +214,8 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     autoStart.value = false;
     attemptId.value = null;
     persistedAttempt.value = null;
+    examReview.value = [];
+    explanationMode.value = null;
   }
 
   function cancelExit() {
@@ -256,7 +268,9 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     correctCount,
     currentQuestionNumber,
     elapsedTime,
+    examReview,
     errorMessage,
+    explanationMode,
     finalTime,
     finishSession,
     hasActiveSession,

@@ -1,0 +1,1 @@
+ALTER TABLE `subjects` ADD `explanation_mode` enum('after_answer','after_exam','hidden') DEFAULT 'hidden' NOT NULL;

@@ -7,7 +7,7 @@ import type { Pool } from '@/db/connection';
 import { getParticipantIdentity } from '@/lib/participant-identity';
 import { checkAnswer } from '@/lib/scoring';
 import { mapCheckAnswerResponse } from '@/mappers/question-response';
-import { createExamDb, abandonAttempt, completeAttempt, createAttempt, findActiveAttempt, findAttempt, findAttemptAnswers, getAttemptAvailability, saveAnswer, saveIntegrityEvent } from '@/services/exam-service';
+import { createExamDb, abandonAttempt, completeAttempt, createAttempt, findActiveAttempt, findAttempt, findAttemptAnswers, getAttemptAvailability, getExamReview, getQuestionExplanationMode, saveAnswer, saveIntegrityEvent } from '@/services/exam-service';
 
 const attemptSchema = z.object({ subject_id: z.coerce.number().int().positive(), topic_id: z.coerce.number().int().positive(), total_questions: z.coerce.number().int().nonnegative() });
 const answerSchema = z.object({ question_id: z.coerce.number().int().positive(), selected_keys: z.array(z.string().min(1)).min(1), elapsed_seconds: z.coerce.number().int().nonnegative() });
@@ -66,7 +66,17 @@ export function examAttemptRoutes(pool: Pool) {
     const options = storedOptions.map((option) => ({ key: option.option_key, text: option.option_text, is_correct: option.is_correct }));
     const result = checkAnswer(question.type, parsed.data.selected_keys, options);
     await saveAnswer(db, attemptId, { ...parsed.data, is_correct: result.correct });
-    return c.json(mapCheckAnswerResponse(question, result));
+    const explanationMode = await getQuestionExplanationMode(db, question.id);
+    return c.json(mapCheckAnswerResponse(question, result, explanationMode === 'after_answer' ? question.explanation_text : null, explanationMode));
+  });
+
+  app.get('/:id/review', async (c) => {
+    const identityKey = getParticipantIdentity(c);
+    const attemptId = parseId(c.req.param('id'));
+    if (!identityKey || !attemptId) return c.json({ error: 'invalid_param', message: 'Sesi ujian tidak valid.' }, 400);
+    const review = await getExamReview(db, attemptId, identityKey);
+    if (!review) return c.json({ error: 'not_found', message: 'Sesi ujian tidak ditemukan.' }, 404);
+    return c.json(review);
   });
 
   app.post('/:id/events', async (c) => {

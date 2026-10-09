@@ -5,11 +5,16 @@ import type {
   AdminTopic,
   AdminUser,
   AdminUserInput,
+  AdminReportData,
+  AdminReportDetail,
+  AdminReportFilters,
   AssessmentSchedule,
   CurriculumData,
   CheckResult,
   ExamAttempt,
+  ExamAttemptAvailability,
   ExamAnswerRecord,
+  ExamReviewResponse,
   ImportSummary,
   UserImportSummary,
   ParticipantProfile,
@@ -121,6 +126,11 @@ export async function fetchActiveExamAttempt(topicId: number): Promise<{ attempt
   return request<{ attempt: ExamAttempt | null; answers: ExamAnswerRecord[] }>(`/exam/attempts/active?topic_id=${topicId}`);
 }
 
+export async function fetchExamAttemptAvailability(subjectId: number, topicId: number): Promise<ExamAttemptAvailability | null> {
+  const data = await request<{ availability: ExamAttemptAvailability | null }>(`/exam/attempts/availability?subject_id=${subjectId}&topic_id=${topicId}`);
+  return data.availability;
+}
+
 export async function saveExamAnswer(attemptId: number, input: { question_id: number; selected_keys: string[]; elapsed_seconds: number }): Promise<CheckResult> {
   return request<CheckResult>(`/exam/attempts/${attemptId}/answers`, { method: 'POST', body: JSON.stringify(input) });
 }
@@ -132,6 +142,10 @@ export async function saveExamIntegrityEvent(attemptId: number, eventType: strin
 export async function completeExamAttempt(attemptId: number): Promise<ExamAttempt> {
   const data = await request<{ attempt: ExamAttempt }>(`/exam/attempts/${attemptId}/complete`, { method: 'POST' });
   return data.attempt;
+}
+
+export async function fetchExamReview(attemptId: number): Promise<ExamReviewResponse> {
+  return request<ExamReviewResponse>(`/exam/attempts/${attemptId}/review`);
 }
 
 export async function abandonExamAttempt(attemptId: number): Promise<ExamAttempt> {
@@ -228,13 +242,13 @@ export async function importAdminUsers(data: unknown, mode: 'insert' | 'upsert',
 }
 
 export type CurriculumItemInput = { slug: string; label: string; display_order: number };
-export type CurriculumSubjectInput = CurriculumItemInput & { class_id: number | null; assessment_type_id: number | null };
+export type CurriculumSubjectInput = CurriculumItemInput & { class_id: number | null; assessment_type_id: number | null; max_attempts: number; explanation_mode: Subject['explanation_mode'] };
 
 export async function fetchAdminCurriculum(): Promise<CurriculumData> {
   return adminRequest<CurriculumData>('/admin/curriculum');
 }
 
-async function createCurriculumItem<T>(path: string, input: CurriculumItemInput): Promise<number> {
+async function createCurriculumItem(path: string, input: CurriculumItemInput): Promise<number> {
   const data = await adminRequest<{ id: number }>(`/admin/curriculum/${path}`, { method: 'POST', body: JSON.stringify(input) });
   return data.id;
 }
@@ -270,6 +284,20 @@ export async function deleteAdminSubject(id: number): Promise<void> {
 export async function fetchAdminSchedule(): Promise<AssessmentSchedule> {
   const data = await adminRequest<{ schedule: AssessmentSchedule }>('/admin/schedule');
   return data.schedule;
+}
+
+export async function fetchAdminReport(filters: AdminReportFilters): Promise<AdminReportData> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    if (value !== undefined && value !== null && value !== '') params.set(key, String(value));
+  }
+  const query = params.toString();
+  return adminRequest<AdminReportData>(`/admin/reports${query ? `?${query}` : ''}`);
+}
+
+export async function fetchAdminReportDetail(attemptId: number): Promise<AdminReportDetail> {
+  const data = await adminRequest<{ report: AdminReportDetail }>(`/admin/reports/${attemptId}`);
+  return data.report;
 }
 
 export async function updateAdminSchedule(startAt: string | null): Promise<AssessmentSchedule> {

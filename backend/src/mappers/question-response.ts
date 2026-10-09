@@ -43,10 +43,16 @@ export function mapEmptyRandomQuestionResponse() {
   };
 }
 
-export function mapCheckAnswerResponse(question: CheckQuestionRow, result: CheckAnswerResult) {
+export function mapCheckAnswerResponse(
+  question: CheckQuestionRow,
+  result: CheckAnswerResult,
+  explanation: string | null = question.explanation_text,
+  explanationMode: 'after_answer' | 'after_exam' | 'hidden' = 'after_answer',
+) {
   return {
     correct: result.correct,
     correct_keys: result.correct_keys,
-    explanation: question.explanation_text,
+    explanation,
+    explanation_mode: explanationMode,
   };
 }
