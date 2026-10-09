@@ -29,30 +29,17 @@
         <template v-else>
           <label class="select-field">
             <span class="field-label"><span class="field-icon">◆</span> Kelas:</span>
-            <select v-model="selectedClassId" :disabled="curriculumLoading || curriculum.classes.length === 0" aria-label="Kelas">
-              <option value="" disabled>Pilih kelas...</option>
-              <option v-for="item in curriculum.classes" :key="item.id" :value="item.id">{{ item.label }}</option>
-            </select>
+            <RuasSelect v-model="selectedClassId" :options="classOptions" :disabled="curriculumLoading || curriculum.classes.length === 0" placeholder="Pilih kelas..." aria-label="Kelas" />
           </label>
 
           <label class="select-field">
             <span class="field-label"><span class="field-icon">▣</span> Jenis Asesmen:</span>
-            <select v-model="selectedAssessmentTypeId" :disabled="curriculumLoading || curriculum.assessment_types.length === 0" aria-label="Jenis asesmen">
-              <option value="" disabled>Pilih jenis asesmen...</option>
-              <option v-for="item in curriculum.assessment_types" :key="item.id" :value="item.id">{{ item.label }}</option>
-            </select>
+            <RuasSelect v-model="selectedAssessmentTypeId" :options="assessmentTypeOptions" :disabled="curriculumLoading || curriculum.assessment_types.length === 0" placeholder="Pilih jenis asesmen..." aria-label="Jenis asesmen" />
           </label>
 
           <label class="select-field">
             <span class="field-label"><span class="field-icon">▤</span> Mata Pelajaran:</span>
-            <select v-model="selectedSubjectId" :disabled="curriculumLoading || filteredSubjects.length === 0" aria-label="Mata pelajaran">
-              <option value="" disabled>
-                {{ curriculumLoading ? 'Memuat mata pelajaran...' : 'Pilih mata pelajaran...' }}
-              </option>
-              <option v-for="subject in filteredSubjects" :key="subject.id" :value="subject.id">
-                {{ subject.label }}
-              </option>
-            </select>
+            <RuasSelect v-model="selectedSubjectId" :options="subjectOptions" :disabled="curriculumLoading || filteredSubjects.length === 0" :placeholder="curriculumLoading ? 'Memuat mata pelajaran...' : 'Pilih mata pelajaran...'" aria-label="Mata pelajaran" />
           </label>
         </template>
 
@@ -83,6 +70,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { fetchAssessmentSchedule, fetchCurriculum, fetchParticipantProfile } from '@/api/client';
+import RuasSelect from '@/components/RuasSelect.vue';
 import type { AssessmentSchedule, CurriculumData, ParticipantProfile } from '@/types';
 
 const router = useRouter();
@@ -101,11 +89,14 @@ const scheduleRemainingSeconds = ref(0);
 let scheduleTimer: ReturnType<typeof setInterval> | undefined;
 
 const canStart = computed(() => schedule.value?.is_open === true && scheduleRemainingSeconds.value === 0);
+const classOptions = computed(() => curriculum.value.classes.map((item) => ({ value: item.id, label: item.label })));
+const assessmentTypeOptions = computed(() => curriculum.value.assessment_types.map((item) => ({ value: item.id, label: item.label })));
 const filteredSubjects = computed(() => curriculum.value.subjects.filter((subject) => {
   const classMatches = subject.class_id == null || subject.class_id === Number(selectedClassId.value);
   const typeMatches = subject.assessment_type_id == null || subject.assessment_type_id === Number(selectedAssessmentTypeId.value);
   return classMatches && typeMatches;
 }));
+const subjectOptions = computed(() => filteredSubjects.value.map((subject) => ({ value: subject.id, label: subject.label })));
 
 async function loadCurriculum() {
   curriculumLoading.value = true;

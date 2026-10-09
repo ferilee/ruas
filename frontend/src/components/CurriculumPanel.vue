@@ -1,5 +1,6 @@
 <template>
   <section class="curriculum-panel panel">
+    <ConfirmDialog :open="confirmOpen" :title="confirmTitle" :message="confirmMessage" confirm-label="Hapus" @confirm="runConfirmation" @cancel="closeConfirmation" />
     <div class="curriculum-heading">
       <div>
         <h2>Kurikulum</h2>
@@ -12,13 +13,19 @@
     <p v-if="successMessage" class="success-text">{{ successMessage }}</p>
     <div v-if="loading" class="curriculum-loading">Memuat kurikulum...</div>
 
-    <div v-else class="curriculum-grid">
-      <section class="curriculum-group">
-        <h3>Kelas</h3>
+    <div v-else>
+      <div class="mobile-curriculum-tabs" role="tablist" aria-label="Kategori kurikulum">
+        <button v-for="tab in mobileTabs" :key="tab.value" type="button" role="tab" :aria-selected="mobileTab === tab.value" :class="['mobile-curriculum-tab', { active: mobileTab === tab.value }]" @click="mobileTab = tab.value">{{ tab.label }}</button>
+      </div>
+
+      <div class="curriculum-grid">
+      <section :class="['curriculum-group', { 'mobile-active': mobileTab === 'classes', 'mobile-form-open': mobileFormOpen && mobileTab === 'classes' }]">
+        <div class="curriculum-group-heading"><h3>Kelas</h3><button class="mobile-add-btn" type="button" @click="openClassForm">＋ Tambah</button></div>
         <form class="curriculum-form" @submit.prevent="saveClass">
-          <input v-model.trim="classForm.slug" placeholder="Slug, contoh: kelas-12" required />
-          <input v-model.trim="classForm.label" placeholder="Nama kelas" required />
-          <input v-model.number="classForm.display_order" type="number" min="1" placeholder="Urutan" required />
+          <div class="mobile-form-heading"><strong>{{ editingClassId ? 'Edit kelas' : 'Tambah kelas' }}</strong><button type="button" aria-label="Tutup form kelas" @click="closeMobileForm">×</button></div>
+          <label><span>Slug</span><input v-model.trim="classForm.slug" placeholder="Contoh: kelas-12" required /></label>
+          <label><span>Nama kelas</span><input v-model.trim="classForm.label" placeholder="Contoh: Kelas 12" required /></label>
+          <label><span>Urutan tampil</span><input v-model.number="classForm.display_order" type="number" min="1" placeholder="1" required /></label>
           <div class="form-actions">
             <button class="primary-btn" type="submit">{{ editingClassId ? 'Perbarui' : 'Tambah' }}</button>
             <button v-if="editingClassId" class="secondary-btn" type="button" @click="resetClass">Batal</button>
@@ -32,12 +39,13 @@
         </div>
       </section>
 
-      <section class="curriculum-group">
-        <h3>Jenis Asesmen</h3>
+      <section :class="['curriculum-group', { 'mobile-active': mobileTab === 'types', 'mobile-form-open': mobileFormOpen && mobileTab === 'types' }]">
+        <div class="curriculum-group-heading"><h3>Jenis Asesmen</h3><button class="mobile-add-btn" type="button" @click="openTypeForm">＋ Tambah</button></div>
         <form class="curriculum-form" @submit.prevent="saveAssessmentType">
-          <input v-model.trim="typeForm.slug" placeholder="Slug, contoh: asesmen-ruas" required />
-          <input v-model.trim="typeForm.label" placeholder="Nama jenis asesmen" required />
-          <input v-model.number="typeForm.display_order" type="number" min="1" placeholder="Urutan" required />
+          <div class="mobile-form-heading"><strong>{{ editingTypeId ? 'Edit jenis asesmen' : 'Tambah jenis asesmen' }}</strong><button type="button" aria-label="Tutup form jenis asesmen" @click="closeMobileForm">×</button></div>
+          <label><span>Slug</span><input v-model.trim="typeForm.slug" placeholder="Contoh: asesmen-ruas" required /></label>
+          <label><span>Nama jenis asesmen</span><input v-model.trim="typeForm.label" placeholder="Contoh: Asesmen RUAS" required /></label>
+          <label><span>Urutan tampil</span><input v-model.number="typeForm.display_order" type="number" min="1" placeholder="1" required /></label>
           <div class="form-actions">
             <button class="primary-btn" type="submit">{{ editingTypeId ? 'Perbarui' : 'Tambah' }}</button>
             <button v-if="editingTypeId" class="secondary-btn" type="button" @click="resetType">Batal</button>
@@ -51,20 +59,16 @@
         </div>
       </section>
 
-      <section class="curriculum-group subject-group">
-        <h3>Mata Pelajaran</h3>
+      <section :class="['curriculum-group', 'subject-group', { 'mobile-active': mobileTab === 'subjects', 'mobile-form-open': mobileFormOpen && mobileTab === 'subjects' }]">
+        <div class="curriculum-group-heading"><h3>Mata Pelajaran</h3><button class="mobile-add-btn" type="button" @click="openSubjectForm">＋ Tambah</button></div>
         <form class="curriculum-form" @submit.prevent="saveSubject">
-          <input v-model.trim="subjectForm.slug" placeholder="Slug, contoh: matematika" required />
-          <input v-model.trim="subjectForm.label" placeholder="Nama mata pelajaran" required />
-          <input v-model.number="subjectForm.display_order" type="number" min="1" placeholder="Urutan" required />
-          <select v-model="subjectForm.class_id" aria-label="Kelas mata pelajaran">
-            <option value="">Semua kelas</option>
-            <option v-for="item in curriculum.classes" :key="item.id" :value="String(item.id)">{{ item.label }}</option>
-          </select>
-          <select v-model="subjectForm.assessment_type_id" aria-label="Jenis asesmen mata pelajaran">
-            <option value="">Semua jenis asesmen</option>
-            <option v-for="item in curriculum.assessment_types" :key="item.id" :value="String(item.id)">{{ item.label }}</option>
-          </select>
+          <div class="mobile-form-heading"><strong>{{ editingSubjectId ? 'Edit mata pelajaran' : 'Tambah mata pelajaran' }}</strong><button type="button" aria-label="Tutup form mata pelajaran" @click="closeMobileForm">×</button></div>
+          <label><span>Slug</span><input v-model.trim="subjectForm.slug" placeholder="Contoh: matematika" required /></label>
+          <label><span>Nama mata pelajaran</span><input v-model.trim="subjectForm.label" placeholder="Contoh: Penalaran Matematika" required /></label>
+          <label><span>Urutan tampil</span><input v-model.number="subjectForm.display_order" type="number" min="1" placeholder="1" required /></label>
+          <label><span>Jumlah attempts</span><input v-model.number="subjectForm.max_attempts" type="number" min="0" max="100" placeholder="1" title="Jumlah percobaan siswa. Isi 0 untuk tak terbatas." required /><small>0 = tanpa batas</small></label>
+          <label><span>Kelas</span><RuasSelect v-model="subjectForm.class_id" :options="classOptions" aria-label="Kelas mata pelajaran" /></label>
+          <label><span>Jenis asesmen</span><RuasSelect v-model="subjectForm.assessment_type_id" :options="assessmentTypeOptions" aria-label="Jenis asesmen mata pelajaran" /></label>
           <div class="form-actions">
             <button class="primary-btn" type="submit">{{ editingSubjectId ? 'Perbarui' : 'Tambah' }}</button>
             <button v-if="editingSubjectId" class="secondary-btn" type="button" @click="resetSubject">Batal</button>
@@ -72,17 +76,20 @@
         </form>
         <div class="curriculum-items">
           <div v-for="item in curriculum.subjects" :key="item.id" class="curriculum-item">
-            <div><strong>{{ item.label }}</strong><small>{{ item.slug }} · {{ scopeLabel(item) }}</small></div>
+            <div><strong>{{ item.label }}</strong><small>{{ item.slug }} · {{ scopeLabel(item) }} · {{ attemptsLabel(item.max_attempts) }}</small></div>
             <div class="item-actions"><button type="button" @click="editSubject(item)">Edit</button><button type="button" class="delete-action" @click="removeSubject(item.id)">Hapus</button></div>
           </div>
         </div>
       </section>
     </div>
+    </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
+import ConfirmDialog from '@/components/ConfirmDialog.vue';
+import RuasSelect from '@/components/RuasSelect.vue';
 import {
   createAdminAssessmentType, createAdminClass, createAdminSubject,
   deleteAdminAssessmentType, deleteAdminClass, deleteAdminSubject,
@@ -98,28 +105,77 @@ const successMessage = ref('');
 const editingClassId = ref<number | null>(null);
 const editingTypeId = ref<number | null>(null);
 const editingSubjectId = ref<number | null>(null);
+type MobileCurriculumTab = 'classes' | 'types' | 'subjects';
+const mobileTab = ref<MobileCurriculumTab>('subjects');
+const mobileFormOpen = ref(false);
+const confirmOpen = ref(false);
+const confirmTitle = ref('Konfirmasi tindakan');
+const confirmMessage = ref('Apakah kamu yakin ingin melanjutkan?');
+const pendingConfirmation = ref<(() => Promise<void>) | null>(null);
+const mobileTabs: Array<{ value: MobileCurriculumTab; label: string }> = [
+  { value: 'classes', label: 'Kelas' },
+  { value: 'types', label: 'Jenis Asesmen' },
+  { value: 'subjects', label: 'Mata Pelajaran' },
+];
 const classForm = reactive<CurriculumItemInput>({ slug: '', label: '', display_order: 1 });
 const typeForm = reactive<CurriculumItemInput>({ slug: '', label: '', display_order: 1 });
-const subjectForm = reactive<CurriculumSubjectInput>({ slug: '', label: '', display_order: 1, class_id: null, assessment_type_id: null });
+const subjectForm = reactive<CurriculumSubjectInput>({ slug: '', label: '', display_order: 1, max_attempts: 1, class_id: null, assessment_type_id: null });
+const classOptions = computed(() => [{ value: null, label: 'Semua kelas' }, ...curriculum.value.classes.map((item) => ({ value: item.id, label: item.label }))]);
+const assessmentTypeOptions = computed(() => [{ value: null, label: 'Semua jenis asesmen' }, ...curriculum.value.assessment_types.map((item) => ({ value: item.id, label: item.label }))]);
 
 function showError(error: unknown) { errorMessage.value = error instanceof Error ? error.message : 'Gagal memproses kurikulum.'; successMessage.value = ''; }
 function showSuccess(message: string) { successMessage.value = message; errorMessage.value = ''; }
 async function loadData() { loading.value = true; try { curriculum.value = await fetchAdminCurriculum(); } catch (error) { showError(error); } finally { loading.value = false; } }
 function clearForm(form: CurriculumItemInput) { form.slug = ''; form.label = ''; form.display_order = 1; }
-function resetClass() { editingClassId.value = null; clearForm(classForm); }
-function resetType() { editingTypeId.value = null; clearForm(typeForm); }
-function resetSubject() { editingSubjectId.value = null; subjectForm.slug = ''; subjectForm.label = ''; subjectForm.display_order = 1; subjectForm.class_id = null; subjectForm.assessment_type_id = null; }
-function editClass(item: CurriculumClass) { editingClassId.value = item.id; Object.assign(classForm, item); }
-function editType(item: AssessmentType) { editingTypeId.value = item.id; Object.assign(typeForm, item); }
-function editSubject(item: Subject) { editingSubjectId.value = item.id; Object.assign(subjectForm, { slug: item.slug, label: item.label, display_order: item.display_order, class_id: item.class_id ?? null, assessment_type_id: item.assessment_type_id ?? null }); }
+function resetClass() { editingClassId.value = null; clearForm(classForm); mobileFormOpen.value = false; }
+function resetType() { editingTypeId.value = null; clearForm(typeForm); mobileFormOpen.value = false; }
+function resetSubject() { editingSubjectId.value = null; subjectForm.slug = ''; subjectForm.label = ''; subjectForm.display_order = 1; subjectForm.max_attempts = 1; subjectForm.class_id = null; subjectForm.assessment_type_id = null; mobileFormOpen.value = false; }
+function openClassForm() { resetClass(); mobileTab.value = 'classes'; mobileFormOpen.value = true; }
+function openTypeForm() { resetType(); mobileTab.value = 'types'; mobileFormOpen.value = true; }
+function openSubjectForm() { resetSubject(); mobileTab.value = 'subjects'; mobileFormOpen.value = true; }
+function closeMobileForm() { mobileFormOpen.value = false; }
+function askConfirmation(title: string, message: string, action: () => Promise<void>) { confirmTitle.value = title; confirmMessage.value = message; pendingConfirmation.value = action; confirmOpen.value = true; }
+function closeConfirmation() { confirmOpen.value = false; pendingConfirmation.value = null; }
+async function runConfirmation() { const action = pendingConfirmation.value; closeConfirmation(); if (action) await action(); }
+function editClass(item: CurriculumClass) { editingClassId.value = item.id; Object.assign(classForm, item); mobileTab.value = 'classes'; mobileFormOpen.value = true; }
+function editType(item: AssessmentType) { editingTypeId.value = item.id; Object.assign(typeForm, item); mobileTab.value = 'types'; mobileFormOpen.value = true; }
+function editSubject(item: Subject) { editingSubjectId.value = item.id; Object.assign(subjectForm, { slug: item.slug, label: item.label, display_order: item.display_order, max_attempts: item.max_attempts ?? 1, class_id: item.class_id ?? null, assessment_type_id: item.assessment_type_id ?? null }); mobileTab.value = 'subjects'; mobileFormOpen.value = true; }
 
-async function saveClass() { try { editingClassId.value ? await updateAdminClass(editingClassId.value, classForm) : await createAdminClass(classForm); resetClass(); await loadData(); showSuccess('Kelas berhasil disimpan.'); } catch (error) { showError(error); } }
-async function saveAssessmentType() { try { editingTypeId.value ? await updateAdminAssessmentType(editingTypeId.value, typeForm) : await createAdminAssessmentType(typeForm); resetType(); await loadData(); showSuccess('Jenis asesmen berhasil disimpan.'); } catch (error) { showError(error); } }
-async function saveSubject() { const input = { ...subjectForm, class_id: subjectForm.class_id ? Number(subjectForm.class_id) : null, assessment_type_id: subjectForm.assessment_type_id ? Number(subjectForm.assessment_type_id) : null }; try { editingSubjectId.value ? await updateAdminSubject(editingSubjectId.value, input) : await createAdminSubject(input); resetSubject(); await loadData(); showSuccess('Mata pelajaran berhasil disimpan.'); } catch (error) { showError(error); } }
-async function removeClass(id: number) { if (!window.confirm('Hapus kelas ini?')) return; try { await deleteAdminClass(id); await loadData(); showSuccess('Kelas berhasil dihapus.'); } catch (error) { showError(error); } }
-async function removeType(id: number) { if (!window.confirm('Hapus jenis asesmen ini?')) return; try { await deleteAdminAssessmentType(id); await loadData(); showSuccess('Jenis asesmen berhasil dihapus.'); } catch (error) { showError(error); } }
-async function removeSubject(id: number) { if (!window.confirm('Hapus mata pelajaran ini beserta topik dan soal yang terkait? Tindakan ini tidak dapat dibatalkan.')) return; try { await deleteAdminSubject(id); await loadData(); showSuccess('Mata pelajaran beserta topik dan soal terkait berhasil dihapus.'); } catch (error) { showError(error); } }
+async function saveClass() {
+  try {
+    if (editingClassId.value) await updateAdminClass(editingClassId.value, classForm);
+    else await createAdminClass(classForm);
+    resetClass();
+    await loadData();
+    showSuccess('Kelas berhasil disimpan.');
+  } catch (error) { showError(error); }
+}
+
+async function saveAssessmentType() {
+  try {
+    if (editingTypeId.value) await updateAdminAssessmentType(editingTypeId.value, typeForm);
+    else await createAdminAssessmentType(typeForm);
+    resetType();
+    await loadData();
+    showSuccess('Jenis asesmen berhasil disimpan.');
+  } catch (error) { showError(error); }
+}
+
+async function saveSubject() {
+  const input = { ...subjectForm, class_id: subjectForm.class_id ? Number(subjectForm.class_id) : null, assessment_type_id: subjectForm.assessment_type_id ? Number(subjectForm.assessment_type_id) : null };
+  try {
+    if (editingSubjectId.value) await updateAdminSubject(editingSubjectId.value, input);
+    else await createAdminSubject(input);
+    resetSubject();
+    await loadData();
+    showSuccess('Mata pelajaran berhasil disimpan.');
+  } catch (error) { showError(error); }
+}
+function removeClass(id: number) { askConfirmation('Hapus kelas?', 'Kelas ini akan dihapus dari struktur asesmen.', async () => { try { await deleteAdminClass(id); await loadData(); showSuccess('Kelas berhasil dihapus.'); } catch (error) { showError(error); } }); }
+function removeType(id: number) { askConfirmation('Hapus jenis asesmen?', 'Jenis asesmen ini akan dihapus dari struktur asesmen.', async () => { try { await deleteAdminAssessmentType(id); await loadData(); showSuccess('Jenis asesmen berhasil dihapus.'); } catch (error) { showError(error); } }); }
+function removeSubject(id: number) { askConfirmation('Hapus mata pelajaran?', 'Mata pelajaran beserta topik dan soal yang terkait akan dihapus. Tindakan ini tidak dapat dibatalkan.', async () => { try { await deleteAdminSubject(id); await loadData(); showSuccess('Mata pelajaran beserta topik dan soal terkait berhasil dihapus.'); } catch (error) { showError(error); } }); }
 function scopeLabel(subject: Subject) { const classLabel = curriculum.value.classes.find((item) => item.id === subject.class_id)?.label ?? 'Semua kelas'; const typeLabel = curriculum.value.assessment_types.find((item) => item.id === subject.assessment_type_id)?.label ?? 'Semua jenis'; return `${classLabel} · ${typeLabel}`; }
+function attemptsLabel(value: number) { return value === 0 ? 'Attempts tak terbatas' : `${value} attempt${value === 1 ? '' : 's'}`; }
 onMounted(loadData);
 </script>
 
@@ -137,11 +193,15 @@ onMounted(loadData);
 .curriculum-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 .curriculum-group { min-width: 0; padding: 16px; border: 1px solid #e2e8f0; border-radius: 12px; background: #f9fbfd; }
 .subject-group { grid-column: 1 / -1; }
-.curriculum-group h3 { margin-bottom: 12px; color: #233d61; font-size: 1rem; }
+.curriculum-group-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.curriculum-group h3 { color: #233d61; font-size: 1rem; }
+.mobile-curriculum-tabs, .mobile-add-btn, .mobile-form-heading { display: none; }
 .curriculum-form { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.5fr) 80px; gap: 8px; }
-.subject-group .curriculum-form { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) 80px minmax(0, 1fr) minmax(0, 1fr) auto; }
-.curriculum-form input, .curriculum-form select { min-width: 0; width: 100%; padding: 9px 10px; border: 1px solid #d4dde6; border-radius: 8px; background: #fff; color: #334b68; font: inherit; font-size: .82rem; }
-.form-actions { display: flex; gap: 6px; }
+.subject-group .curriculum-form { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) 80px minmax(150px, 1.15fr) minmax(0, 1fr) minmax(0, 1fr) auto; }
+.curriculum-form > label { display: flex; min-width: 0; flex-direction: column; align-items: stretch; gap: 5px; color: #496482; font-size: .7rem; font-weight: 700; }
+.curriculum-form > label small { color: #8292a6; font-size: .66rem; font-weight: 400; }
+.curriculum-form input, .curriculum-form select { min-width: 0; width: 100%; padding: 9px 10px; border: 1px solid #d4dde6; border-radius: 8px; background: #fff; color: #334b68; font: inherit; font-size: .82rem; font-weight: 400; }
+.form-actions { display: flex; align-self: end; gap: 6px; }
 .form-actions .primary-btn, .form-actions .secondary-btn { padding: 9px 12px; font-size: .78rem; }
 .curriculum-items { display: flex; flex-direction: column; gap: 7px; margin-top: 14px; }
 .curriculum-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 1px solid #e1e8f0; border-radius: 8px; background: #fff; }
@@ -154,4 +214,21 @@ onMounted(loadData);
 .curriculum-loading { color: #778899; }
 @media (max-width: 900px) { .curriculum-grid { grid-template-columns: 1fr; } .subject-group { grid-column: auto; } .subject-group .curriculum-form, .curriculum-form { grid-template-columns: 1fr 1fr; } .subject-group .form-actions, .curriculum-form .form-actions { grid-column: 1 / -1; } }
 @media (max-width: 520px) { .curriculum-heading { flex-direction: column; } .subject-group .curriculum-form, .curriculum-form { grid-template-columns: 1fr; } .subject-group .form-actions, .curriculum-form .form-actions { grid-column: auto; } .curriculum-item { align-items: flex-start; flex-direction: column; } }
+@media (max-width: 720px) {
+  .mobile-curriculum-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; margin: 0 0 14px; padding: 5px; border: 1px solid #dce8f4; border-radius: 12px; background: #edf4fb; }
+  .mobile-curriculum-tab { padding: 9px 5px; border: 0; border-radius: 8px; color: #6b809d; background: transparent; font: inherit; font-size: .68rem; font-weight: 700; cursor: pointer; }
+  .mobile-curriculum-tab.active { color: #fff; background: linear-gradient(110deg, #2378db, #2251b5); box-shadow: 0 5px 12px rgba(35, 101, 199, .18); }
+  .curriculum-grid { display: block; }
+  .curriculum-group { display: none; padding: 14px; }
+  .curriculum-group.mobile-active { display: block; }
+  .curriculum-group-heading { margin-bottom: 10px; }
+  .mobile-add-btn { display: inline-flex; align-items: center; padding: 7px 10px; border: 0; border-radius: 8px; color: #fff; background: #246bc5; font: inherit; font-size: .7rem; font-weight: 700; cursor: pointer; }
+  .curriculum-group:not(.mobile-form-open) .curriculum-form { display: none; }
+  .curriculum-group.mobile-form-open { position: fixed; z-index: 45; inset: 0; display: block; overflow-y: auto; padding: 18px 14px 32px; border: 0; border-radius: 0; background: #f7faff; }
+  .curriculum-group.mobile-form-open .curriculum-group-heading, .curriculum-group.mobile-form-open .curriculum-items { display: none; }
+  .curriculum-group.mobile-form-open .curriculum-form { display: grid; grid-template-columns: 1fr; gap: 14px; padding: 0; }
+  .mobile-form-heading { display: flex; grid-column: 1 / -1; align-items: center; justify-content: space-between; padding-bottom: 14px; border-bottom: 1px solid #dce8f4; color: #1e40af; font-size: 1.05rem; }
+  .mobile-form-heading button { width: 30px; height: 30px; border: 0; border-radius: 50%; color: #59708d; background: #e8f0f8; font-size: 1.3rem; line-height: 1; cursor: pointer; }
+  .curriculum-group.mobile-form-open .form-actions { align-self: auto; grid-column: auto; }
+}
 </style>

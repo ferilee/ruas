@@ -61,11 +61,7 @@
 
           <label class="profile-field">
             <span>Jenis kelamin</span>
-            <select v-model="form.gender" required>
-              <option value="" disabled>Pilih jenis kelamin</option>
-              <option value="male">Laki-laki</option>
-              <option value="female">Perempuan</option>
-            </select>
+            <RuasSelect v-model="form.gender" :options="genderOptions" placeholder="Pilih jenis kelamin" aria-label="Jenis kelamin" />
           </label>
 
           <label class="profile-field">
@@ -93,6 +89,7 @@
 import { onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { fetchParticipantProfile, saveParticipantProfile } from '@/api/client';
+import RuasSelect from '@/components/RuasSelect.vue';
 import type { ParticipantProfileInput } from '@/types';
 
 type ProfileForm = {
@@ -107,6 +104,11 @@ type ProfileForm = {
   assessment_type_label: string;
   access_token: string;
 };
+
+const genderOptions = [
+  { value: 'male', label: 'Laki-laki' },
+  { value: 'female', label: 'Perempuan' },
+];
 
 const router = useRouter();
 const profileLoading = ref(true);

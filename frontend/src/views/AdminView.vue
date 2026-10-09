@@ -1,5 +1,6 @@
 <template>
   <div class="admin-view">
+    <ConfirmDialog :open="confirmOpen" :title="confirmTitle" :message="confirmMessage" :confirm-label="confirmLabel" @confirm="runConfirmation" @cancel="closeConfirmation" />
     <div v-if="!isAuthenticated" class="admin-header">
       <div>
         <router-link to="/" class="back-link">&larr; Kembali ke latihan</router-link>
@@ -104,17 +105,19 @@
 
           <CurriculumPanel v-else-if="activeSection === 'curriculum'" />
 
+          <ReportsPanel v-else-if="activeSection === 'reports'" />
+
           <UsersPanel v-else-if="activeSection === 'users'" />
 
           <section v-else-if="activeSection === 'schedule'" class="panel schedule-panel">
-        <div class="panel-heading">
-          <div>
-            <h2>Jadwal Asesmen</h2>
-            <p>Peserta baru dapat mulai mengerjakan setelah waktu ini tiba.</p>
-          </div>
+        <div class="schedule-hero">
+          <span class="schedule-icon" aria-hidden="true">◷</span>
+          <div><span class="schedule-eyebrow">AKSES ASESMEN</span><h2>Jadwal Asesmen</h2><p>Atur kapan peserta dapat mulai mengerjakan.</p></div>
           <span v-if="scheduleStartAt" class="schedule-status">Terjadwal</span>
           <span v-else class="schedule-status open">Terbuka</span>
         </div>
+
+        <div class="schedule-time-card"><span>Waktu mulai</span><strong>{{ scheduleStartAt ? formatScheduleLabel(scheduleStartAt) : 'Terbuka sekarang' }}</strong><small>{{ scheduleStartAt ? 'Peserta menunggu sampai waktu ini.' : 'Peserta dapat langsung memulai asesmen.' }}</small></div>
 
         <form class="schedule-form" @submit.prevent="saveSchedule">
           <label>Waktu mulai
@@ -134,10 +137,16 @@
       </section>
 
           <template v-else>
-          <div class="toolbar">
-        <input v-model="search" class="search-input" placeholder="Cari teks soal atau external_id..." @keyup.enter="loadQuestions" />
-        <button class="secondary-btn" :disabled="loading" @click="loadQuestions">Cari</button>
-        <button class="primary-btn" @click="startNew">+ Soal Baru</button>
+          <div class="question-toolbar">
+            <div class="toolbar-search">
+              <input v-model="search" class="search-input" placeholder="Cari teks soal atau external_id..." @keyup.enter="loadQuestions" />
+              <button class="secondary-btn" type="button" :disabled="loading" @click="loadQuestions">Cari</button>
+            </div>
+            <button class="primary-btn new-question-button" type="button" @click="startNew">＋ Soal Baru</button>
+          </div>
+
+          <div class="question-filters" aria-label="Filter tingkat kesulitan">
+            <button v-for="filter in difficultyFilters" :key="filter.value" type="button" :class="['filter-chip', { active: difficultyFilter === filter.value }]" @click="difficultyFilter = filter.value">{{ filter.label }}</button>
           </div>
 
           <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
@@ -146,54 +155,42 @@
         <div class="panel question-list-panel">
           <div class="panel-heading">
             <h2>Daftar Soal</h2>
-            <span>{{ questions.length }} soal</span>
+            <span>{{ filteredQuestions.length }} soal</span>
           </div>
 
           <div v-if="loading" class="panel-empty">Memuat...</div>
-          <div v-else-if="questions.length === 0" class="panel-empty">Belum ada soal yang cocok.</div>
+          <div v-else-if="filteredQuestions.length === 0" class="panel-empty">Belum ada soal yang cocok.</div>
           <button
-            v-for="item in questions"
+            v-for="item in filteredQuestions"
             :key="item.id"
             class="question-row"
             :class="{ active: editingId === item.id }"
+            type="button"
             @click="editQuestion(item.id)"
           >
-            <span class="row-meta">#{{ item.id }} · {{ item.topic_label }} · {{ difficultyLabel(item.difficulty) }}</span>
+            <span class="question-row-top"><span class="question-number">#{{ item.id }}</span><span class="topic-badge">{{ item.topic_label }}</span><span class="question-menu" aria-hidden="true">⋮</span></span>
             <strong><MathText :text="item.question_text" /></strong>
-            <span v-if="item.external_id" class="row-id">{{ item.external_id }}</span>
+            <span class="question-row-bottom"><span :class="['difficulty-badge', `difficulty-${item.difficulty}`]">{{ difficultyLabel(item.difficulty) }}</span><span v-if="item.external_id" class="row-id">{{ item.external_id }}</span></span>
           </button>
         </div>
 
-        <div class="panel form-panel">
+        <div class="panel form-panel" :class="{ open: questionFormOpen }">
           <div class="panel-heading">
             <h2>{{ editingId === null ? 'Soal Baru' : `Edit Soal #${editingId}` }}</h2>
-            <button v-if="editingId !== null" class="danger-link" @click="removeQuestion">Hapus</button>
+            <div class="form-heading-actions"><button v-if="editingId !== null" type="button" class="danger-link" @click="removeQuestion">Hapus</button><button class="close-form-btn" type="button" aria-label="Tutup form soal" @click="closeQuestionForm">×</button></div>
           </div>
 
           <form @submit.prevent="saveQuestion">
             <label>Topik
-              <select v-model.number="draft.topic_id" required>
-                <option :value="0" disabled>Pilih topik</option>
-                <option v-for="topic in topics" :key="topic.id" :value="topic.id">
-                  {{ topic.subject_label }} — {{ topic.label }}
-                </option>
-              </select>
+              <RuasSelect v-model="draft.topic_id" :options="topicOptions" placeholder="Pilih topik" aria-label="Topik soal" />
             </label>
 
             <div class="field-row">
               <label>Tipe soal
-                <select v-model="draft.type" @change="syncOptionsForType">
-                  <option value="single_choice">Pilihan Ganda</option>
-                  <option value="multiple_response">Pilihan Ganda Kompleks</option>
-                  <option value="true_false">Benar / Salah</option>
-                </select>
+                <RuasSelect v-model="draft.type" :options="questionTypeOptions" aria-label="Tipe soal" @change="syncOptionsForType" />
               </label>
               <label>Kesulitan
-                <select v-model="draft.difficulty">
-                  <option value="easy">Mudah</option>
-                  <option value="medium">Sedang</option>
-                  <option value="hard">Sulit</option>
-                </select>
+                <RuasSelect v-model="draft.difficulty" :options="difficultyOptions" aria-label="Kesulitan soal" />
               </label>
             </div>
 
@@ -246,10 +243,7 @@
             <h2>Import JSON</h2>
             <p>Terima array soal atau object seed dengan properti <code>questions</code>.</p>
           </div>
-          <select v-model="importMode">
-            <option value="insert">Tambah baru saja</option>
-            <option value="upsert">Tambah atau perbarui berdasarkan ID</option>
-          </select>
+          <RuasSelect v-model="importMode" :options="importModeOptions" aria-label="Mode import soal" />
         </div>
         <textarea v-model="importText" class="import-textarea" rows="12" placeholder='[{ "topic_slug": "aljabar", ... }]' spellcheck="false"></textarea>
         <div class="import-actions">
@@ -264,6 +258,31 @@
           </template>
         </main>
       </div>
+
+      <nav class="mobile-bottom-nav" aria-label="Navigasi admin mobile">
+        <button
+          v-for="item in mobilePrimaryNavigation"
+          :key="item.id"
+          type="button"
+          :class="['mobile-nav-item', { active: activeSection === item.id }]"
+          @click="selectSection(item.id)"
+        >
+          <span class="mobile-nav-icon" aria-hidden="true">{{ item.icon }}</span>
+          <span>{{ item.label === 'Struktur Asesmen' ? 'Kurikulum' : item.label }}</span>
+        </button>
+        <button type="button" :class="['mobile-nav-item', { active: moreMenuOpen || ['schedule', 'users'].includes(activeSection) }]" @click="moreMenuOpen = !moreMenuOpen">
+          <span class="mobile-nav-icon" aria-hidden="true">•••</span>
+          <span>Lainnya</span>
+        </button>
+      </nav>
+
+      <div v-if="moreMenuOpen" class="mobile-more-backdrop" @click="moreMenuOpen = false"></div>
+      <section v-if="moreMenuOpen" class="mobile-more-menu" aria-label="Menu admin lainnya">
+        <div class="mobile-more-heading"><strong>Menu lainnya</strong><button type="button" aria-label="Tutup menu" @click="moreMenuOpen = false">×</button></div>
+        <button v-for="item in mobileSecondaryNavigation" :key="item.id" type="button" class="mobile-more-item" @click="selectSection(item.id)">
+          <span class="mobile-nav-icon" aria-hidden="true">{{ item.icon }}</span><span>{{ item.label }}</span><span aria-hidden="true">›</span>
+        </button>
+      </section>
     </template>
   </div>
 </template>
@@ -271,8 +290,11 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import MathText from '@/components/MathText.vue';
 import CurriculumPanel from '@/components/CurriculumPanel.vue';
+import ReportsPanel from '@/components/ReportsPanel.vue';
+import RuasSelect from '@/components/RuasSelect.vue';
 import UsersPanel from '@/components/UsersPanel.vue';
 import {
   adminLogin,
@@ -290,15 +312,19 @@ import {
 import type { AdminQuestionInput, AdminQuestionListItem, AdminTopic, ImportSummary } from '@/types';
 
 const router = useRouter();
-type AdminSection = 'overview' | 'curriculum' | 'questions' | 'schedule' | 'users';
+type AdminSection = 'overview' | 'curriculum' | 'questions' | 'schedule' | 'reports' | 'users';
 const navigation: Array<{ id: AdminSection; label: string; icon: string; title: string; description: string }> = [
   { id: 'overview', label: 'Ringkasan', icon: '⌂', title: 'Ringkasan', description: 'Pantau isi dan status asesmen RUAS.' },
   { id: 'curriculum', label: 'Struktur Asesmen', icon: '▦', title: 'Struktur Asesmen', description: 'Atur kelas, jenis asesmen, dan mata pelajaran.' },
   { id: 'questions', label: 'Bank Soal', icon: '?', title: 'Bank Soal', description: 'Buat, cari, dan kelola soal beserta pembahasannya.' },
   { id: 'schedule', label: 'Jadwal Asesmen', icon: '◷', title: 'Jadwal Asesmen', description: 'Tentukan kapan peserta boleh memulai asesmen.' },
+  { id: 'reports', label: 'Laporan', icon: '▤', title: 'Laporan Asesmen', description: 'Pantau hasil siswa dan ekspor laporan PDF.' },
   { id: 'users', label: 'Pengguna', icon: '♙', title: 'Pengguna', description: 'Tambah akun secara manual atau import dari CSV/JSON.' },
 ];
+const mobilePrimaryNavigation = navigation.filter((item) => ['overview', 'curriculum', 'questions', 'reports'].includes(item.id));
+const mobileSecondaryNavigation = navigation.filter((item) => ['schedule', 'users'].includes(item.id));
 const activeSection = ref<AdminSection>('overview');
+const moreMenuOpen = ref(false);
 const currentSection = computed(() => navigation.find((item) => item.id === activeSection.value) ?? navigation[0]);
 const currentSectionTitle = computed(() => currentSection.value.title);
 const currentSectionDescription = computed(() => currentSection.value.description);
@@ -315,11 +341,42 @@ const formMessageType = ref<'success' | 'error'>('success');
 const questions = ref<AdminQuestionListItem[]>([]);
 const topics = ref<AdminTopic[]>([]);
 const search = ref('');
+const difficultyFilter = ref<AdminQuestionListItem['difficulty'] | 'all'>('all');
+const questionFormOpen = ref(false);
+const difficultyFilters: Array<{ value: AdminQuestionListItem['difficulty'] | 'all'; label: string }> = [
+  { value: 'all', label: 'Semua' },
+  { value: 'easy', label: 'Mudah' },
+  { value: 'medium', label: 'Sedang' },
+  { value: 'hard', label: 'Sulit' },
+];
+const questionTypeOptions = [
+  { value: 'single_choice', label: 'Pilihan Ganda' },
+  { value: 'multiple_response', label: 'Pilihan Ganda Kompleks' },
+  { value: 'true_false', label: 'Benar / Salah' },
+];
+const difficultyOptions = [
+  { value: 'easy', label: 'Mudah' },
+  { value: 'medium', label: 'Sedang' },
+  { value: 'hard', label: 'Sulit' },
+];
+const importModeOptions = [
+  { value: 'insert', label: 'Tambah baru saja' },
+  { value: 'upsert', label: 'Tambah atau perbarui berdasarkan ID' },
+];
+const topicOptions = computed(() => topics.value.map((topic) => ({ value: topic.id, label: `${topic.subject_label} — ${topic.label}` })));
+const filteredQuestions = computed(() => difficultyFilter.value === 'all'
+  ? questions.value
+  : questions.value.filter((question) => question.difficulty === difficultyFilter.value));
 const editingId = ref<number | null>(null);
 const importText = ref('');
 const parsedImport = ref<unknown>(null);
 const importMode = ref<'insert' | 'upsert'>('insert');
 const importSummary = ref<ImportSummary | null>(null);
+const confirmOpen = ref(false);
+const confirmTitle = ref('Konfirmasi tindakan');
+const confirmMessage = ref('Apakah kamu yakin ingin melanjutkan?');
+const confirmLabel = ref('OK');
+const pendingConfirmation = ref<(() => Promise<void>) | null>(null);
 const scheduleStartAt = ref('');
 const scheduleSaving = ref(false);
 const scheduleMessage = ref('');
@@ -327,6 +384,7 @@ const scheduleMessageType = ref<'success' | 'error'>('success');
 
 function selectSection(section: AdminSection) {
   activeSection.value = section;
+  moreMenuOpen.value = false;
   errorMessage.value = '';
 }
 
@@ -368,7 +426,31 @@ function resetDraft() {
 
 function startNew() {
   resetDraft();
+  questionFormOpen.value = true;
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function closeQuestionForm() {
+  questionFormOpen.value = false;
+}
+
+function askConfirmation(title: string, message: string, action: () => Promise<void>, label = 'OK') {
+  confirmTitle.value = title;
+  confirmMessage.value = message;
+  confirmLabel.value = label;
+  pendingConfirmation.value = action;
+  confirmOpen.value = true;
+}
+
+function closeConfirmation() {
+  confirmOpen.value = false;
+  pendingConfirmation.value = null;
+}
+
+async function runConfirmation() {
+  const action = pendingConfirmation.value;
+  closeConfirmation();
+  if (action) await action();
 }
 
 async function login() {
@@ -434,6 +516,12 @@ function toDateTimeLocal(value: string | null) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+function formatScheduleLabel(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('id-ID', { dateStyle: 'full', timeStyle: 'short' }).format(date);
+}
+
 async function saveSchedule() {
   let startAt: string | null = null;
   if (scheduleStartAt.value) {
@@ -480,6 +568,7 @@ async function editQuestion(id: number) {
     });
     editingId.value = id;
     formMessage.value = '';
+    questionFormOpen.value = true;
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Gagal memuat soal.';
@@ -513,6 +602,7 @@ async function saveQuestion() {
     }
     formMessageType.value = 'success';
     await loadQuestions();
+    questionFormOpen.value = false;
   } catch (error) {
     formMessageType.value = 'error';
     formMessage.value = error instanceof Error ? error.message : 'Gagal menyimpan soal.';
@@ -521,17 +611,20 @@ async function saveQuestion() {
   }
 }
 
-async function removeQuestion() {
-  if (editingId.value === null || !window.confirm(`Hapus soal #${editingId.value}?`)) return;
-
-  try {
-    await deleteAdminQuestion(editingId.value);
-    resetDraft();
-    await loadQuestions();
-  } catch (error) {
-    formMessageType.value = 'error';
-    formMessage.value = error instanceof Error ? error.message : 'Gagal menghapus soal.';
-  }
+function removeQuestion() {
+  const questionId = editingId.value;
+  if (questionId === null) return;
+  askConfirmation('Hapus soal?', `Soal #${questionId} akan dihapus. Tindakan ini tidak dapat dibatalkan.`, async () => {
+    try {
+      await deleteAdminQuestion(questionId);
+      resetDraft();
+      questionFormOpen.value = false;
+      await loadQuestions();
+    } catch (error) {
+      formMessageType.value = 'error';
+      formMessage.value = error instanceof Error ? error.message : 'Gagal menghapus soal.';
+    }
+  }, 'Hapus');
 }
 
 function difficultyLabel(value: AdminQuestionListItem['difficulty']) {
@@ -563,17 +656,19 @@ async function previewImport() {
   }
 }
 
-async function applyImport() {
-  if (parsedImport.value === null || !window.confirm('Terapkan import soal ini?')) return;
-  importing.value = true;
-  try {
-    importSummary.value = await importAdminQuestions(parsedImport.value, importMode.value, false);
-    await loadQuestions();
-  } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Gagal menerapkan import.';
-  } finally {
-    importing.value = false;
-  }
+function applyImport() {
+  if (parsedImport.value === null) return;
+  askConfirmation('Terapkan import soal?', 'Soal yang sudah dipreview akan disimpan ke bank soal.', async () => {
+    importing.value = true;
+    try {
+      importSummary.value = await importAdminQuestions(parsedImport.value, importMode.value, false);
+      await loadQuestions();
+    } catch (error) {
+      errorMessage.value = error instanceof Error ? error.message : 'Gagal menerapkan import.';
+    } finally {
+      importing.value = false;
+    }
+  }, 'Terapkan');
 }
 
 onMounted(async () => {
@@ -606,6 +701,7 @@ onMounted(async () => {
 .sidebar-help { display: flex; margin-top: auto; flex-direction: column; gap: 5px; padding: 14px 12px; border-radius: 12px; color: #69809e; background: #edf5ff; font-size: .72rem; line-height: 1.5; }
 .sidebar-help strong { color: #24559c; font-size: .78rem; }
 .admin-content { min-width: 0; }
+.mobile-bottom-nav, .mobile-more-menu, .mobile-more-backdrop { display: none; }
 .dashboard-header { margin-bottom: 25px; }
 .dashboard-header .page-title { margin-top: 10px; }
 .overview-section { display: flex; flex-direction: column; gap: 20px; }
@@ -646,16 +742,34 @@ onMounted(async () => {
 .primary-btn:disabled, .secondary-btn:disabled { opacity: .6; cursor: default; }
 .full-btn { width: 100%; }
 .toolbar { justify-content: flex-start; }
+.question-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.toolbar-search { display: flex; min-width: 0; flex: 1; gap: 8px; }
+.toolbar-search .search-input { max-width: 420px; }
+.question-filters { display: flex; flex-wrap: wrap; gap: 7px; margin: 14px 0 16px; }
+.filter-chip { padding: 7px 12px; border: 1px solid #d7e2ef; border-radius: 999px; color: #617793; background: #fff; font: inherit; font-size: .75rem; font-weight: 700; cursor: pointer; }
+.filter-chip:hover, .filter-chip.active { border-color: #2b72ce; color: #fff; background: #2b72ce; }
 .search-input { max-width: 420px; }
 .editor-grid { display: grid; grid-template-columns: minmax(260px, .8fr) minmax(360px, 1.2fr); gap: 20px; align-items: start; }
 .question-list-panel { padding: 0; overflow: hidden; }
 .question-list-panel .panel-heading, .form-panel .panel-heading, .import-panel .panel-heading { padding: 20px; border-bottom: 1px solid #e2e8f0; }
 .panel-heading span { color: #778899; font-size: .9rem; }
-.question-row { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; width: 100%; padding: 14px 20px; border: 0; border-bottom: 1px solid #edf1f5; background: #fff; text-align: left; cursor: pointer; }
+.question-row { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; width: 100%; padding: 16px 20px; border: 0; border-bottom: 1px solid #edf1f5; background: #fff; color: #253f62; text-align: left; cursor: pointer; }
 .question-row:hover, .question-row.active { background: #f0f4ff; }
-.row-meta, .row-id { color: #778899; font-size: .8rem; }
+.question-row-top, .question-row-bottom { display: flex; width: 100%; align-items: center; gap: 7px; }
+.question-row-top { min-width: 0; }
+.question-row-bottom { justify-content: space-between; }
+.question-number { color: #2564ba; font-size: .75rem; font-weight: 800; }
+.topic-badge, .difficulty-badge { display: inline-flex; max-width: 100%; overflow: hidden; align-items: center; padding: 4px 7px; border-radius: 999px; font-size: .67rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.topic-badge { color: #41688f; background: #edf5ff; }
+.difficulty-badge { color: #687c96; background: #eef2f7; }
+.difficulty-easy { color: #287b59; background: #e2f7ed; }.difficulty-medium { color: #9a691a; background: #fff3d9; }.difficulty-hard { color: #ae4d55; background: #ffebeb; }
+.question-menu { margin-left: auto; color: #8ca0b8; font-size: 1.25rem; line-height: 1; }
+.question-row > strong { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; color: #294b76; font-size: .87rem; line-height: 1.45; }
+.row-id { overflow: hidden; color: #778899; font-size: .72rem; text-overflow: ellipsis; white-space: nowrap; }
 .panel-empty { padding: 24px 20px; color: #778899; }
 .form-panel form { display: flex; flex-direction: column; gap: 14px; padding: 20px; }
+.form-heading-actions { display: flex; align-items: center; gap: 8px; }
+.close-form-btn { display: none; width: 30px; height: 30px; border: 0; border-radius: 50%; color: #58718e; background: #edf3fa; font-size: 1.3rem; line-height: 1; cursor: pointer; }
 label { display: flex; flex-direction: column; gap: 6px; color: #445566; font-weight: 600; }
 .field-hint { color: #778899; font-weight: 400; font-size: .8rem; }
 .math-preview { padding: 12px; border: 1px dashed #b8c5d5; border-radius: 8px; background: #f8fafc; color: #445566; }
@@ -687,7 +801,22 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
   display: flex;
   flex-direction: column;
   gap: 14px;
+  border: 1px solid #e0e9f3;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 7px 18px rgba(31, 74, 126, .05);
 }
+
+.schedule-hero { display: flex; align-items: center; gap: 12px; padding-bottom: 14px; border-bottom: 1px solid #e6eef6; }
+.schedule-icon { display: grid; width: 42px; height: 42px; flex: 0 0 auto; place-items: center; border-radius: 13px; color: #fff; background: linear-gradient(145deg, #2d82df, #2251b5); font-size: 1.4rem; box-shadow: 0 7px 15px rgba(35, 101, 199, .18); }
+.schedule-eyebrow { color: #6d9fd4; font-size: .63rem; font-weight: 800; letter-spacing: .13em; }
+.schedule-hero h2 { margin-top: 3px; color: #1e40af; font-size: 1.15rem; }
+.schedule-hero p { margin-top: 3px; color: #72869f; font-size: .8rem; }
+.schedule-hero .schedule-status { margin-left: auto; }
+.schedule-time-card { display: flex; flex-direction: column; gap: 4px; padding: 15px; border-radius: 12px; background: #f1f7ff; }
+.schedule-time-card span { color: #6f87a3; font-size: .72rem; font-weight: 700; }
+.schedule-time-card strong { color: #245a9d; font-size: 1.05rem; }
+.schedule-time-card small { color: #7d94ae; font-size: .72rem; }
 
 .schedule-panel .panel-heading {
   align-items: flex-start;
@@ -718,6 +847,7 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
   display: flex;
   align-items: flex-end;
   gap: 14px;
+  padding-top: 2px;
 }
 
 .schedule-form label {
@@ -734,6 +864,10 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 }
 
 @media (max-width: 620px) {
+  .schedule-panel { padding: 16px; }
+  .schedule-hero { align-items: flex-start; flex-wrap: wrap; }
+  .schedule-hero .schedule-status { margin-left: 54px; margin-top: -5px; }
+  .schedule-time-card strong { font-size: .95rem; line-height: 1.4; }
   .schedule-form,
   .schedule-actions {
     align-items: stretch;
@@ -752,15 +886,33 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 }
 
 @media (max-width: 720px) {
-  .admin-view { padding: 18px 14px 32px; }
+  .admin-view { padding: 18px 14px 100px; }
   .admin-layout { display: block; }
-  .admin-sidebar { position: static; min-height: 0; margin-bottom: 20px; padding: 14px; }
-  .sidebar-brand { padding-bottom: 14px; }
-  .sidebar-help { display: none; }
-  .admin-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .nav-item { padding: 10px; font-size: .78rem; }
+  .admin-sidebar { display: none; }
   .welcome-card { align-items: flex-start; flex-direction: column; padding: 22px; }
   .dashboard-header { align-items: flex-start; }
   .dashboard-header .secondary-btn { align-self: flex-start; }
+  .question-toolbar { align-items: stretch; flex-direction: column; }
+  .toolbar-search { width: 100%; }
+  .toolbar-search .search-input { max-width: none; }
+  .new-question-button { width: 100%; }
+  .question-filters { margin-top: 12px; }
+  .question-list-panel { min-height: 220px; }
+  .form-panel { display: none; }
+  .form-panel.open { position: fixed; z-index: 40; inset: 0; display: flex; overflow-y: auto; flex-direction: column; padding: 0; border-radius: 0; }
+  .form-panel.open .panel-heading { position: sticky; z-index: 1; top: 0; padding: 16px 18px; background: #fff; }
+  .form-panel.open form { padding: 18px; padding-bottom: 34px; }
+  .form-panel.open .close-form-btn { display: block; }
+  .mobile-more-backdrop { position: fixed; z-index: 29; inset: 0; display: block; background: rgba(18, 42, 76, .2); }
+  .mobile-bottom-nav { position: fixed; z-index: 30; right: 10px; bottom: 10px; left: 10px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 8px 5px; border: 1px solid #d8e5f3; border-radius: 18px; background: rgba(255, 255, 255, .96); box-shadow: 0 12px 30px rgba(28, 66, 116, .2); backdrop-filter: blur(12px); }
+  .mobile-nav-item { display: flex; min-width: 0; flex-direction: column; align-items: center; gap: 4px; padding: 7px 3px; border: 0; border-radius: 11px; color: #6b809d; background: transparent; font: inherit; font-size: .62rem; font-weight: 700; cursor: pointer; }
+  .mobile-nav-item.active { color: #fff; background: linear-gradient(110deg, #2378db, #2251b5); box-shadow: 0 6px 14px rgba(35, 101, 199, .2); }
+  .mobile-nav-icon { display: grid; min-height: 17px; place-items: center; font-size: .9rem; font-weight: 800; line-height: 1; }
+  .mobile-more-menu { position: fixed; z-index: 31; right: 14px; bottom: 88px; left: 14px; display: block; padding: 14px; border: 1px solid #d8e5f3; border-radius: 16px; background: #fff; box-shadow: 0 14px 34px rgba(28, 66, 116, .2); }
+  .mobile-more-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; padding: 0 4px 8px; border-bottom: 1px solid #edf2f7; color: #244978; font-size: .85rem; }
+  .mobile-more-heading button { border: 0; color: #6b809d; background: transparent; font-size: 1.3rem; cursor: pointer; }
+  .mobile-more-item { display: flex; width: 100%; align-items: center; gap: 10px; padding: 12px 8px; border: 0; border-radius: 9px; color: #55708f; background: transparent; font: inherit; font-size: .8rem; font-weight: 700; text-align: left; cursor: pointer; }
+  .mobile-more-item:hover { background: #edf5ff; color: #1d5fc0; }
+  .mobile-more-item > span:nth-child(2) { flex: 1; }
 }
 </style>

@@ -1,42 +1,46 @@
 <template>
   <section class="users-panel">
+    <ConfirmDialog :open="confirmOpen" :title="confirmTitle" :message="confirmMessage" :confirm-label="confirmLabel" @confirm="runConfirmation" @cancel="closeConfirmation" />
     <div class="users-grid">
-      <div class="panel user-form-panel">
+      <div class="panel user-form-panel" :class="{ open: userFormOpen }">
         <div class="panel-heading">
           <div>
             <h2>{{ editingId === null ? 'Tambah pengguna' : `Edit pengguna #${editingId}` }}</h2>
             <p>Akun dan penetapan mata pelajaran disimpan aman di database.</p>
           </div>
-          <button v-if="editingId !== null" class="text-button" type="button" @click="resetForm">Batal</button>
+          <div class="user-form-actions"><button v-if="editingId !== null" class="text-button" type="button" @click="resetForm">Batal</button><button class="mobile-close-button" type="button" aria-label="Tutup form pengguna" @click="closeUserForm">×</button></div>
         </div>
         <form class="user-form" @submit.prevent="saveUser">
           <label>Username<input v-model.trim="form.username" required autocomplete="off" placeholder="Contoh: P130100230" /></label>
           <label>Nama tampilan<input v-model.trim="form.display_name" required placeholder="Nama peserta" /></label>
-          <label>Mata pelajaran peserta<select v-model="form.subject_id"><option :value="null">Belum ditetapkan</option><option v-for="subject in subjects" :key="subject.id" :value="subject.id">{{ subject.label }}</option></select></label>
+          <label>Mata pelajaran peserta<RuasSelect v-model="form.subject_id" :options="subjectOptions" aria-label="Mata pelajaran peserta" /></label>
           <label>Password {{ editingId === null ? '' : '(kosongkan jika tidak diubah)' }}<input v-model="form.password" :required="editingId === null" type="password" autocomplete="new-password" placeholder="Password akun" /></label>
           <div class="user-fields-row">
-            <label>Peran<select v-model="form.role"><option value="participant">Peserta</option><option value="editor">Editor</option><option value="admin">Admin</option></select></label>
+            <label>Peran<RuasSelect v-model="form.role" :options="roleOptions" aria-label="Peran pengguna" /></label>
             <label class="active-field"><span>Status</span><span class="check-line"><input v-model="form.active" type="checkbox" /> Aktif</span></label>
           </div>
           <p v-if="formMessage" :class="formMessageType === 'error' ? 'error-text' : 'success-text'">{{ formMessage }}</p>
-          <button class="primary-btn full-btn" type="submit" :disabled="saving">{{ saving ? 'Menyimpan...' : editingId === null ? 'Tambah Pengguna' : 'Simpan Perubahan' }}</button>
+          <button class="primary-btn full-btn" type="submit" :disabled="saving"><span aria-hidden="true">＋</span> {{ saving ? 'Menyimpan...' : editingId === null ? 'Tambah Pengguna' : 'Simpan Perubahan' }}</button>
         </form>
       </div>
 
       <div class="panel import-users-panel">
         <div class="panel-heading">
           <div><h2>Import pengguna</h2><p>CSV: <code>username,password,display_name,role,active,subject_id</code></p></div>
-          <select v-model="importMode" aria-label="Mode import"><option value="insert">Tambah baru</option><option value="upsert">Tambah atau perbarui</option></select>
+          <label class="import-mode-field"><span>Mode import</span><RuasSelect v-model="importMode" :options="importModeOptions" aria-label="Mode import pengguna" /></label>
         </div>
-        <input ref="fileInput" type="file" accept=".csv,.json,application/json,text/csv" @change="readFile" />
-        <textarea v-model="importText" rows="7" placeholder="Tempel CSV atau JSON di sini..." spellcheck="false"></textarea>
-        <div class="import-actions"><button class="secondary-btn" type="button" :disabled="importing || !importText.trim()" @click="previewImport">Preview</button><button class="primary-btn" type="button" :disabled="importing || !parsedImport" @click="applyImport">Terapkan</button></div>
+        <div class="import-step"><span class="step-number">1</span><div><strong>Pilih file atau tempel data</strong><small>Gunakan format CSV atau JSON.</small></div></div>
+        <input ref="fileInput" class="hidden-file-input" type="file" accept=".csv,.json,application/json,text/csv" @change="readFile" />
+        <button class="file-picker-button" type="button" @click="openFilePicker"><span class="action-icon" aria-hidden="true">↥</span><span><strong>Pilih File</strong><small>{{ selectedFileName || 'CSV atau JSON' }}</small></span></button>
+        <textarea v-model="importText" rows="7" placeholder="Atau tempel CSV atau JSON di sini..." spellcheck="false"></textarea>
+        <div class="import-step"><span class="step-number">2</span><div><strong>Periksa lalu terapkan</strong><small>Preview untuk memvalidasi data sebelum disimpan.</small></div></div>
+        <div class="import-actions"><button class="secondary-btn action-btn" type="button" :disabled="importing || !importText.trim()" @click="previewImport"><span aria-hidden="true">◉</span> Preview</button><button class="primary-btn action-btn" type="button" :disabled="importing || !parsedImport" @click="applyImport"><span aria-hidden="true">✓</span> Terapkan</button></div>
         <div v-if="importSummary" class="import-summary"><strong>{{ importSummary.inserted }} baru · {{ importSummary.updated }} diperbarui · {{ importSummary.skipped }} dilewati</strong><p v-for="error in importSummary.errors" :key="error" class="error-text">{{ error }}</p></div>
       </div>
     </div>
 
     <div class="panel users-list-panel">
-      <div class="panel-heading users-list-heading"><div><h2>Daftar pengguna</h2><p>{{ users.length }} akun ditemukan.</p></div><div class="user-search"><input v-model="search" placeholder="Cari username atau nama" @keyup.enter="loadUsers" /><button class="secondary-btn" type="button" @click="loadUsers">Cari</button></div></div>
+      <div class="panel-heading users-list-heading"><div><h2>Daftar pengguna</h2><p>{{ users.length }} akun ditemukan.</p></div><div class="user-list-actions"><div class="user-search"><span class="search-icon" aria-hidden="true">⌕</span><input v-model="search" placeholder="Cari username atau nama" @keyup.enter="loadUsers" /><button class="search-button" type="button" aria-label="Cari pengguna" title="Cari" @click="loadUsers">Cari</button></div><button class="mobile-add-user" type="button" @click="openNewUser">＋ Tambah Pengguna</button></div></div>
       <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
       <div v-if="loading" class="panel-empty">Memuat pengguna...</div>
       <div v-else-if="users.length === 0" class="panel-empty">Belum ada pengguna.</div>
@@ -46,8 +50,10 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { createAdminUser, deleteAdminUser, fetchAdminCurriculum, fetchAdminUsers, importAdminUsers, updateAdminUser } from '@/api/client';
+import ConfirmDialog from '@/components/ConfirmDialog.vue';
+import RuasSelect from '@/components/RuasSelect.vue';
 import type { AdminUser, AdminUserInput, Subject, UserImportSummary, UserRole } from '@/types';
 
 const users = ref<AdminUser[]>([]);
@@ -59,46 +65,85 @@ const errorMessage = ref('');
 const formMessage = ref('');
 const formMessageType = ref<'success' | 'error'>('success');
 const editingId = ref<number | null>(null);
+const userFormOpen = ref(false);
 const search = ref('');
 const importText = ref('');
 const parsedImport = ref<unknown>(null);
 const importMode = ref<'insert' | 'upsert'>('insert');
 const importSummary = ref<UserImportSummary | null>(null);
+const fileInput = ref<HTMLInputElement | null>(null);
+const selectedFileName = ref('');
+const confirmOpen = ref(false);
+const confirmTitle = ref('Konfirmasi tindakan');
+const confirmMessage = ref('Apakah kamu yakin ingin melanjutkan?');
+const confirmLabel = ref('OK');
+const pendingConfirmation = ref<(() => Promise<void>) | null>(null);
 const form = reactive<AdminUserInput>({ username: '', password: '', display_name: '', subject_id: null, role: 'participant', active: true });
+const subjectOptions = computed(() => [{ value: null, label: 'Belum ditetapkan' }, ...subjects.value.map((subject) => ({ value: subject.id, label: subject.label }))]);
+const roleOptions = [
+  { value: 'participant', label: 'Peserta' },
+  { value: 'editor', label: 'Editor' },
+  { value: 'admin', label: 'Admin' },
+];
+const importModeOptions = [
+  { value: 'insert', label: 'Tambah baru' },
+  { value: 'upsert', label: 'Tambah atau perbarui' },
+];
 
-function resetForm() { Object.assign(form, { username: '', password: '', display_name: '', subject_id: null, role: 'participant', active: true }); editingId.value = null; formMessage.value = ''; }
-function editUser(user: AdminUser) { Object.assign(form, { username: user.username, password: '', display_name: user.display_name, subject_id: user.subject_id, role: user.role, active: user.active }); editingId.value = user.id; formMessage.value = ''; window.scrollTo({ top: 0, behavior: 'smooth' }); }
+function resetForm() { Object.assign(form, { username: '', password: '', display_name: '', subject_id: null, role: 'participant', active: true }); editingId.value = null; formMessage.value = ''; userFormOpen.value = false; }
+function openNewUser() { resetForm(); userFormOpen.value = true; }
+function closeUserForm() { userFormOpen.value = false; }
+function openFilePicker() { fileInput.value?.click(); }
+function editUser(user: AdminUser) { Object.assign(form, { username: user.username, password: '', display_name: user.display_name, subject_id: user.subject_id, role: user.role, active: user.active }); editingId.value = user.id; formMessage.value = ''; userFormOpen.value = true; window.scrollTo({ top: 0, behavior: 'smooth' }); }
+function askConfirmation(title: string, message: string, action: () => Promise<void>, label = 'OK') { confirmTitle.value = title; confirmMessage.value = message; confirmLabel.value = label; pendingConfirmation.value = action; confirmOpen.value = true; }
+function closeConfirmation() { confirmOpen.value = false; pendingConfirmation.value = null; }
+async function runConfirmation() { const action = pendingConfirmation.value; closeConfirmation(); if (action) await action(); }
 async function loadUsers() { loading.value = true; errorMessage.value = ''; try { users.value = await fetchAdminUsers(search.value); } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Gagal memuat pengguna.'; } finally { loading.value = false; } }
 async function saveUser() { saving.value = true; formMessage.value = ''; const currentId = editingId.value; try { const input = { ...form }; if (currentId === null) await createAdminUser(input); else await updateAdminUser(currentId, input); formMessageType.value = 'success'; resetForm(); formMessage.value = currentId === null ? 'Pengguna berhasil ditambahkan.' : 'Pengguna berhasil diperbarui.'; await loadUsers(); } catch (error) { formMessageType.value = 'error'; formMessage.value = error instanceof Error ? error.message : 'Gagal menyimpan pengguna.'; } finally { saving.value = false; } }
-async function removeUser(user: AdminUser) { if (!window.confirm(`Hapus pengguna ${user.username}?`)) return; try { await deleteAdminUser(user.id); await loadUsers(); } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Gagal menghapus pengguna.'; } }
-async function readFile(event: Event) { const file = (event.target as HTMLInputElement).files?.[0]; if (file) importText.value = await file.text(); }
+function removeUser(user: AdminUser) { askConfirmation('Hapus pengguna?', `Akun ${user.username} akan dihapus. Tindakan ini tidak dapat dibatalkan.`, async () => { try { await deleteAdminUser(user.id); await loadUsers(); } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Gagal menghapus pengguna.'; } }, 'Hapus'); }
+async function readFile(event: Event) { const file = (event.target as HTMLInputElement).files?.[0]; if (file) { selectedFileName.value = file.name; importText.value = await file.text(); parsedImport.value = null; importSummary.value = null; } }
 function parseImportText() { const value = importText.value.trim(); try { parsedImport.value = JSON.parse(value); } catch { parsedImport.value = value; } }
 async function previewImport() { parseImportText(); importing.value = true; try { importSummary.value = await importAdminUsers(parsedImport.value, importMode.value, true); } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Import tidak valid.'; } finally { importing.value = false; } }
-async function applyImport() { if (parsedImport.value === null || !window.confirm('Terapkan import pengguna ini?')) return; importing.value = true; try { importSummary.value = await importAdminUsers(parsedImport.value, importMode.value, false); await loadUsers(); } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Gagal menerapkan import.'; } finally { importing.value = false; } }
+function applyImport() { if (parsedImport.value === null) return; askConfirmation('Terapkan import?', 'Data pengguna yang sudah dipreview akan disimpan ke database.', async () => { importing.value = true; try { importSummary.value = await importAdminUsers(parsedImport.value, importMode.value, false); await loadUsers(); } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Gagal menerapkan import.'; } finally { importing.value = false; } }, 'Terapkan'); }
 function roleLabel(role: UserRole) { return { admin: 'Admin', editor: 'Editor', participant: 'Peserta' }[role]; }
 function subjectLabel(subjectId: number | null) { return subjects.value.find((subject) => subject.id === subjectId)?.label ?? 'Belum ditetapkan'; }
 onMounted(async () => { await Promise.all([loadUsers(), fetchAdminCurriculum().then((data) => { subjects.value = data.subjects; }).catch(() => undefined)]); });
 </script>
 
 <style scoped>
-.users-panel { display: flex; flex-direction: column; gap: 20px; }
+.users-panel { display: flex; flex-direction: column; gap: 18px; }
+.users-panel .panel { padding: 20px; border: 1px solid #e0e9f3; border-radius: 16px; background: #fff; box-shadow: 0 7px 18px rgba(31, 74, 126, .05); }
+.users-panel button { transition: transform .16s ease, box-shadow .16s ease, background .16s ease; }
+.users-panel button:not(:disabled):hover { transform: translateY(-1px); }
 .users-grid { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: 20px; }
 .user-form-panel, .import-users-panel { display: flex; flex-direction: column; gap: 14px; }
+.user-form-actions, .user-list-actions { display: flex; align-items: center; gap: 9px; }
+.mobile-close-button, .mobile-add-user { display: none; }
 .user-form { display: flex; flex-direction: column; gap: 14px; }
 .user-form label { display: flex; flex-direction: column; gap: 7px; color: #42628c; font-size: .78rem; font-weight: 700; }
 .user-form input, .user-form select, .import-users-panel textarea, .import-users-panel input[type=file], .user-search input { width: 100%; border: 1px solid #d9e5f2; border-radius: 9px; padding: 11px 12px; color: #243f64; background: #f8fbff; font: inherit; }
+.user-form .full-btn { display: flex; align-items: center; justify-content: center; gap: 5px; padding: 12px 16px; border-radius: 11px; background: linear-gradient(110deg, #2378db, #2251b5); box-shadow: 0 8px 16px rgba(35, 101, 199, .2); }
 .user-fields-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .active-field { justify-content: end; }
 .check-line { display: flex; align-items: center; gap: 8px; min-height: 42px; color: #43648d; font-weight: 500; }
 .check-line input { width: auto; }
 .text-button { border: 0; padding: 6px 0; color: #1d69c5; background: transparent; font: inherit; font-weight: 700; cursor: pointer; }
 .import-users-panel code { font-size: .72rem; }
+.import-mode-field { display: flex; min-width: 150px; flex-direction: column; gap: 5px; color: #6c83a0; font-size: .68rem; font-weight: 700; }
+.import-mode-field select { padding: 8px 10px; border: 1px solid #d9e5f2; border-radius: 8px; color: #28558a; background: #f8fbff; font: inherit; font-size: .75rem; }
+.hidden-file-input { display: none; }
+.file-picker-button { display: flex; width: 100%; align-items: center; gap: 10px; padding: 12px; border: 1px dashed #9fc3ec; border-radius: 10px; color: #2865ad; background: #f1f7ff; font: inherit; text-align: left; cursor: pointer; }
+.file-picker-button:hover { border-color: #2b72ce; background: #e9f3ff; }
+.file-picker-button strong, .file-picker-button small { display: block; }.file-picker-button strong { font-size: .78rem; }.file-picker-button small { margin-top: 2px; color: #7890ac; font-size: .7rem; font-weight: 400; }
+.action-icon { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 9px; color: #fff; background: #2c78d2; font-size: 1.1rem; font-weight: 800; }
+.import-step { display: flex; align-items: flex-start; gap: 9px; color: #31577f; }.step-number { display: grid; width: 21px; height: 21px; flex: 0 0 auto; place-items: center; border-radius: 50%; color: #fff; background: #2c78d2; font-size: .68rem; font-weight: 800; }.import-step strong, .import-step small { display: block; }.import-step strong { font-size: .75rem; }.import-step small { margin-top: 2px; color: #8298b2; font-size: .68rem; font-weight: 400; }
 .import-users-panel textarea { resize: vertical; font-family: monospace; font-size: .75rem; }
 .import-users-panel input[type=file] { padding: 8px; font-size: .75rem; }
 .import-actions, .user-search, .user-actions { display: flex; align-items: center; gap: 9px; }
+.action-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 112px; }
 .import-summary { padding: 11px; border-radius: 9px; background: #f1f7ff; color: #31577f; font-size: .78rem; }
 .users-list-heading { align-items: flex-start; }
-.user-search input { width: min(220px, 100%); }
+.user-search { position: relative; }.user-search input { width: min(220px, 100%); padding-left: 34px; }.search-icon { position: absolute; top: 50%; left: 11px; z-index: 1; color: #6d88aa; font-size: 1.25rem; line-height: 1; transform: translateY(-53%); pointer-events: none; }.search-button { padding: 10px 13px; border: 0; border-radius: 8px; color: #fff; background: #2b72ce; font: inherit; font-size: .76rem; font-weight: 700; cursor: pointer; }
 .user-table-wrap { overflow-x: auto; }
 .user-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
 .user-table th, .user-table td { padding: 13px 10px; border-bottom: 1px solid #e6edf5; text-align: left; white-space: nowrap; }
@@ -110,5 +155,34 @@ onMounted(async () => { await Promise.all([loadUsers(), fetchAdminCurriculum().t
 .status-badge.inactive { color: #a55b2d; background: #fff1e7; }
 .user-actions .danger-link { margin-left: 4px; }
 @media (max-width: 820px) { .users-grid { grid-template-columns: 1fr; } }
-@media (max-width: 560px) { .user-fields-row { grid-template-columns: 1fr; } .users-list-heading { flex-direction: column; } .user-search { width: 100%; } .user-search input { flex: 1; width: auto; } }
+@media (max-width: 720px) {
+  .users-panel { gap: 14px; }
+  .users-grid { display: flex; flex-direction: column; order: 2; gap: 14px; }
+  .users-list-panel { order: 1; }
+  .user-form-panel { display: none; }
+  .user-form-panel.open { position: fixed; z-index: 45; inset: 0; display: flex; overflow-y: auto; padding: 0; border: 0; border-radius: 0; }
+  .user-form-panel.open .panel-heading { position: sticky; z-index: 1; top: 0; padding: 17px 18px; background: #fff; }
+  .user-form-panel.open .user-form { padding: 18px; padding-bottom: 32px; }
+  .mobile-close-button { display: block; width: 30px; height: 30px; border: 0; border-radius: 50%; color: #58718e; background: #edf3fa; font-size: 1.3rem; line-height: 1; cursor: pointer; }
+  .users-list-heading { flex-direction: column; gap: 13px; }
+  .user-list-actions { width: 100%; align-items: stretch; flex-direction: column; }
+  .user-search { width: 100%; }
+  .user-search input { flex: 1; width: auto; }
+  .search-button { min-width: 58px; }
+  .mobile-add-user { display: block; width: 100%; padding: 10px 14px; border: 0; border-radius: 9px; color: #fff; background: linear-gradient(110deg, #2378db, #2251b5); font: inherit; font-size: .8rem; font-weight: 700; cursor: pointer; }
+  .import-users-panel .panel-heading { align-items: flex-start; flex-direction: column; }
+  .import-mode-field { width: 100%; }
+  .import-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .action-btn { width: 100%; min-width: 0; }
+  .user-table-wrap { overflow: visible; }
+  .user-table, .user-table tbody, .user-table tr, .user-table td { display: block; }
+  .user-table thead { display: none; }
+  .user-table tr { margin-bottom: 9px; padding: 13px; border: 1px solid #e1eaf4; border-radius: 12px; background: #fbfdff; }
+  .user-table td { padding: 4px 0; border: 0; white-space: normal; }
+  .user-table td:first-child { padding-bottom: 8px; }
+  .user-table td:last-child { padding-top: 9px; }
+  .user-actions { justify-content: flex-end; }
+  .import-users-panel { order: 2; }
+}
+@media (max-width: 560px) { .user-fields-row { grid-template-columns: 1fr; } }
 </style>
