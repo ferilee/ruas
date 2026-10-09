@@ -1,19 +1,19 @@
 # Database
 
-## MariaDB di Docker Compose
+## MariaDB terpusat di Docker Compose
 
-Compose membuat service `mariadb` dan database `ruas_belajar` secara otomatis.
-Data disimpan di `/srv/data/ruas/mariadb`, sehingga tetap ada ketika
-container dibuat ulang. Port host default-nya `3308` agar tidak bertabrakan
-dengan MariaDB lain yang mungkin sudah memakai `3306`.
+Compose MariaDB berada di `/srv/platform/mariadb` dan dapat digunakan oleh
+beberapa aplikasi melalui network `ferileenet`. Data disimpan di
+`/srv/data/mariadb`, sehingga tetap ada ketika container dibuat ulang.
 
 ```bash
+cd /srv/platform/mariadb
 docker compose up -d mariadb
 docker compose ps mariadb
 docker compose logs mariadb
 ```
 
-Backup operasional disimpan di `/srv/backups/ruas`.
+Backup operasional RUAS disimpan di `/srv/backups/ruas`.
 
 Untuk masuk ke MariaDB dari dalam container:
 
@@ -23,8 +23,8 @@ docker compose exec mariadb mariadb -u root -p
 
 Password root berasal dari `DB_ROOT_PASSWORD` di `.env`.
 
-Jangan menghapus volume `ruas_mariadb_data` kecuali memang ingin menghapus
-seluruh data database.
+Jangan menghapus `/srv/data/mariadb` kecuali memang ingin menghapus seluruh
+data database yang digunakan aplikasi.
 
 ## Validasi Seed Sebelum Deploy
 

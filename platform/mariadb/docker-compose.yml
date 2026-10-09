@@ -1,0 +1,23 @@
+services:
+  mariadb:
+    image: mariadb:11.4
+    container_name: mariadb
+    restart: always
+    environment:
+      MARIADB_DATABASE: ${DB_NAME:-ruas_belajar}
+      MARIADB_USER: ruas
+      MARIADB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD wajib diisi di .env}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD wajib diisi di .env}
+    volumes:
+      - /srv/data/mariadb:/var/lib/mysql
+    healthcheck:
+      test: ['CMD', 'healthcheck.sh', '--connect', '--innodb_initialized']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - ferileenet
+
+networks:
+  ferileenet:
+    external: true

@@ -30,7 +30,8 @@ App container (Bun + Hono)
 
 - Docker dan Docker Compose terpasang di VPS
 - Docker network `ferileenet` sudah dibuat jika memakai Nginx Proxy Manager
-- MariaDB akan dibuat oleh `docker-compose.yml` dengan volume persisten
+- MariaDB terpusat dijalankan oleh `/srv/platform/mariadb/docker-compose.yml`
+  dengan data persisten di `/srv/data/mariadb`
 
 ## Struktur Folder
 
@@ -46,3 +47,7 @@ docs/DEPLOY/
 ├── 07-update.md           ← update kode
 └── 08-troubleshooting.md  ← masalah umum
 ```
+
+Compose aplikasi berada di `/srv/apps/ruas`, sedangkan Compose MariaDB
+terpusat berada di `/srv/platform/mariadb`. Keduanya bergabung ke network
+eksternal `ferileenet`.

@@ -1,8 +1,11 @@
 # Konfigurasi
 
-## Jalankan Container App dan MariaDB
+## Jalankan MariaDB dan App
 
 ```bash
+cd /srv/platform/mariadb
+docker compose up -d
+
 cd /srv/apps/ruas
 docker compose up -d
 ```
@@ -39,8 +42,8 @@ Di tab SSL pada NPM:
 ## Jalankan Migrasi dan Seed
 
 ```bash
-docker compose exec ruas bun src/db/migrate.ts
-docker compose exec ruas bun src/lib/seed.ts
+docker compose -f /srv/apps/ruas/docker-compose.yml exec ruas bun src/db/migrate.ts
+docker compose -f /srv/apps/ruas/docker-compose.yml exec ruas bun src/lib/seed.ts
 ```
 
 Jika `seed.json` diubah di server:

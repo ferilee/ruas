@@ -11,13 +11,14 @@
 7. `bun run seed:check`
 8. buat `ferileenet`
 9. jalankan NPM
-10. jalankan app dan MariaDB dengan `docker compose up -d`
-11. migrasi + seed
-12. buat Proxy Host di NPM ke `ruas:3000`
-13. aktifkan SSL
-14. cek `https://domain-anda.com/health`
-15. cek `https://domain-anda.com/api/auth`
-16. buka domain di browser
+10. jalankan MariaDB dari `/srv/platform/mariadb`
+11. jalankan app dari `/srv/apps/ruas`
+12. migrasi + seed
+13. buat Proxy Host di NPM ke `ruas:3000`
+14. aktifkan SSL
+15. cek `https://domain-anda.com/health`
+16. cek `https://domain-anda.com/api/auth`
+17. buka domain di browser
 
 ## Checklist Produksi Satu Domain
 

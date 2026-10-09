@@ -3,8 +3,9 @@
 ## Cek Dasar
 
 ```bash
-docker compose ps
-docker compose logs -f
+docker compose -f /srv/platform/mariadb/docker-compose.yml ps
+docker compose -f /srv/apps/ruas/docker-compose.yml ps
+docker compose -f /srv/apps/ruas/docker-compose.yml logs -f
 curl http://localhost:3000/health
 ```
 

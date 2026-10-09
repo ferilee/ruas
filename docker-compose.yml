@@ -1,25 +1,4 @@
 services:
-  mariadb:
-    image: mariadb:11.4
-    container_name: ruas-mariadb
-    restart: always
-    ports:
-      - '127.0.0.1:${DB_HOST_PORT:-3308}:3306'
-    environment:
-      MARIADB_DATABASE: ${DB_NAME:-ruas_belajar}
-      MARIADB_USER: ruas
-      MARIADB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD wajib diisi di .env}
-      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD wajib diisi di .env}
-    volumes:
-      - mariadb_data:/var/lib/mysql
-    healthcheck:
-      test: ['CMD', 'healthcheck.sh', '--connect', '--innodb_initialized']
-      interval: 5s
-      timeout: 5s
-      retries: 20
-    networks:
-      - ferileenet
-
   ruas:
     build:
       context: .
@@ -27,9 +6,6 @@ services:
     image: ruas:production
     container_name: ruas
     restart: always
-    depends_on:
-      mariadb:
-        condition: service_healthy
     ports:
       - '127.0.0.1:${APP_PORT:-3000}:${APP_PORT:-3000}'
     working_dir: /app/backend
@@ -59,11 +35,3 @@ services:
 networks:
   ferileenet:
     external: true
-
-volumes:
-  mariadb_data:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ${RUAS_DATA_DIR:-/srv/data/ruas}/mariadb
