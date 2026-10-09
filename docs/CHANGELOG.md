@@ -3,6 +3,18 @@
 > Catatan perubahan dan fitur yang sudah diimplementasikan.
 > Dari awal (Juni 2026) sampai kondisi terkini.
 
+### Laporan Asesmen
+
+- Laporan admin hasil asesmen dengan filter status, kurikulum, tanggal, dan siswa.
+- Detail laporan menampilkan jawaban, waktu, skor akhir, dan aktivitas anti-cheat.
+- Ekspor laporan tersedia melalui dialog cetak browser untuk disimpan sebagai PDF.
+
+### Batas Percobaan
+
+- Admin dapat mengatur jumlah percobaan siswa pada setiap mata pelajaran.
+- Nilai `0` berarti tanpa batas; batas diterapkan per siswa dan per topik.
+- Siswa melihat sisa percobaan di halaman topik dan server menolak sesi baru setelah batas tercapai.
+
 ### Manajemen Pengguna
 
 - Tabel akun `users` dengan username unik, role, status aktif, dan password hash scrypt.

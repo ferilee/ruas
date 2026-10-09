@@ -18,6 +18,7 @@ import { questionsRoutes } from './routes/questions';
 import { createRequireAuth } from './middleware/require-auth';
 import { adminUserRoutes } from './routes/admin-users';
 import { requireAdminAuth } from './middleware/require-admin-auth';
+import { adminReportRoutes } from './routes/admin-reports';
 import type { Pool } from './db/connection';
 
 declare module 'hono' {
@@ -74,6 +75,7 @@ export function createApp(config: AppConfig) {
   app.use('/api/admin/curriculum', requireAdminAuth);
   app.use('/api/admin/users', requireAdminAuth);
   app.use('/api/admin/users/*', requireAdminAuth);
+  app.use('/api/admin/reports', requireAdminAuth);
 
   app.onError((err, c) => {
     const requestId = c.get('requestId') ?? 'unknown';
@@ -101,6 +103,7 @@ export function createApp(config: AppConfig) {
   app.route('/api/exam/attempts', examAttemptRoutes(config.pool));
   app.route('/api/admin/curriculum', adminCurriculumRoutes(config.pool));
   app.route('/api/admin/users', adminUserRoutes(config.pool));
+  app.route('/api/admin/reports', adminReportRoutes(config.pool));
 
   if (process.env.NODE_ENV === 'production') {
     const distDir = '../frontend/dist';

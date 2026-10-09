@@ -93,6 +93,7 @@ tanggal lahir, dan token sesi setelah login pertama.
 | slug | varchar(50) unique | `tps`, `literasi-bahasa-indonesia` |
 | label | varchar(100) | `TPS`, `Literasi Bahasa Indonesia` |
 | display_order | int | Urutan tampil |
+| max_attempts | int | Batas percobaan per siswa dan topik; `0` berarti tanpa batas |
 
 ### topics
 
@@ -223,6 +224,7 @@ Response (benar/salah):
 | PUT | `/api/profile` | Menyimpan atau memperbarui profil peserta |
 | POST | `/api/exam/attempts` | Membuat sesi ujian |
 | GET | `/api/exam/attempts/active?topic_id=<id>` | Memulihkan sesi yang belum selesai |
+| GET | `/api/exam/attempts/availability?subject_id=<id>&topic_id=<id>` | Memeriksa sisa percobaan |
 | POST | `/api/exam/attempts/:id/answers` | Menyimpan dan mengoreksi jawaban |
 | POST | `/api/exam/attempts/:id/events` | Menyimpan aktivitas integritas |
 | POST | `/api/exam/attempts/:id/complete` | Menutup dan menyimpan hasil ujian |
@@ -248,6 +250,8 @@ Token admin dikirim dengan header `x-admin-token`.
 | POST | `/api/admin/users` | Tambah akun manual |
 | PUT/DELETE | `/api/admin/users/:id` | Edit atau hapus akun |
 | POST | `/api/admin/users/import` | Preview atau terapkan import CSV/JSON |
+| GET | `/api/admin/reports` | Ringkasan dan daftar hasil asesmen dengan filter |
+| GET | `/api/admin/reports/:id` | Detail hasil, jawaban, dan aktivitas anti-cheat |
 | GET | `/api/admin/curriculum` | Daftar kelas, jenis asesmen, dan mata pelajaran |
 | POST/PUT/DELETE | `/api/admin/curriculum/classes/:id` | Kelola kelas |
 | POST/PUT/DELETE | `/api/admin/curriculum/assessment-types/:id` | Kelola jenis asesmen |
@@ -256,7 +260,9 @@ Token admin dikirim dengan header `x-admin-token`.
 Endpoint kurikulum peserta `GET /api/curriculum` memakai sesi peserta dan
 menyediakan data yang sama untuk halaman awal. Mata pelajaran dapat berlaku
 untuk semua kelas/jenis asesmen atau dibatasi dengan `class_id` dan
-`assessment_type_id`.
+`assessment_type_id`. `max_attempts` diatur dari menu kurikulum admin, berlaku
+per siswa dan per topik pada mata pelajaran tersebut, dan tetap ditegakkan di
+endpoint pembuatan sesi.
 
 ---
 

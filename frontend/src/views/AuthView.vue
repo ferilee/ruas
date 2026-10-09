@@ -1,14 +1,56 @@
 <template>
-  <div class="auth-page">
+  <div class="auth-page" :data-theme="resolvedTheme" @click="themeMenuOpen = false">
     <div class="orb orb-top-left" aria-hidden="true"></div>
     <div class="orb orb-top-right" aria-hidden="true"></div>
     <div class="orb orb-bottom-left" aria-hidden="true"></div>
     <div class="orb orb-bottom-right" aria-hidden="true"></div>
 
-    <div class="theme-button" aria-hidden="true">
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M20 15.2A8 8 0 0 1 8.8 4 8 8 0 1 0 20 15.2Z" />
-      </svg>
+    <div class="auth-utility-bar">
+      <router-link to="/admin" class="editor-access" aria-label="Akses editor">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 5.5h16v13H4z" />
+          <path d="M8 9h8M8 12h8M8 15h5" />
+        </svg>
+        <span>Akses Editor</span>
+      </router-link>
+
+      <div class="theme-picker" @click.stop>
+        <button
+          type="button"
+          class="theme-button"
+          :aria-expanded="themeMenuOpen"
+          aria-haspopup="menu"
+          :aria-label="`Tema saat ini: ${themeModeLabel}. Ubah tema`"
+          @click="themeMenuOpen = !themeMenuOpen"
+        >
+          <svg v-if="resolvedTheme === 'dark'" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M20 15.2A8 8 0 0 1 8.8 4 8 8 0 1 0 20 15.2Z" />
+          </svg>
+          <svg v-else viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="4" />
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42" />
+          </svg>
+          <span class="sr-only">{{ themeModeLabel }}</span>
+        </button>
+
+        <div v-if="themeMenuOpen" class="theme-menu" role="menu" aria-label="Pilihan tema">
+          <p class="theme-menu-title">Tampilan</p>
+          <button
+            v-for="option in themeOptions"
+            :key="option.value"
+            type="button"
+            class="theme-option"
+            :class="{ selected: themeMode === option.value }"
+            role="menuitemradio"
+            :aria-checked="themeMode === option.value"
+            @click="selectTheme(option.value)"
+          >
+            <span class="theme-option-icon" aria-hidden="true">{{ option.icon }}</span>
+            <span>{{ option.label }}</span>
+            <span v-if="themeMode === option.value" class="theme-option-check" aria-hidden="true">✓</span>
+          </button>
+        </div>
+      </div>
     </div>
 
     <main class="auth-card" aria-labelledby="auth-title">
@@ -101,7 +143,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { fetchParticipantProfile, saveParticipantProfile } from '@/api/client';
 import { clearLegacyParticipantProfile, getLegacyParticipantProfile } from '@/lib/participant-profile';
@@ -112,8 +154,53 @@ const password = ref('');
 const showPassword = ref(false);
 const loading = ref(false);
 const error = ref('');
+type ThemeMode = 'light' | 'dark' | 'system';
+
+const themeOptions: Array<{ value: ThemeMode; label: string; icon: string }> = [
+  { value: 'light', label: 'Terang', icon: '☼' },
+  { value: 'dark', label: 'Gelap', icon: '☾' },
+  { value: 'system', label: 'Otomatis', icon: '◐' },
+];
+const themeMode = ref<ThemeMode>('system');
+const systemPrefersDark = ref(false);
+const themeMenuOpen = ref(false);
+let systemThemeMedia: MediaQueryList | null = null;
+
+const resolvedTheme = computed<'light' | 'dark'>(() => {
+  if (themeMode.value === 'system') return systemPrefersDark.value ? 'dark' : 'light';
+  return themeMode.value;
+});
+
+const themeModeLabel = computed(() => themeOptions.find((option) => option.value === themeMode.value)?.label ?? 'Otomatis');
+
+function applyThemePreference() {
+  document.documentElement.style.colorScheme = resolvedTheme.value;
+}
+
+function selectTheme(mode: ThemeMode) {
+  themeMode.value = mode;
+  localStorage.setItem('ruas-theme', mode);
+  themeMenuOpen.value = false;
+  applyThemePreference();
+}
+
+function handleSystemThemeChange(event: MediaQueryListEvent) {
+  systemPrefersDark.value = event.matches;
+  applyThemePreference();
+}
 
 onMounted(async () => {
+  const savedTheme = localStorage.getItem('ruas-theme');
+  if (savedTheme === 'light' || savedTheme === 'dark' || savedTheme === 'system') {
+    themeMode.value = savedTheme;
+  }
+  if (typeof window.matchMedia === 'function') {
+    systemThemeMedia = window.matchMedia('(prefers-color-scheme: dark)');
+    systemPrefersDark.value = systemThemeMedia.matches;
+    systemThemeMedia.addEventListener('change', handleSystemThemeChange);
+  }
+  applyThemePreference();
+
   try {
     const res = await fetch('/api/auth');
     if (!res.ok) return;
@@ -124,6 +211,11 @@ onMounted(async () => {
   } catch {
     // Let the login form handle server connectivity issues when submitted.
   }
+});
+
+onBeforeUnmount(() => {
+  systemThemeMedia?.removeEventListener('change', handleSystemThemeChange);
+  document.documentElement.style.colorScheme = '';
 });
 
 async function login() {
@@ -214,26 +306,138 @@ async function login() {
   height: 500px;
 }
 
-.theme-button {
+.auth-utility-bar {
   position: absolute;
   top: 32px;
   right: 34px;
+  left: 34px;
   z-index: 2;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.editor-access,
+.theme-button {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.55);
+  color: #10265e;
+  box-shadow: 7px 9px 18px rgba(90, 122, 184, 0.13), inset 2px 2px 8px rgba(255, 255, 255, 0.7);
+  transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.editor-access {
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 15px;
+  border-radius: 15px;
+  color: #236bdc;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.editor-access svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.editor-access:hover,
+.theme-button:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 9px 12px 22px rgba(90, 122, 184, 0.18), inset 2px 2px 8px rgba(255, 255, 255, 0.75);
+}
+
+.theme-picker {
+  position: relative;
+  pointer-events: auto;
+}
+
+.theme-button {
   display: grid;
   width: 54px;
   height: 54px;
   place-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.82);
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.55);
-  color: #10265e;
-  box-shadow: 7px 9px 18px rgba(90, 122, 184, 0.13), inset 2px 2px 8px rgba(255, 255, 255, 0.7);
+  cursor: pointer;
 }
 
 .theme-button svg {
   width: 22px;
   height: 22px;
-  fill: currentColor;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.theme-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 178px;
+  padding: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  border-radius: 18px;
+  background: rgba(248, 251, 255, 0.94);
+  box-shadow: 0 15px 30px rgba(64, 96, 155, 0.2), inset 2px 2px 8px rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(14px);
+}
+
+.theme-menu-title {
+  padding: 4px 9px 7px;
+  color: #6b80a8;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.theme-option {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 9px;
+  padding: 9px;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  color: #304a7a;
+  font: inherit;
+  font-size: 0.82rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.theme-option:hover,
+.theme-option.selected {
+  background: rgba(35, 107, 220, 0.11);
+  color: #1d5fd0;
+}
+
+.theme-option-icon {
+  width: 20px;
+  color: #236bdc;
+  font-size: 1.1rem;
+  text-align: center;
+}
+
+.theme-option-check {
+  margin-left: auto;
+  color: #236bdc;
+  font-weight: 800;
 }
 
 .auth-card {
@@ -461,6 +665,98 @@ async function login() {
   text-align: center;
 }
 
+.auth-page[data-theme='dark'] {
+  background:
+    radial-gradient(circle at 50% 36%, rgba(37, 64, 119, 0.58), transparent 34%),
+    linear-gradient(145deg, #0d1733 0%, #152956 52%, #203c72 100%);
+  color: #edf3ff;
+}
+
+.auth-page[data-theme='dark'] .orb {
+  border-color: rgba(153, 188, 255, 0.23);
+  background: linear-gradient(145deg, rgba(85, 125, 205, 0.22), rgba(16, 31, 71, 0.34));
+  box-shadow: inset 9px 9px 18px rgba(142, 179, 255, 0.08), 12px 18px 26px rgba(2, 8, 24, 0.2);
+}
+
+.auth-page[data-theme='dark'] .editor-access,
+.auth-page[data-theme='dark'] .theme-button {
+  border-color: rgba(156, 192, 255, 0.28);
+  background: rgba(26, 49, 96, 0.72);
+  color: #c5d9ff;
+  box-shadow: 7px 9px 18px rgba(2, 8, 24, 0.22), inset 2px 2px 8px rgba(150, 188, 255, 0.08);
+}
+
+.auth-page[data-theme='dark'] .editor-access:hover,
+.auth-page[data-theme='dark'] .theme-button:hover {
+  background: rgba(40, 72, 132, 0.88);
+}
+
+.auth-page[data-theme='dark'] .theme-menu {
+  border-color: rgba(156, 192, 255, 0.25);
+  background: rgba(20, 37, 76, 0.96);
+  box-shadow: 0 15px 30px rgba(2, 8, 24, 0.38), inset 2px 2px 8px rgba(150, 188, 255, 0.07);
+}
+
+.auth-page[data-theme='dark'] .theme-menu-title,
+.auth-page[data-theme='dark'] .theme-option {
+  color: #b9cbed;
+}
+
+.auth-page[data-theme='dark'] .theme-option:hover,
+.auth-page[data-theme='dark'] .theme-option.selected {
+  background: rgba(98, 153, 255, 0.18);
+  color: #eaf2ff;
+}
+
+.auth-page[data-theme='dark'] .auth-logo-tile {
+  border-color: rgba(153, 188, 255, 0.25);
+  background: linear-gradient(145deg, rgba(57, 89, 157, 0.52), rgba(19, 37, 78, 0.7));
+  box-shadow: 10px 16px 25px rgba(2, 8, 24, 0.26), inset 6px 6px 14px rgba(157, 193, 255, 0.1);
+}
+
+.auth-page[data-theme='dark'] .auth-card h1 {
+  color: #f1f5ff;
+}
+
+.auth-page[data-theme='dark'] .auth-subtitle,
+.auth-page[data-theme='dark'] .auth-note,
+.auth-page[data-theme='dark'] .auth-footer {
+  color: #b9cbed;
+}
+
+.auth-page[data-theme='dark'] .auth-field {
+  border-color: rgba(153, 188, 255, 0.25);
+  background: rgba(21, 43, 87, 0.68);
+  box-shadow: 8px 10px 18px rgba(2, 8, 24, 0.2), inset 2px 2px 8px rgba(157, 193, 255, 0.08);
+}
+
+.auth-page[data-theme='dark'] .auth-input {
+  color: #eff4ff;
+}
+
+.auth-page[data-theme='dark'] .auth-field-icon,
+.auth-page[data-theme='dark'] .password-toggle,
+.auth-page[data-theme='dark'] .floating-label {
+  color: #b6c9ed;
+}
+
+.auth-page[data-theme='dark'] .auth-field:focus-within .floating-label,
+.auth-page[data-theme='dark'] .auth-input:not(:placeholder-shown) ~ .floating-label {
+  background: #172d5c;
+  color: #8db9ff;
+}
+
+.auth-page[data-theme='dark'] .auth-divider span {
+  background: rgba(157, 193, 255, 0.3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .editor-access,
+  .theme-button {
+    transition: none;
+  }
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
@@ -477,9 +773,20 @@ async function login() {
     padding: 35px 16px 62px;
   }
 
-  .theme-button {
+  .auth-utility-bar {
     top: 18px;
     right: 18px;
+    left: 18px;
+  }
+
+  .editor-access {
+    min-height: 45px;
+    padding: 0 12px;
+    border-radius: 14px;
+    font-size: 0.72rem;
+  }
+
+  .theme-button {
     width: 45px;
     height: 45px;
     border-radius: 15px;

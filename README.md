@@ -85,9 +85,13 @@ mendukung tambah, edit, hapus, dan import JSON. Panel **Kurikulum** di halaman
 yang sama digunakan untuk mengatur kelas, jenis asesmen, serta mata pelajaran
 beserta cakupannya. Pilihan tersebut langsung digunakan pada halaman awal
 peserta. Dashboard admin memisahkan Ringkasan, Struktur Asesmen, Bank Soal,
-dan Jadwal agar setiap pekerjaan dapat dilakukan dari menu yang jelas. Menu
+Jadwal, dan Laporan agar setiap pekerjaan dapat dilakukan dari menu yang jelas.
 Pengguna juga tersedia untuk menambah akun manual atau import CSV/JSON. Admin
-dapat menetapkan mata pelajaran peserta dari menu ini.
+dapat menetapkan mata pelajaran peserta dari menu ini. Admin juga dapat mengatur
+jumlah percobaan siswa pada setiap mata pelajaran; isi `0` untuk tanpa batas.
+Menu Laporan menampilkan
+ringkasan skor, akurasi, waktu, aktivitas anti-cheat, filter hasil siswa, detail
+percobaan, serta ekspor melalui dialog Save as PDF browser.
 Password editor terpisah dari `APP_PASSWORD`.
 Profil peserta, sesi ujian, jawaban, hasil, dan aktivitas anti-cheat disimpan
 permanen di MariaDB. Token sesi login tetap bersifat sementara di browser dan

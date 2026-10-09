@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: ruas:production
+    image: ${RUAS_IMAGE:-ruas:production}
     container_name: ruas
     restart: always
     ports:

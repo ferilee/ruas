@@ -30,6 +30,7 @@ vi.mock('@/routes/admin-curriculum', () => ({ adminCurriculumRoutes: () => new H
 vi.mock('@/routes/participant-profile', () => ({ participantProfileRoutes: () => new Hono() }));
 vi.mock('@/routes/exam-attempts', () => ({ examAttemptRoutes: () => new Hono() }));
 vi.mock('@/routes/admin-users', () => ({ adminUserRoutes: () => new Hono() }));
+vi.mock('@/routes/admin-reports', () => ({ adminReportRoutes: () => new Hono() }));
 
 import { createApp } from '@/app.js';
 
