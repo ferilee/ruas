@@ -6,11 +6,11 @@ COPY . .
 
 # Build frontend
 WORKDIR /app/frontend
-RUN bun install && bun run build
+RUN bun install --frozen-lockfile && bun run build
 
 # Install backend deps
 WORKDIR /app/backend
-RUN bun install
+RUN bun install --frozen-lockfile
 
 # ─── Runtime ───
 FROM oven/bun:1.3.14

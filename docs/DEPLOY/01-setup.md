@@ -3,8 +3,8 @@
 ## 1. Clone Project
 
 ```bash
-git clone <url-repo> ruas2
-cd ruas2
+mkdir -p /srv/apps/ruas /srv/data/ruas/mariadb /srv/backups/ruas
+cd /srv/apps/ruas
 ```
 
 ## 2. Install Dependency
@@ -39,6 +39,7 @@ DB_USER=ruas
 DB_PASSWORD=ganti-password-mysql
 DB_ROOT_PASSWORD=ganti-root-password-mysql
 DB_NAME=ruas_belajar
+RUAS_DATA_DIR=/srv/data/ruas
 APP_PORT=3000
 FRONTEND_PORT=5173
 APP_USERNAME=P130100230
@@ -54,3 +55,4 @@ Catatan:
 - `DB_HOST_PORT` — port MariaDB di host untuk koneksi development langsung; port internal tetap `3306`
 - `DB_PASSWORD` — password user aplikasi database
 - `DB_ROOT_PASSWORD` — password root MariaDB untuk administrasi
+- `RUAS_DATA_DIR` — lokasi data MariaDB persisten di VPS

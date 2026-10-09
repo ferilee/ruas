@@ -1,13 +1,12 @@
 # Update
 
+Sinkronkan source release dari workstation ke `/srv/apps/ruas` tanpa menimpa
+`.env`, lalu jalankan di VPS:
+
 ```bash
-git pull
-git clean -fdX
-bun install --frozen-lockfile
-bun run install:all:frozen
-bun run build:frontend
-bun run seed:check
-docker compose restart
+cd /srv/apps/ruas
+docker compose build --pull
+docker compose up -d
 docker compose exec ruas bun src/db/migrate.ts
 docker compose exec ruas bun src/lib/seed.ts
 ```

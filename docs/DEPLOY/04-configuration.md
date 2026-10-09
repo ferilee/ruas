@@ -3,6 +3,7 @@
 ## Jalankan Container App dan MariaDB
 
 ```bash
+cd /srv/apps/ruas
 docker compose up -d
 ```
 

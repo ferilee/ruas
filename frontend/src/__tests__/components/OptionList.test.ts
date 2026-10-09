@@ -71,7 +71,7 @@ describe('OptionList - multiple_response', () => {
     expect(firstEmit).toEqual(['A']);
 
     currentKeys = firstEmit;
-    await wrapper.setProps({ selectedKeys: currentKeys });
+    await wrapper.setProps({ selectedKeys: currentKeys } as Record<string, unknown>);
 
     await wrapper.findAll('.option-item')[2].trigger('click');
     expect(wrapper.emitted('update:selectedKeys')?.[1]?.[0]).toEqual(['A', 'C']);

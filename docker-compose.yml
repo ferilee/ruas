@@ -2,7 +2,7 @@ services:
   mariadb:
     image: mariadb:11.4
     container_name: ruas-mariadb
-    restart: unless-stopped
+    restart: always
     ports:
       - '127.0.0.1:${DB_HOST_PORT:-3308}:3306'
     environment:
@@ -11,7 +11,7 @@ services:
       MARIADB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD wajib diisi di .env}
       MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD wajib diisi di .env}
     volumes:
-      - ruas_mariadb_data:/var/lib/mysql
+      - mariadb_data:/var/lib/mysql
     healthcheck:
       test: ['CMD', 'healthcheck.sh', '--connect', '--innodb_initialized']
       interval: 5s
@@ -21,20 +21,25 @@ services:
       - ferileenet
 
   ruas:
-    image: oven/bun:1.3.14
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ruas:production
     container_name: ruas
-    restart: unless-stopped
+    restart: always
     depends_on:
       mariadb:
         condition: service_healthy
     ports:
       - '127.0.0.1:${APP_PORT:-3000}:${APP_PORT:-3000}'
-    volumes:
-      - ./frontend/dist:/app/frontend/dist
-      - ./backend:/app/backend
-      - ./seed.json:/app/seed.json
     working_dir: /app/backend
     command: ['bun', 'src/index.ts']
+    healthcheck:
+      test: ['CMD', 'bun', '-e', "fetch('http://127.0.0.1:3000/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     environment:
       DB_HOST: mariadb
       DB_PORT: 3306
@@ -56,4 +61,9 @@ networks:
     external: true
 
 volumes:
-  ruas_mariadb_data:
+  mariadb_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${RUAS_DATA_DIR:-/srv/data/ruas}/mariadb

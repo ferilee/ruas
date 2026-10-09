@@ -23,7 +23,7 @@ describe('TimerBar', () => {
       props: { running: false },
     });
 
-    await wrapper.setProps({ running: true });
+    await wrapper.setProps({ running: true } as Record<string, unknown>);
     await nextTick();
 
     expect(wrapper.vm.formatted).toBe('00:00');
@@ -34,7 +34,7 @@ describe('TimerBar', () => {
       props: { running: true },
     });
 
-    await wrapper.setProps({ running: false });
+    await wrapper.setProps({ running: false } as Record<string, unknown>);
     await nextTick();
 
     const emitted = wrapper.emitted('time');
@@ -48,8 +48,8 @@ describe('TimerBar', () => {
       props: { running: true },
     });
 
-    await wrapper.setProps({ running: false });
-    await wrapper.setProps({ running: true });
+    await wrapper.setProps({ running: false } as Record<string, unknown>);
+    await wrapper.setProps({ running: true } as Record<string, unknown>);
     await nextTick();
 
     expect(wrapper.vm.formatted).toBe('00:00');

@@ -10,6 +10,7 @@ vi.mock('drizzle-orm/mysql2', () => ({
 
 describe('curriculumRoutes', () => {
   beforeEach(() => {
+    vi.resetModules();
     drizzleMock.mockReset();
   });
 
@@ -43,6 +44,7 @@ describe('curriculumRoutes', () => {
 
 describe('adminCurriculumRoutes', () => {
   beforeEach(() => {
+    vi.resetModules();
     drizzleMock.mockReset();
     drizzleMock.mockReturnValue({});
   });
