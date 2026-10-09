@@ -45,6 +45,8 @@ services:
       APP_USERNAME: ${APP_USERNAME:-}
       APP_PASSWORD: ${APP_PASSWORD:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      EXAM_EXIT_PASSWORD: ${EXAM_EXIT_PASSWORD:-}
+      CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN wajib diisi di .env}
       NODE_ENV: production
     networks:
       - ferileenet
