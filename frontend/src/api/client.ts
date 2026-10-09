@@ -229,6 +229,14 @@ export async function updateAdminUser(id: number, input: AdminUserInput): Promis
   return data.user;
 }
 
+export async function assignAdminUsersSubject(userIds: number[], subjectId: number | null): Promise<number> {
+  const data = await adminRequest<{ updated: number }>('/admin/users/bulk-subject', {
+    method: 'PATCH',
+    body: JSON.stringify({ user_ids: userIds, subject_id: subjectId }),
+  });
+  return data.updated;
+}
+
 export async function deleteAdminUser(id: number): Promise<void> {
   await adminRequest(`/admin/users/${id}`, { method: 'DELETE' });
 }

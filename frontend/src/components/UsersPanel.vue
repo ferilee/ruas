@@ -41,17 +41,24 @@
 
     <div class="panel users-list-panel">
       <div class="panel-heading users-list-heading"><div><h2>Daftar pengguna</h2><p>{{ users.length }} akun ditemukan.</p></div><div class="user-list-actions"><div class="user-search"><span class="search-icon" aria-hidden="true">⌕</span><input v-model="search" placeholder="Cari username atau nama" @keyup.enter="loadUsers" /><button class="search-button" type="button" aria-label="Cari pengguna" title="Cari" @click="loadUsers">Cari</button></div><button class="mobile-add-user" type="button" @click="openNewUser">＋ Tambah Pengguna</button></div></div>
+      <div v-if="users.length" class="bulk-assignment-bar">
+        <div class="bulk-assignment-copy"><strong>Penetapan massal</strong><small>{{ selectedUserIds.length ? `${selectedUserIds.length} pengguna dipilih` : 'Pilih pengguna untuk menetapkan mata pelajaran sekaligus.' }}</small></div>
+        <button class="select-all-button" type="button" @click="toggleAllUsers">{{ allUsersSelected ? 'Batalkan semua' : 'Pilih semua' }}</button>
+        <RuasSelect v-model="bulkSubjectId" :options="subjectOptions" placeholder="Pilih mata pelajaran" aria-label="Mata pelajaran penetapan massal" />
+        <button class="primary-btn bulk-apply-button" type="button" :disabled="bulkSaving || selectedUserIds.length === 0 || bulkSubjectId === undefined" @click="applyBulkAssignment">{{ bulkSaving ? 'Menyimpan...' : 'Terapkan' }}</button>
+      </div>
+      <p v-if="bulkMessage" :class="bulkMessageType === 'error' ? 'error-text' : 'success-text'">{{ bulkMessage }}</p>
       <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
       <div v-if="loading" class="panel-empty">Memuat pengguna...</div>
       <div v-else-if="users.length === 0" class="panel-empty">Belum ada pengguna.</div>
-      <div v-else class="user-table-wrap"><table class="user-table"><thead><tr><th>Pengguna</th><th>Peran / penetapan</th><th>Status</th><th>Aksi</th></tr></thead><tbody><tr v-for="user in users" :key="user.id"><td><strong>{{ user.display_name }}</strong><small>{{ user.username }}</small></td><td><span class="role-badge">{{ roleLabel(user.role) }}</span><small>{{ subjectLabel(user.subject_id) }}</small></td><td><span :class="['status-badge', { inactive: !user.active }]">{{ user.active ? 'Aktif' : 'Nonaktif' }}</span></td><td class="user-actions"><button class="text-button" type="button" @click="editUser(user)">Edit</button><button class="danger-link" type="button" @click="removeUser(user)">Hapus</button></td></tr></tbody></table></div>
+      <div v-else class="user-table-wrap"><table class="user-table"><thead><tr><th class="selection-column"><input type="checkbox" :checked="allUsersSelected" aria-label="Pilih semua pengguna" @change="toggleAllUsers" /></th><th>Pengguna</th><th>Peran / penetapan</th><th>Status</th><th>Aksi</th></tr></thead><tbody><tr v-for="user in users" :key="user.id"><td class="selection-column"><input type="checkbox" :checked="isUserSelected(user.id)" :aria-label="`Pilih ${user.display_name}`" @change="toggleUser(user.id)" /></td><td><strong>{{ user.display_name }}</strong><small>{{ user.username }}</small></td><td><span class="role-badge">{{ roleLabel(user.role) }}</span><small>{{ subjectLabel(user.subject_id) }}</small></td><td><span :class="['status-badge', { inactive: !user.active }]">{{ user.active ? 'Aktif' : 'Nonaktif' }}</span></td><td class="user-actions"><button class="text-button" type="button" @click="editUser(user)">Edit</button><button class="danger-link" type="button" @click="removeUser(user)">Hapus</button></td></tr></tbody></table></div>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
-import { createAdminUser, deleteAdminUser, fetchAdminCurriculum, fetchAdminUsers, importAdminUsers, updateAdminUser } from '@/api/client';
+import { assignAdminUsersSubject, createAdminUser, deleteAdminUser, fetchAdminCurriculum, fetchAdminUsers, importAdminUsers, updateAdminUser } from '@/api/client';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import RuasSelect from '@/components/RuasSelect.vue';
 import type { AdminUser, AdminUserInput, Subject, UserImportSummary, UserRole } from '@/types';
@@ -71,6 +78,11 @@ const importText = ref('');
 const parsedImport = ref<unknown>(null);
 const importMode = ref<'insert' | 'upsert'>('insert');
 const importSummary = ref<UserImportSummary | null>(null);
+const selectedUserIds = ref<number[]>([]);
+const bulkSubjectId = ref<number | null | undefined>(undefined);
+const bulkSaving = ref(false);
+const bulkMessage = ref('');
+const bulkMessageType = ref<'success' | 'error'>('success');
 const fileInput = ref<HTMLInputElement | null>(null);
 const selectedFileName = ref('');
 const confirmOpen = ref(false);
@@ -89,6 +101,7 @@ const importModeOptions = [
   { value: 'insert', label: 'Tambah baru' },
   { value: 'upsert', label: 'Tambah atau perbarui' },
 ];
+const allUsersSelected = computed(() => users.value.length > 0 && users.value.every((user) => selectedUserIds.value.includes(user.id)));
 
 function resetForm() { Object.assign(form, { username: '', password: '', display_name: '', subject_id: null, role: 'participant', active: true }); editingId.value = null; formMessage.value = ''; userFormOpen.value = false; }
 function openNewUser() { resetForm(); userFormOpen.value = true; }
@@ -98,9 +111,33 @@ function editUser(user: AdminUser) { Object.assign(form, { username: user.userna
 function askConfirmation(title: string, message: string, action: () => Promise<void>, label = 'OK') { confirmTitle.value = title; confirmMessage.value = message; confirmLabel.value = label; pendingConfirmation.value = action; confirmOpen.value = true; }
 function closeConfirmation() { confirmOpen.value = false; pendingConfirmation.value = null; }
 async function runConfirmation() { const action = pendingConfirmation.value; closeConfirmation(); if (action) await action(); }
-async function loadUsers() { loading.value = true; errorMessage.value = ''; try { users.value = await fetchAdminUsers(search.value); } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Gagal memuat pengguna.'; } finally { loading.value = false; } }
+async function loadUsers() { loading.value = true; errorMessage.value = ''; try { users.value = await fetchAdminUsers(search.value); selectedUserIds.value = []; } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Gagal memuat pengguna.'; } finally { loading.value = false; } }
 async function saveUser() { saving.value = true; formMessage.value = ''; const currentId = editingId.value; try { const input = { ...form }; if (currentId === null) await createAdminUser(input); else await updateAdminUser(currentId, input); formMessageType.value = 'success'; resetForm(); formMessage.value = currentId === null ? 'Pengguna berhasil ditambahkan.' : 'Pengguna berhasil diperbarui.'; await loadUsers(); } catch (error) { formMessageType.value = 'error'; formMessage.value = error instanceof Error ? error.message : 'Gagal menyimpan pengguna.'; } finally { saving.value = false; } }
 function removeUser(user: AdminUser) { askConfirmation('Hapus pengguna?', `Akun ${user.username} akan dihapus. Tindakan ini tidak dapat dibatalkan.`, async () => { try { await deleteAdminUser(user.id); await loadUsers(); } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Gagal menghapus pengguna.'; } }, 'Hapus'); }
+function isUserSelected(id: number) { return selectedUserIds.value.includes(id); }
+function toggleUser(id: number) { selectedUserIds.value = isUserSelected(id) ? selectedUserIds.value.filter((selectedId) => selectedId !== id) : [...selectedUserIds.value, id]; }
+function toggleAllUsers() { selectedUserIds.value = allUsersSelected.value ? [] : users.value.map((user) => user.id); }
+function applyBulkAssignment() {
+  if (selectedUserIds.value.length === 0 || bulkSubjectId.value === undefined) return;
+  const selectedIds = [...selectedUserIds.value];
+  const subjectId = bulkSubjectId.value;
+  const subjectLabelText = subjectId === null ? 'Belum ditetapkan' : subjectLabel(subjectId);
+  askConfirmation('Terapkan penetapan massal?', `${selectedIds.length} pengguna akan ditetapkan ke ${subjectLabelText}.`, async () => {
+    bulkSaving.value = true;
+    bulkMessage.value = '';
+    try {
+      const updated = await assignAdminUsersSubject(selectedIds, subjectId);
+      selectedUserIds.value = [];
+      bulkSubjectId.value = undefined;
+      bulkMessageType.value = 'success';
+      bulkMessage.value = `${updated} pengguna berhasil diperbarui.`;
+      await loadUsers();
+    } catch (error) {
+      bulkMessageType.value = 'error';
+      bulkMessage.value = error instanceof Error ? error.message : 'Gagal menerapkan penetapan massal.';
+    } finally { bulkSaving.value = false; }
+  }, 'Terapkan');
+}
 async function readFile(event: Event) { const file = (event.target as HTMLInputElement).files?.[0]; if (file) { selectedFileName.value = file.name; importText.value = await file.text(); parsedImport.value = null; importSummary.value = null; } }
 function parseImportText() { const value = importText.value.trim(); try { parsedImport.value = JSON.parse(value); } catch { parsedImport.value = value; } }
 async function previewImport() { parseImportText(); importing.value = true; try { importSummary.value = await importAdminUsers(parsedImport.value, importMode.value, true); } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Import tidak valid.'; } finally { importing.value = false; } }
@@ -147,6 +184,8 @@ onMounted(async () => { await Promise.all([loadUsers(), fetchAdminCurriculum().t
 .user-table-wrap { overflow-x: auto; }
 .user-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
 .user-table th, .user-table td { padding: 13px 10px; border-bottom: 1px solid #e6edf5; text-align: left; white-space: nowrap; }
+.selection-column { width: 38px; text-align: center !important; }
+.selection-column input { width: 16px; height: 16px; accent-color: #246bc5; cursor: pointer; }
 .user-table th { color: #7890ac; font-size: .7rem; letter-spacing: .05em; text-transform: uppercase; }
 .user-table td strong, .user-table td small { display: block; }
 .user-table td small { margin-top: 3px; color: #8298b2; font-size: .72rem; }
@@ -154,6 +193,10 @@ onMounted(async () => { await Promise.all([loadUsers(), fetchAdminCurriculum().t
 .status-badge { color: #17734c; background: #e9f8f0; }
 .status-badge.inactive { color: #a55b2d; background: #fff1e7; }
 .user-actions .danger-link { margin-left: 4px; }
+.bulk-assignment-bar { display: grid; grid-template-columns: minmax(180px, 1.4fr) auto minmax(190px, .9fr) auto; align-items: center; gap: 10px; padding: 12px; border: 1px solid #cfe0f3; border-radius: 12px; background: linear-gradient(110deg, #f4f9ff, #edf5ff); }
+.bulk-assignment-copy strong, .bulk-assignment-copy small { display: block; }.bulk-assignment-copy strong { color: #24558f; font-size: .8rem; }.bulk-assignment-copy small { margin-top: 3px; color: #7890ac; font-size: .7rem; }
+.select-all-button { padding: 9px 11px; border: 1px solid #b9d2ef; border-radius: 9px; color: #2464ad; background: #fff; font: inherit; font-size: .72rem; font-weight: 700; cursor: pointer; }
+.bulk-apply-button { padding: 10px 14px; }
 @media (max-width: 820px) { .users-grid { grid-template-columns: 1fr; } }
 @media (max-width: 720px) {
   .users-panel { gap: 14px; }
@@ -180,9 +223,14 @@ onMounted(async () => { await Promise.all([loadUsers(), fetchAdminCurriculum().t
   .user-table tr { margin-bottom: 9px; padding: 13px; border: 1px solid #e1eaf4; border-radius: 12px; background: #fbfdff; }
   .user-table td { padding: 4px 0; border: 0; white-space: normal; }
   .user-table td:first-child { padding-bottom: 8px; }
+  .user-table td.selection-column { display: inline-block; width: 28px; padding: 0 8px 0 0; vertical-align: top; }
+  .user-table td.selection-column + td { display: inline-block; width: calc(100% - 34px); vertical-align: top; }
   .user-table td:last-child { padding-top: 9px; }
   .user-actions { justify-content: flex-end; }
   .import-users-panel { order: 2; }
+  .bulk-assignment-bar { grid-template-columns: 1fr 1fr; }
+  .bulk-assignment-copy { grid-column: 1 / -1; }
+  .bulk-assignment-bar .ruas-select, .bulk-apply-button { width: 100%; }
 }
 @media (max-width: 560px) { .user-fields-row { grid-template-columns: 1fr; } }
 </style>

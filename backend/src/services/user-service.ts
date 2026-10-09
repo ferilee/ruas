@@ -1,4 +1,4 @@
-import { asc, eq, like, or } from 'drizzle-orm';
+import { asc, eq, inArray, like, or } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/mysql2';
 import { users } from '@/db/schema/users';
 import { subjects } from '@/db/schema/subjects';
@@ -99,6 +99,15 @@ export async function updateUser(db: UserDb, id: number, input: UserInput) {
 
   await db.update(users).set(values).where(eq(users.id, id));
   return findUserById(db, id);
+}
+
+export async function assignSubjectToUsers(db: UserDb, userIds: number[], subjectId: number | null) {
+  const [result] = await db
+    .update(users)
+    .set({ subject_id: subjectId, updated_at: new Date() })
+    .where(inArray(users.id, userIds));
+
+  return Number(result.affectedRows ?? 0);
 }
 
 export async function deleteUser(db: UserDb, id: number) {

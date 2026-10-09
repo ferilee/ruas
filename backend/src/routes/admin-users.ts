@@ -12,7 +12,7 @@ import {
   listUsers,
   toPublicUser,
   updateUser,
-  type UserInput,
+  assignSubjectToUsers,
 } from '@/services/user-service';
 
 const roleSchema = z.enum(['admin', 'editor', 'participant']);
@@ -29,6 +29,10 @@ const importRequestSchema = z.object({
   data: z.unknown(),
   mode: z.enum(['insert', 'upsert']).default('insert'),
   dry_run: z.boolean().default(false),
+});
+const bulkSubjectSchema = z.object({
+  user_ids: z.array(z.coerce.number().int().positive()).min(1).max(500),
+  subject_id: z.preprocess((value) => (value === '' || value === undefined || value === null ? null : value), z.coerce.number().int().positive().nullable()),
 });
 
 type ImportRow = z.infer<typeof createUserSchema>;
@@ -176,6 +180,17 @@ export function adminUserRoutes(pool: Pool) {
     }
 
     return c.json({ summary });
+  });
+
+  app.patch('/bulk-subject', async (c) => {
+    const parsed = bulkSubjectSchema.safeParse(await c.req.json());
+    if (!parsed.success) return c.json({ error: 'invalid_body', message: 'Pilihan pengguna atau mata pelajaran tidak valid.' }, 400);
+    if (parsed.data.subject_id !== null && !(await subjectExists(db, parsed.data.subject_id))) {
+      return c.json({ error: 'invalid_reference', message: 'Mata pelajaran tidak ditemukan.' }, 400);
+    }
+
+    const updated = await assignSubjectToUsers(db, parsed.data.user_ids, parsed.data.subject_id);
+    return c.json({ updated });
   });
 
   app.put('/:id', async (c) => {
