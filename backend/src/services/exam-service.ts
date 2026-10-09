@@ -1,15 +1,73 @@
 import { and, asc, count, eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/mysql2';
+import { subjects } from '@/db/schema/subjects';
+import { topics } from '@/db/schema/topics';
 import { examAnswers } from '@/db/schema/exam-answers';
 import { examAttempts } from '@/db/schema/exam-attempts';
 import { examIntegrityEvents } from '@/db/schema/exam-integrity-events';
 import { participantProfiles } from '@/db/schema/participant-profiles';
 import type { Pool } from '@/db/connection';
+import { users } from '@/db/schema/users';
 
 type ExamDb = ReturnType<typeof drizzle>;
 
 export function createExamDb(pool: Pool) {
-  return drizzle(pool, { schema: { examAnswers, examAttempts, examIntegrityEvents, participantProfiles }, mode: 'default' });
+  return drizzle(pool, { schema: { examAnswers, examAttempts, examIntegrityEvents, participantProfiles, subjects, topics, users }, mode: 'default' });
+}
+
+async function findAssignedSubjectId(db: ExamDb, identityKey: string, profileSubjectId: number) {
+  const [account] = await db
+    .select({ subject_id: users.subject_id })
+    .from(users)
+    .where(eq(users.username, identityKey))
+    .limit(1);
+
+  return account ? account.subject_id : profileSubjectId;
+}
+
+export async function getAttemptAvailability(db: ExamDb, identityKey: string, subjectId: number, topicId: number) {
+  const [participant] = await db
+    .select({ id: participantProfiles.id })
+    .from(participantProfiles)
+    .where(eq(participantProfiles.identity_key, identityKey))
+    .limit(1);
+  if (!participant) return null;
+
+  const [profile] = await db
+    .select({ subject_id: participantProfiles.subject_id })
+    .from(participantProfiles)
+    .where(eq(participantProfiles.identity_key, identityKey))
+    .limit(1);
+  const assignedSubjectId = profile ? await findAssignedSubjectId(db, identityKey, profile.subject_id) : null;
+  if (!assignedSubjectId || assignedSubjectId !== subjectId) return null;
+
+  const [subject] = await db
+    .select({ id: subjects.id, max_attempts: subjects.max_attempts })
+    .from(subjects)
+    .innerJoin(topics, eq(topics.subject_id, subjects.id))
+    .where(and(eq(subjects.id, subjectId), eq(topics.id, topicId)))
+    .limit(1);
+  if (!subject) return null;
+
+  const [attemptCount] = await db
+    .select({ total: count() })
+    .from(examAttempts)
+    .where(and(eq(examAttempts.participant_id, participant.id), eq(examAttempts.topic_id, topicId)));
+  const attemptsUsed = Number(attemptCount?.total ?? 0);
+  const [activeAttempt] = await db
+    .select({ id: examAttempts.id })
+    .from(examAttempts)
+    .where(and(eq(examAttempts.participant_id, participant.id), eq(examAttempts.topic_id, topicId), eq(examAttempts.status, 'in_progress')))
+    .orderBy(asc(examAttempts.started_at))
+    .limit(1);
+
+  return {
+    max_attempts: subject.max_attempts,
+    attempts_used: attemptsUsed,
+    remaining_attempts: subject.max_attempts === 0 ? null : Math.max(0, subject.max_attempts - attemptsUsed),
+    can_start: subject.max_attempts === 0 || attemptsUsed < subject.max_attempts,
+    has_active_attempt: Boolean(activeAttempt),
+  };
 }
 
 export async function findAttempt(db: ExamDb, attemptId: number, identityKey: string) {
@@ -41,14 +99,21 @@ export async function findAttemptAnswers(db: ExamDb, attemptId: number, identity
 
 export async function createAttempt(db: ExamDb, identityKey: string, input: { subject_id: number; topic_id: number; total_questions: number }) {
   const [participant] = await db
-    .select({ id: participantProfiles.id })
+    .select({ id: participantProfiles.id, subject_id: participantProfiles.subject_id })
     .from(participantProfiles)
     .where(eq(participantProfiles.identity_key, identityKey))
     .limit(1);
   if (!participant) return null;
 
+  const assignedSubjectId = await findAssignedSubjectId(db, identityKey, participant.subject_id);
+  if (!assignedSubjectId || assignedSubjectId !== input.subject_id) return { assignmentMismatch: true as const };
+
+  const availability = await getAttemptAvailability(db, identityKey, input.subject_id, input.topic_id);
+  if (!availability) return null;
+  if (!availability.can_start) return { limited: true as const, availability };
+
   const [result] = await db.insert(examAttempts).values({ participant_id: participant.id, ...input });
-  return findAttempt(db, Number(result.insertId), identityKey);
+  return { limited: false as const, attempt: await findAttempt(db, Number(result.insertId), identityKey) };
 }
 
 export async function saveAnswer(db: ExamDb, attemptId: number, input: { question_id: number; selected_keys: string[]; is_correct: boolean; elapsed_seconds: number }) {

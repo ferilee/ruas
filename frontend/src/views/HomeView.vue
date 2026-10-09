@@ -11,39 +11,53 @@
       </div>
 
       <h1 id="selection-title">Simulasi Asesmen</h1>
-      <p class="selection-subtitle">Pilih kelas, jenis asesmen, dan mata pelajaran untuk memulai asesmen</p>
+      <p class="selection-subtitle">
+        {{ assignmentLocked ? 'Penugasan asesmen Anda telah diatur langsung oleh admin.' : 'Pilih kelas, jenis asesmen, dan mata pelajaran untuk memulai asesmen' }}
+      </p>
 
       <div class="selection-form">
-        <label class="select-field">
-          <span class="field-label"><span class="field-icon">◆</span> Kelas:</span>
-          <select v-model="selectedClassId" :disabled="curriculumLoading || curriculum.classes.length === 0" aria-label="Kelas">
-            <option value="" disabled>Pilih kelas...</option>
-            <option v-for="item in curriculum.classes" :key="item.id" :value="item.id">{{ item.label }}</option>
-          </select>
-        </label>
+        <div v-if="assignmentLocked" class="assignment-summary" aria-label="Penugasan asesmen">
+          <div class="assignment-heading">
+            <span class="assignment-kicker">Penugasan Anda</span>
+            <span class="assignment-status"><span aria-hidden="true">✓</span> Diatur admin</span>
+          </div>
+          <div class="assignment-row"><span><span class="field-icon">◆</span> Kelas</span><strong>{{ participantProfile?.class_label || 'Belum ditetapkan' }}</strong></div>
+          <div class="assignment-row"><span><span class="field-icon">▣</span> Jenis asesmen</span><strong>{{ participantProfile?.assessment_type_label || 'Belum ditetapkan' }}</strong></div>
+          <div class="assignment-row"><span><span class="field-icon">▤</span> Mata pelajaran</span><strong>{{ participantProfile?.subject_label || 'Belum ditetapkan' }}</strong></div>
+        </div>
 
-        <label class="select-field">
-          <span class="field-label"><span class="field-icon">▣</span> Jenis Asesmen:</span>
-          <select v-model="selectedAssessmentTypeId" :disabled="curriculumLoading || curriculum.assessment_types.length === 0" aria-label="Jenis asesmen">
-            <option value="" disabled>Pilih jenis asesmen...</option>
-            <option v-for="item in curriculum.assessment_types" :key="item.id" :value="item.id">{{ item.label }}</option>
-          </select>
-        </label>
+        <template v-else>
+          <label class="select-field">
+            <span class="field-label"><span class="field-icon">◆</span> Kelas:</span>
+            <select v-model="selectedClassId" :disabled="curriculumLoading || curriculum.classes.length === 0" aria-label="Kelas">
+              <option value="" disabled>Pilih kelas...</option>
+              <option v-for="item in curriculum.classes" :key="item.id" :value="item.id">{{ item.label }}</option>
+            </select>
+          </label>
 
-        <label class="select-field">
-          <span class="field-label"><span class="field-icon">▤</span> Mata Pelajaran:</span>
-          <select v-model="selectedSubjectId" :disabled="curriculumLoading || filteredSubjects.length === 0" aria-label="Mata pelajaran">
-            <option value="" disabled>
-              {{ curriculumLoading ? 'Memuat mata pelajaran...' : 'Pilih mata pelajaran...' }}
-            </option>
-            <option v-for="subject in filteredSubjects" :key="subject.id" :value="subject.id">
-              {{ subject.label }}
-            </option>
-          </select>
-        </label>
+          <label class="select-field">
+            <span class="field-label"><span class="field-icon">▣</span> Jenis Asesmen:</span>
+            <select v-model="selectedAssessmentTypeId" :disabled="curriculumLoading || curriculum.assessment_types.length === 0" aria-label="Jenis asesmen">
+              <option value="" disabled>Pilih jenis asesmen...</option>
+              <option v-for="item in curriculum.assessment_types" :key="item.id" :value="item.id">{{ item.label }}</option>
+            </select>
+          </label>
+
+          <label class="select-field">
+            <span class="field-label"><span class="field-icon">▤</span> Mata Pelajaran:</span>
+            <select v-model="selectedSubjectId" :disabled="curriculumLoading || filteredSubjects.length === 0" aria-label="Mata pelajaran">
+              <option value="" disabled>
+                {{ curriculumLoading ? 'Memuat mata pelajaran...' : 'Pilih mata pelajaran...' }}
+              </option>
+              <option v-for="subject in filteredSubjects" :key="subject.id" :value="subject.id">
+                {{ subject.label }}
+              </option>
+            </select>
+          </label>
+        </template>
 
         <p v-if="error" class="home-error" role="alert">{{ error }}</p>
-        <p v-else-if="filteredSubjects.length === 0 && !curriculumLoading" class="home-empty">Belum ada mata pelajaran untuk pilihan ini.</p>
+        <p v-else-if="!assignmentLocked && filteredSubjects.length === 0 && !curriculumLoading" class="home-empty">Belum ada mata pelajaran untuk pilihan ini.</p>
         <p v-if="scheduleError" class="home-error" role="alert">{{ scheduleError }}</p>
         <p v-else-if="schedule && !schedule.is_open" class="schedule-notice">
           Asesmen dibuka pada {{ formatStartAt(schedule.start_at) }}.
@@ -52,10 +66,10 @@
 
         <button class="start-button" :disabled="curriculumLoading || scheduleLoading || !selectedSubjectId || !canStart" @click="startAssessment">
           <span aria-hidden="true">▶</span>
-          {{ curriculumLoading || scheduleLoading ? 'Memuat...' : canStart ? 'Mulai Asesmen' : 'Menunggu Jadwal' }}
+          {{ curriculumLoading || scheduleLoading ? 'Memuat...' : !selectedSubjectId && assignmentLocked ? 'Menunggu Penugasan' : canStart ? 'Mulai Asesmen' : 'Menunggu Jadwal' }}
         </button>
 
-        <button v-if="error || scheduleError || (!curriculumLoading && filteredSubjects.length === 0)" class="reload-button" @click="loadData">
+        <button v-if="error || scheduleError || (!assignmentLocked && !curriculumLoading && filteredSubjects.length === 0)" class="reload-button" @click="loadData">
           Coba Lagi
         </button>
       </div>
@@ -68,8 +82,8 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { fetchAssessmentSchedule, fetchCurriculum } from '@/api/client';
-import type { AssessmentSchedule, CurriculumData } from '@/types';
+import { fetchAssessmentSchedule, fetchCurriculum, fetchParticipantProfile } from '@/api/client';
+import type { AssessmentSchedule, CurriculumData, ParticipantProfile } from '@/types';
 
 const router = useRouter();
 const curriculum = ref<CurriculumData>({ classes: [], assessment_types: [], subjects: [] });
@@ -78,6 +92,8 @@ const selectedAssessmentTypeId = ref<number | ''>('');
 const selectedSubjectId = ref<number | ''>('');
 const curriculumLoading = ref(true);
 const error = ref<string | null>(null);
+const assignmentLocked = ref(Boolean(sessionStorage.getItem('auth_token')));
+const participantProfile = ref<ParticipantProfile | null>(null);
 const schedule = ref<AssessmentSchedule | null>(null);
 const scheduleLoading = ref(true);
 const scheduleError = ref<string | null>(null);
@@ -96,6 +112,15 @@ async function loadCurriculum() {
   error.value = null;
 
   try {
+    if (assignmentLocked.value) {
+      participantProfile.value = await fetchParticipantProfile();
+      selectedSubjectId.value = participantProfile.value?.subject_id ?? '';
+      if (!participantProfile.value?.subject_id) {
+        error.value = 'Admin belum menetapkan penugasan asesmen untuk akun ini.';
+      }
+      return;
+    }
+
     curriculum.value = await fetchCurriculum();
     selectedClassId.value = curriculum.value.classes[0]?.id ?? '';
     selectedAssessmentTypeId.value = curriculum.value.assessment_types[0]?.id ?? '';
@@ -148,6 +173,7 @@ function startAssessment() {
 }
 
 function chooseFirstSubject() {
+  if (assignmentLocked.value) return;
   selectedSubjectId.value = filteredSubjects.value.length === 1 ? filteredSubjects.value[0].id : '';
 }
 
@@ -459,6 +485,63 @@ onUnmounted(() => {
   gap: 16px;
 }
 
+.assignment-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  border-radius: 22px;
+  background: rgba(245, 249, 255, 0.62);
+  box-shadow: 8px 10px 18px rgba(133, 159, 207, 0.13), inset 2px 2px 8px rgba(255, 255, 255, 0.55);
+}
+
+.assignment-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 4px;
+}
+
+.assignment-kicker {
+  color: #173c83;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.assignment-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #21815e;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.assignment-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(173, 197, 232, 0.52);
+  color: #59709d;
+  font-size: 0.72rem;
+}
+
+.assignment-row > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.assignment-row strong {
+  color: #203d75;
+  font-size: 0.78rem;
+  text-align: right;
+}
+
 .select-field {
   gap: 7px;
 }
@@ -581,6 +664,21 @@ onUnmounted(() => {
 
   .selection-subtitle {
     margin-bottom: 24px;
+  }
+
+  .assignment-summary {
+    padding: 16px;
+    border-radius: 18px;
+  }
+
+  .assignment-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .assignment-row strong {
+    text-align: left;
   }
 
   .select-field select,

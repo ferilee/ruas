@@ -7,7 +7,7 @@ import type { Pool } from '@/db/connection';
 import { getParticipantIdentity } from '@/lib/participant-identity';
 import { checkAnswer } from '@/lib/scoring';
 import { mapCheckAnswerResponse } from '@/mappers/question-response';
-import { createExamDb, abandonAttempt, completeAttempt, createAttempt, findActiveAttempt, findAttempt, findAttemptAnswers, saveAnswer, saveIntegrityEvent } from '@/services/exam-service';
+import { createExamDb, abandonAttempt, completeAttempt, createAttempt, findActiveAttempt, findAttempt, findAttemptAnswers, getAttemptAvailability, saveAnswer, saveIntegrityEvent } from '@/services/exam-service';
 
 const attemptSchema = z.object({ subject_id: z.coerce.number().int().positive(), topic_id: z.coerce.number().int().positive(), total_questions: z.coerce.number().int().nonnegative() });
 const answerSchema = z.object({ question_id: z.coerce.number().int().positive(), selected_keys: z.array(z.string().min(1)).min(1), elapsed_seconds: z.coerce.number().int().nonnegative() });
@@ -27,9 +27,21 @@ export function examAttemptRoutes(pool: Pool) {
     if (!identityKey) return c.json({ error: 'identity_required', message: 'Identitas peserta tidak tersedia.' }, 400);
     const parsed = attemptSchema.safeParse(await c.req.json());
     if (!parsed.success) return c.json({ error: 'invalid_body', message: 'Data sesi ujian tidak valid.' }, 400);
-    const attempt = await createAttempt(db, identityKey, parsed.data);
-    if (!attempt) return c.json({ error: 'profile_required', message: 'Lengkapi profil peserta terlebih dahulu.' }, 400);
-    return c.json({ attempt }, 201);
+    const created = await createAttempt(db, identityKey, parsed.data);
+    if (!created) return c.json({ error: 'profile_required', message: 'Lengkapi profil peserta terlebih dahulu.' }, 400);
+    if ('assignmentMismatch' in created && created.assignmentMismatch) {
+      return c.json({ error: 'assignment_mismatch', message: 'Asesmen ini tidak sesuai dengan penugasan akun siswa.' }, 403);
+    }
+    if (created.limited) return c.json({ error: 'attempt_limit_reached', message: 'Batas percobaan untuk asesmen ini sudah habis.', availability: created.availability }, 409);
+    return c.json({ attempt: created.attempt }, 201);
+  });
+
+  app.get('/availability', async (c) => {
+    const identityKey = getParticipantIdentity(c);
+    const subjectId = parseId(c.req.query('subject_id') || '');
+    const topicId = parseId(c.req.query('topic_id') || '');
+    if (!identityKey || !subjectId || !topicId) return c.json({ availability: null });
+    return c.json({ availability: await getAttemptAvailability(db, identityKey, subjectId, topicId) });
   });
 
   app.get('/active', async (c) => {
