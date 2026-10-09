@@ -6,6 +6,7 @@ import { topics } from '@/db/schema/topics';
 import * as schema from '@/db/schema';
 import type { Pool } from '@/db/connection';
 import type { QuestionType } from '@/lib/scoring';
+import { hashTopicToken, normalizeTopicToken } from '@/lib/topic-token';
 import type { AdminQuestionInput, ImportQuestion } from '@/validators/admin-question-validator';
 
 type AdminDb = ReturnType<typeof drizzle>;
@@ -170,7 +171,7 @@ export async function deleteAdminQuestion(db: AdminDb, questionId: number): Prom
 }
 
 export async function listAdminTopics(db: AdminDb) {
-  return db
+  const rows = await db
     .select({
       id: topics.id,
       subject_id: topics.subject_id,
@@ -178,10 +179,37 @@ export async function listAdminTopics(db: AdminDb) {
       slug: topics.slug,
       label: topics.label,
       display_order: topics.display_order,
+      requires_token: topics.requires_token,
+      token_hash: topics.token_hash,
     })
     .from(topics)
     .innerJoin(schema.subjects, eq(topics.subject_id, schema.subjects.id))
     .orderBy(schema.subjects.display_order, topics.display_order);
+
+  return rows.map(({ token_hash, ...topic }) => ({ ...topic, token_configured: Boolean(token_hash) }));
+}
+
+export async function updateAdminTopicAccess(
+  db: AdminDb,
+  topicId: number,
+  input: { requires_token: boolean; token?: string },
+) {
+  const [existing] = await db
+    .select({ id: topics.id, token_hash: topics.token_hash })
+    .from(topics)
+    .where(eq(topics.id, topicId))
+    .limit(1);
+  if (!existing) return null;
+
+  const token = input.token ? normalizeTopicToken(input.token) : '';
+  const tokenHash = input.requires_token
+    ? token ? hashTopicToken(token) : existing.token_hash
+    : null;
+
+  if (input.requires_token && !tokenHash) return { missingToken: true as const };
+
+  await db.update(topics).set({ requires_token: input.requires_token, token_hash: tokenHash }).where(eq(topics.id, topicId));
+  return { id: topicId, requires_token: input.requires_token, token_configured: Boolean(tokenHash) };
 }
 
 interface ImportPlan {

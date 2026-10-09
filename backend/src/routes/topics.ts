@@ -6,10 +6,12 @@ import { questions } from '../db/schema/questions';
 import * as schema from '../db/schema/index';
 import type { Pool } from '../db/connection';
 import { z } from 'zod';
+import { canAccessTopic, getTopicAccess } from '@/services/topic-access-service';
 
 const querySchema = z.object({
   subject_id: z.coerce.number().int().positive(),
 });
+const tokenSchema = z.object({ token: z.string().trim().min(1).max(100) });
 
 export function topicsRoutes(pool: Pool) {
   const db = drizzle(pool, { schema, mode: 'default' });
@@ -30,6 +32,7 @@ export function topicsRoutes(pool: Pool) {
         slug: topics.slug,
         label: topics.label,
         display_order: topics.display_order,
+        requires_token: topics.requires_token,
         question_count: count(questions.id),
       })
       .from(topics)
@@ -56,6 +59,7 @@ export function topicsRoutes(pool: Pool) {
         label: topics.label,
         display_order: topics.display_order,
         question_count: count(questions.id),
+        requires_token: topics.requires_token,
       })
       .from(topics)
       .leftJoin(questions, eq(questions.topic_id, topics.id))
@@ -68,6 +72,21 @@ export function topicsRoutes(pool: Pool) {
     }
 
     return c.json({ topic });
+  });
+
+  app.post('/:id/access', async (c) => {
+    const id = Number(c.req.param('id'));
+    const parsed = tokenSchema.safeParse(await c.req.json());
+    if (!Number.isInteger(id) || id < 1 || !parsed.success) {
+      return c.json({ error: 'invalid_body', message: 'Token topik tidak valid.' }, 400);
+    }
+
+    const topic = await getTopicAccess(db, id);
+    if (!topic) return c.json({ error: 'not_found', message: 'Topik tidak ditemukan.' }, 404);
+    if (!canAccessTopic(topic, parsed.data.token)) {
+      return c.json({ error: 'invalid_topic_token', message: 'Token topik salah atau sudah tidak berlaku.' }, 403);
+    }
+    return c.json({ granted: true });
   });
 
   return app;

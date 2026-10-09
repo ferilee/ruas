@@ -1,4 +1,4 @@
-import { mysqlTable, int, varchar } from 'drizzle-orm/mysql-core';
+import { boolean, mysqlTable, int, varchar } from 'drizzle-orm/mysql-core';
 import { subjects } from './subjects';
 
 export const topics = mysqlTable('topics', {
@@ -7,4 +7,6 @@ export const topics = mysqlTable('topics', {
   slug: varchar('slug', { length: 50 }).notNull().unique(),
   label: varchar('label', { length: 100 }).notNull(),
   display_order: int('display_order').notNull(),
+  requires_token: boolean('requires_token').notNull().default(false),
+  token_hash: varchar('token_hash', { length: 64 }),
 });

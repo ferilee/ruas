@@ -25,6 +25,21 @@ import type {
 } from '@/types';
 import { getParticipantClientId } from '@/lib/participant-profile';
 
+const TOPIC_ACCESS_KEY_PREFIX = 'ruas_topic_access_';
+
+function getTopicAccessStorageKey(topicId: number) {
+  return `${TOPIC_ACCESS_KEY_PREFIX}${topicId}`;
+}
+
+export function getTopicAccessToken(topicId: number): string | null {
+  return sessionStorage.getItem(getTopicAccessStorageKey(topicId));
+}
+
+function topicAccessHeaders(topicId: number): Record<string, string> {
+  const token = getTopicAccessToken(topicId);
+  return token ? { 'x-topic-access-token': token } : {};
+}
+
 const BASE = '/api';
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
@@ -101,12 +116,20 @@ export async function fetchTopics(subjectId: number): Promise<Topic[]> {
   return data.topics;
 }
 
+export async function verifyTopicAccess(topicId: number, token: string): Promise<void> {
+  await request<{ granted: true }>(`/topics/${topicId}/access`, {
+    method: 'POST',
+    body: JSON.stringify({ token }),
+  });
+  sessionStorage.setItem(getTopicAccessStorageKey(topicId), token.trim());
+}
+
 export async function fetchRandomQuestion(topicId: number, excludeIds?: number[]): Promise<Question | null> {
   let url = `/questions/random?topic_id=${topicId}`;
   if (excludeIds && excludeIds.length > 0) {
     url += `&exclude=${excludeIds.join(',')}`;
   }
-  const data = await request<{ question: Question | null }>(url);
+  const data = await request<{ question: Question | null }>(url, { headers: topicAccessHeaders(topicId) });
   return data.question;
 }
 
@@ -118,7 +141,11 @@ export async function checkAnswer(questionId: number, selectedKeys: string[]): P
 }
 
 export async function createExamAttempt(input: { subject_id: number; topic_id: number; total_questions: number }): Promise<ExamAttempt> {
-  const data = await request<{ attempt: ExamAttempt }>('/exam/attempts', { method: 'POST', body: JSON.stringify(input) });
+  const topic_access_token = getTopicAccessToken(input.topic_id);
+  const data = await request<{ attempt: ExamAttempt }>('/exam/attempts', {
+    method: 'POST',
+    body: JSON.stringify({ ...input, topic_access_token: topic_access_token ?? undefined }),
+  });
   return data.attempt;
 }
 
@@ -161,7 +188,7 @@ export async function verifyExamExitPassword(password: string): Promise<void> {
 }
 
 export async function fetchQuestionCount(topicId: number): Promise<number> {
-  const data = await request<{ count: number }>(`/questions/count?topic_id=${topicId}`);
+  const data = await request<{ count: number }>(`/questions/count?topic_id=${topicId}`, { headers: topicAccessHeaders(topicId) });
   return data.count;
 }
 
@@ -211,6 +238,14 @@ export async function fetchAdminQuestion(id: number): Promise<AdminQuestion> {
 export async function fetchAdminTopics(): Promise<AdminTopic[]> {
   const data = await adminRequest<{ topics: AdminTopic[] }>('/admin/topics');
   return data.topics;
+}
+
+export async function updateAdminTopicAccess(id: number, input: { requires_token: boolean; token?: string }): Promise<AdminTopic> {
+  const data = await adminRequest<{ topic: AdminTopic }>(`/admin/topics/${id}/access`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+  return data.topic;
 }
 
 export async function fetchAdminUsers(search?: string): Promise<AdminUser[]> {

@@ -1,5 +1,17 @@
 <template>
   <div class="topic-view">
+    <div v-if="tokenModalTopic" class="topic-token-backdrop" role="presentation" @click.self="closeTokenModal">
+      <form class="topic-token-modal" @submit.prevent="submitTopicToken">
+        <button class="topic-token-close" type="button" aria-label="Tutup" @click="closeTokenModal">×</button>
+        <span class="topic-token-icon" aria-hidden="true">🔐</span>
+        <span class="topic-token-kicker">AKSES TOPIK</span>
+        <h2>Masukkan token</h2>
+        <p>Token diperlukan untuk membuka topik <strong>{{ tokenModalTopic.label }}</strong>.</p>
+        <label>Token topik<input v-model.trim="tokenInput" type="text" autocomplete="one-time-code" placeholder="Masukkan token" autofocus /></label>
+        <p v-if="tokenError" class="topic-error">{{ tokenError }}</p>
+        <button class="topic-action-btn topic-token-submit" type="submit" :disabled="tokenLoading || !tokenInput">{{ tokenLoading ? 'Memeriksa...' : 'Buka Topik' }}</button>
+      </form>
+    </div>
     <router-link to="/" class="topic-back">&larr; Kembali</router-link>
 
     <h1 class="topic-title">{{ subjectLabel || 'Pilih Topik' }}</h1>
@@ -24,19 +36,19 @@
       </div>
 
       <div class="topic-list">
-      <router-link
-        v-for="topic in topics"
-        :key="topic.id"
-        :to="{ path: `/quiz/${topic.id}`, query: { subject_id: String(subjectId), topic_label: topic.label } }"
-        class="topic-card"
-        :class="{ locked: !canStart }"
-        :aria-disabled="!canStart"
-        :tabindex="canStart ? 0 : -1"
-        @click="handleTopicClick"
-      >
-        <span class="topic-label">{{ topic.label }} <span class="topic-count">({{ topic.question_count }})</span></span>
-        <span class="topic-arrow">&rarr;</span>
-      </router-link>
+        <router-link
+          v-for="topic in topics"
+          :key="topic.id"
+          :to="{ path: `/quiz/${topic.id}`, query: { subject_id: String(subjectId), topic_label: topic.label } }"
+          class="topic-card"
+          :class="{ locked: !canStart || !canOpenTopic(topic), 'token-locked': topic.requires_token && !hasTopicAccess(topic.id) }"
+          :aria-disabled="!canStart || !canOpenTopic(topic)"
+          :tabindex="canStart && canOpenTopic(topic) ? 0 : -1"
+          @click="handleTopicClick($event, topic)"
+        >
+        <span class="topic-label"><span>{{ topic.label }} <span class="topic-count">({{ topic.question_count }})</span></span><small class="topic-attempts"><span v-if="topic.requires_token && !hasTopicAccess(topic.id)" class="topic-lock-label">🔒 Token diperlukan · </span>{{ attemptsLabel(topic.id) }}</small></span>
+        <span class="topic-arrow">{{ topic.requires_token && !hasTopicAccess(topic.id) ? '🔐' : '→' }}</span>
+        </router-link>
       </div>
     </template>
   </div>
@@ -44,11 +56,12 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
-import { useRoute } from 'vue-router';
-import { fetchAssessmentSchedule, fetchTopics, fetchSubjects } from '@/api/client';
-import type { AssessmentSchedule, Topic } from '@/types';
+import { useRoute, useRouter } from 'vue-router';
+import { fetchAssessmentSchedule, fetchExamAttemptAvailability, fetchTopics, fetchSubjects, getTopicAccessToken, verifyTopicAccess } from '@/api/client';
+import type { AssessmentSchedule, ExamAttemptAvailability, Topic } from '@/types';
 
 const route = useRoute();
+const router = useRouter();
 const subjectId = Number(route.params.id);
 
 const topics = ref<Topic[]>([]);
@@ -58,6 +71,12 @@ const error = ref<string | null>(null);
 const schedule = ref<AssessmentSchedule | null>(null);
 const scheduleLoading = ref(true);
 const scheduleRemainingSeconds = ref(0);
+const topicAvailability = ref<Record<number, ExamAttemptAvailability | null>>({});
+const topicAccessState = ref<Record<number, boolean>>({});
+const tokenModalTopic = ref<Topic | null>(null);
+const tokenInput = ref('');
+const tokenError = ref('');
+const tokenLoading = ref(false);
 let scheduleTimer: ReturnType<typeof setInterval> | undefined;
 
 const canStart = computed(() => schedule.value?.is_open === true && scheduleRemainingSeconds.value === 0);
@@ -74,6 +93,15 @@ async function loadTopicsData() {
       fetchAssessmentSchedule(),
     ]);
     topics.value = fetchedTopics;
+    topicAccessState.value = Object.fromEntries(fetchedTopics.map((topic) => [topic.id, Boolean(getTopicAccessToken(topic.id))]));
+    const availability = await Promise.all(fetchedTopics.map(async (topic) => {
+      try {
+        return [topic.id, await fetchExamAttemptAvailability(subjectId, topic.id)] as const;
+      } catch {
+        return [topic.id, null] as const;
+      }
+    }));
+    topicAvailability.value = Object.fromEntries(availability);
     const subject = subjects.find((s) => s.id === subjectId);
     subjectLabel.value = subject?.label ?? '';
     schedule.value = fetchedSchedule;
@@ -86,8 +114,65 @@ async function loadTopicsData() {
   }
 }
 
-function handleTopicClick(event: MouseEvent) {
-  if (!canStart.value) event.preventDefault();
+function hasTopicAccess(topicId: number) {
+  return topicAccessState.value[topicId] || Boolean(getTopicAccessToken(topicId));
+}
+
+function canOpenTopic(topic: Topic) {
+  const availability = topicAvailability.value[topic.id];
+  if (availability?.has_active_attempt) return true;
+  if (topic.requires_token && !hasTopicAccess(topic.id)) return false;
+  return !availability || availability.can_start;
+}
+
+function openTokenModal(topic: Topic) {
+  tokenModalTopic.value = topic;
+  tokenInput.value = '';
+  tokenError.value = '';
+}
+
+function closeTokenModal() {
+  tokenModalTopic.value = null;
+  tokenInput.value = '';
+  tokenError.value = '';
+}
+
+async function submitTopicToken() {
+  const topic = tokenModalTopic.value;
+  if (!topic || !tokenInput.value) return;
+  tokenLoading.value = true;
+  tokenError.value = '';
+  try {
+    await verifyTopicAccess(topic.id, tokenInput.value);
+    topicAccessState.value = { ...topicAccessState.value, [topic.id]: true };
+    closeTokenModal();
+    await router.push({ path: `/quiz/${topic.id}`, query: { subject_id: String(subjectId), topic_label: topic.label } });
+  } catch (error) {
+    tokenError.value = error instanceof Error ? error.message : 'Token topik tidak dapat diverifikasi.';
+  } finally {
+    tokenLoading.value = false;
+  }
+}
+
+function handleTopicClick(event: MouseEvent, topic: Topic) {
+  const availability = topicAvailability.value[topic.id];
+  if (!canStart.value || (!availability?.has_active_attempt && availability && !availability.can_start)) {
+    event.preventDefault();
+    return;
+  }
+  if (topic.requires_token && !hasTopicAccess(topic.id) && !availability?.has_active_attempt) {
+    event.preventDefault();
+    openTokenModal(topic);
+  }
+}
+
+function attemptsLabel(topicId: number) {
+  const availability = topicAvailability.value[topicId];
+  if (!availability) return 'Batas percobaan diverifikasi saat mulai';
+  if (availability.has_active_attempt) return 'Lanjutkan percobaan aktif';
+  if (availability.max_attempts === 0) return 'Percobaan tak terbatas';
+  if (availability.remaining_attempts === 0) return 'Percobaan habis';
+  return `${availability.remaining_attempts} percobaan tersisa`;
 }
 
 function formatStartAt(value: string | null) {
@@ -370,6 +455,22 @@ onUnmounted(() => {
   font-weight: 600;
 }
 
+.topic-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.topic-attempts {
+  color: #6282b5;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.topic-card.locked .topic-attempts {
+  color: #a26969;
+}
+
 .topic-arrow {
   display: grid;
   width: 38px;
@@ -423,6 +524,20 @@ onUnmounted(() => {
   background: linear-gradient(110deg, #3295ff, #1b53e4);
 }
 
+.topic-card.token-locked .topic-arrow {
+  background: linear-gradient(145deg, #9db4d8, #758eb8);
+  box-shadow: none;
+  font-size: 1rem;
+}
+
+.topic-lock-label { color: #9a6a73; }
+.topic-token-backdrop { position: fixed; z-index: 50; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(16, 38, 94, .34); backdrop-filter: blur(7px); }
+.topic-token-modal { position: relative; width: min(420px, 100%); padding: 28px; border: 1px solid rgba(255, 255, 255, .9); border-radius: 24px; background: linear-gradient(145deg, #fff, #f1f6ff); box-shadow: 0 24px 60px rgba(42, 76, 139, .28); }
+.topic-token-close { position: absolute; top: 14px; right: 15px; width: 30px; height: 30px; border: 0; border-radius: 50%; color: #6680aa; background: #eaf1fc; font-size: 1.25rem; line-height: 1; cursor: pointer; }
+.topic-token-icon { display: grid; width: 48px; height: 48px; margin-bottom: 14px; place-items: center; border-radius: 15px; background: #e8f1ff; font-size: 1.4rem; }
+.topic-token-kicker { color: #4781c7; font-size: .66rem; font-weight: 800; letter-spacing: .15em; }
+.topic-token-modal h2 { margin-top: 6px; color: #10265e; font-size: 1.35rem; }.topic-token-modal p { margin-top: 7px; color: #6680aa; font-size: .82rem; line-height: 1.5; }.topic-token-modal label { display: flex; margin-top: 20px; flex-direction: column; gap: 7px; color: #49678f; font-size: .75rem; font-weight: 700; }.topic-token-modal input { width: 100%; padding: 12px 13px; border: 1px solid #d2e0f3; border-radius: 11px; color: #244978; background: #fff; font: inherit; font-size: .86rem; outline: none; }.topic-token-modal input:focus { border-color: #438ae5; box-shadow: 0 0 0 4px rgba(67, 138, 229, .14); }.topic-token-modal .topic-error { margin-top: 9px; color: #c94e63; font-size: .76rem; }.topic-token-submit { width: 100%; margin-top: 18px; }
+
 @media (max-width: 560px) {
   .topic-view {
     min-height: calc(100vh - 86px);
@@ -453,5 +568,7 @@ onUnmounted(() => {
     height: 34px;
     font-size: 1.1rem;
   }
+
+  .topic-token-modal { padding: 24px 20px; border-radius: 20px; }
 }
 </style>

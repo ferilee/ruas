@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { hashTopicToken } from '@/lib/topic-token';
 
 const { drizzleMock } = vi.hoisted(() => ({
   drizzleMock: vi.fn(),
@@ -39,6 +40,7 @@ describe('topicsRoutes', () => {
                     slug: 'penalaran-umum',
                     label: 'Penalaran Umum',
                     display_order: 1,
+                    requires_token: false,
                     question_count: 10,
                   },
                 ],
@@ -62,9 +64,56 @@ describe('topicsRoutes', () => {
           slug: 'penalaran-umum',
           label: 'Penalaran Umum',
           display_order: 1,
+          requires_token: false,
           question_count: 10,
         },
       ],
     });
+  });
+
+  it('grants access with the configured topic token', async () => {
+    drizzleMock.mockReturnValue({
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: async () => [{ id: 2, requires_token: true, token_hash: hashTopicToken('RUAS-2026') }],
+          }),
+        }),
+      }),
+    });
+
+    const { topicsRoutes } = await import('@/routes/topics.js');
+    const app = topicsRoutes({} as never);
+    const res = await app.request('http://localhost/2/access', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: 'RUAS-2026' }),
+    });
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ granted: true });
+  });
+
+  it('rejects an incorrect topic token', async () => {
+    drizzleMock.mockReturnValue({
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: async () => [{ id: 2, requires_token: true, token_hash: hashTopicToken('RUAS-2026') }],
+          }),
+        }),
+      }),
+    });
+
+    const { topicsRoutes } = await import('@/routes/topics.js');
+    const app = topicsRoutes({} as never);
+    const res = await app.request('http://localhost/2/access', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: 'SALAH' }),
+    });
+
+    expect(res.status).toBe(403);
+    await expect(res.json()).resolves.toEqual({ error: 'invalid_topic_token', message: 'Token topik salah atau sudah tidak berlaku.' });
   });
 });

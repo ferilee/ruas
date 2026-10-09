@@ -149,6 +149,24 @@
             <button v-for="filter in difficultyFilters" :key="filter.value" type="button" :class="['filter-chip', { active: difficultyFilter === filter.value }]" @click="difficultyFilter = filter.value">{{ filter.label }}</button>
           </div>
 
+          <section class="panel topic-access-panel">
+            <div class="panel-heading">
+              <div><h2>Akses Topik</h2><p>Kunci topik dengan token yang dibagikan oleh pengawas.</p></div>
+            </div>
+            <p class="field-hint">Token disimpan secara aman. Kosongkan kolom token saat memperbarui jika token lama tetap digunakan.</p>
+            <p v-if="topicAccessMessage" :class="topicAccessMessageType === 'error' ? 'error-text' : 'success-text'">{{ topicAccessMessage }}</p>
+            <div class="topic-access-list">
+              <article v-for="topic in topics" :key="topic.id" class="topic-access-row">
+                <div class="topic-access-info"><strong>{{ topic.label }}</strong><small>{{ topic.subject_label }} · {{ topic.token_configured ? 'Token sudah dikonfigurasi' : 'Tanpa token' }}</small></div>
+                <div class="topic-access-controls">
+                  <label class="token-toggle"><input v-model="topicAccessDrafts[topic.id].requires_token" type="checkbox" /> Wajib token</label>
+                  <input v-model="topicAccessDrafts[topic.id].token" type="text" autocomplete="off" :placeholder="topic.token_configured ? 'Token baru (opsional)' : 'Masukkan token'" />
+                  <button class="primary-btn" type="button" :disabled="topicAccessSavingId === topic.id" @click="saveTopicAccess(topic)">{{ topicAccessSavingId === topic.id ? 'Menyimpan...' : 'Simpan' }}</button>
+                </div>
+              </article>
+            </div>
+          </section>
+
           <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
 
           <section class="editor-grid">
@@ -306,6 +324,7 @@ import {
   fetchAdminSchedule,
   fetchAdminTopics,
   importAdminQuestions,
+  updateAdminTopicAccess,
   updateAdminQuestion,
   updateAdminSchedule,
 } from '@/api/client';
@@ -340,6 +359,10 @@ const formMessage = ref('');
 const formMessageType = ref<'success' | 'error'>('success');
 const questions = ref<AdminQuestionListItem[]>([]);
 const topics = ref<AdminTopic[]>([]);
+const topicAccessDrafts = reactive<Record<number, { requires_token: boolean; token: string }>>({});
+const topicAccessSavingId = ref<number | null>(null);
+const topicAccessMessage = ref('');
+const topicAccessMessageType = ref<'success' | 'error'>('success');
 const search = ref('');
 const difficultyFilter = ref<AdminQuestionListItem['difficulty'] | 'all'>('all');
 const questionFormOpen = ref(false);
@@ -386,6 +409,35 @@ function selectSection(section: AdminSection) {
   activeSection.value = section;
   moreMenuOpen.value = false;
   errorMessage.value = '';
+}
+
+function syncTopicAccessDrafts(rows: AdminTopic[]) {
+  for (const topic of rows) {
+    topicAccessDrafts[topic.id] = { requires_token: topic.requires_token, token: '' };
+  }
+}
+
+async function saveTopicAccess(topic: AdminTopic) {
+  const draft = topicAccessDrafts[topic.id];
+  if (!draft) return;
+  topicAccessSavingId.value = topic.id;
+  topicAccessMessage.value = '';
+  try {
+    const updated = await updateAdminTopicAccess(topic.id, {
+      requires_token: draft.requires_token,
+      ...(draft.token.trim() ? { token: draft.token.trim() } : {}),
+    });
+    topic.requires_token = updated.requires_token;
+    topic.token_configured = updated.token_configured;
+    draft.token = '';
+    topicAccessMessageType.value = 'success';
+    topicAccessMessage.value = `Akses token untuk ${topic.label} berhasil disimpan.`;
+  } catch (error) {
+    topicAccessMessageType.value = 'error';
+    topicAccessMessage.value = error instanceof Error ? error.message : 'Gagal menyimpan pengaturan token topik.';
+  } finally {
+    topicAccessSavingId.value = null;
+  }
 }
 
 function createDefaultOptions(type: AdminQuestionInput['type']) {
@@ -491,6 +543,7 @@ async function loadData() {
     const [questionRows, topicRows] = await Promise.all([fetchAdminQuestions(), fetchAdminTopics()]);
     questions.value = questionRows;
     topics.value = topicRows;
+    syncTopicAccessDrafts(topicRows);
 
     try {
       const schedule = await fetchAdminSchedule();
@@ -746,6 +799,16 @@ onMounted(async () => {
 .toolbar-search { display: flex; min-width: 0; flex: 1; gap: 8px; }
 .toolbar-search .search-input { max-width: 420px; }
 .question-filters { display: flex; flex-wrap: wrap; gap: 7px; margin: 14px 0 16px; }
+.topic-access-panel { margin-bottom: 16px; padding: 18px; }
+.topic-access-panel .panel-heading { margin-bottom: 4px; }
+.topic-access-panel .panel-heading p { margin-top: 4px; color: #778899; font-size: .8rem; }
+.topic-access-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.topic-access-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px; border: 1px solid #e1eaf4; border-radius: 11px; background: #fbfdff; }
+.topic-access-info { min-width: 0; }.topic-access-info strong, .topic-access-info small { display: block; }.topic-access-info strong { color: #2c4f7a; font-size: .82rem; }.topic-access-info small { margin-top: 3px; color: #8497ae; font-size: .7rem; }
+.topic-access-controls { display: grid; min-width: min(100%, 460px); grid-template-columns: auto minmax(150px, 1fr) auto; align-items: center; gap: 8px; }
+.token-toggle { flex-direction: row; align-items: center; gap: 6px; color: #496482; font-size: .72rem; white-space: nowrap; }.token-toggle input { accent-color: #246bc5; }
+.topic-access-controls input { min-width: 0; padding: 9px 10px; border: 1px solid #d4dde6; border-radius: 8px; color: #334b68; background: #fff; font: inherit; font-size: .78rem; }
+.topic-access-controls .primary-btn { padding: 9px 12px; font-size: .74rem; }
 .filter-chip { padding: 7px 12px; border: 1px solid #d7e2ef; border-radius: 999px; color: #617793; background: #fff; font: inherit; font-size: .75rem; font-weight: 700; cursor: pointer; }
 .filter-chip:hover, .filter-chip.active { border-color: #2b72ce; color: #fff; background: #2b72ce; }
 .search-input { max-width: 420px; }
@@ -897,6 +960,10 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
   .toolbar-search .search-input { max-width: none; }
   .new-question-button { width: 100%; }
   .question-filters { margin-top: 12px; }
+  .topic-access-panel { padding: 16px; }
+  .topic-access-row { align-items: stretch; flex-direction: column; }
+  .topic-access-controls { min-width: 0; grid-template-columns: 1fr; }
+  .topic-access-controls .primary-btn { width: 100%; }
   .question-list-panel { min-height: 220px; }
   .form-panel { display: none; }
   .form-panel.open { position: fixed; z-index: 40; inset: 0; display: flex; overflow-y: auto; flex-direction: column; padding: 0; border-radius: 0; }

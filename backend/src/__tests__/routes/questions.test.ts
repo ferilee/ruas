@@ -24,6 +24,14 @@ describe('questionsRoutes', () => {
           };
         }
 
+        if (shape && typeof shape === 'object' && 'token_hash' in (shape as Record<string, unknown>)) {
+          return {
+            from: () => ({
+              where: () => ({ limit: async () => [{ id: 1, requires_token: false, token_hash: null }] }),
+            }),
+          };
+        }
+
         return {
         from: () => ({
           where: () => Promise.resolve([{ total: 7 }]),
@@ -52,6 +60,14 @@ describe('questionsRoutes', () => {
           };
         }
 
+        if (shape && typeof shape === 'object' && 'token_hash' in (shape as Record<string, unknown>)) {
+          return {
+            from: () => ({
+              where: () => ({ limit: async () => [{ id: 1, requires_token: false, token_hash: null }] }),
+            }),
+          };
+        }
+
         throw new Error('Question query should not run while assessment is closed.');
       },
     });
@@ -73,6 +89,14 @@ describe('questionsRoutes', () => {
           return {
             from: () => ({
               where: () => ({ limit: async () => [] }),
+            }),
+          };
+        }
+
+        if (shape && typeof shape === 'object' && 'token_hash' in (shape as Record<string, unknown>)) {
+          return {
+            from: () => ({
+              where: () => ({ limit: async () => [{ id: 1, requires_token: false, token_hash: null }] }),
             }),
           };
         }

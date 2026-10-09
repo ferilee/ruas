@@ -9,7 +9,7 @@ import { checkAnswer } from '@/lib/scoring';
 import { mapCheckAnswerResponse } from '@/mappers/question-response';
 import { createExamDb, abandonAttempt, completeAttempt, createAttempt, findActiveAttempt, findAttempt, findAttemptAnswers, getAttemptAvailability, getExamReview, getQuestionExplanationMode, saveAnswer, saveIntegrityEvent } from '@/services/exam-service';
 
-const attemptSchema = z.object({ subject_id: z.coerce.number().int().positive(), topic_id: z.coerce.number().int().positive(), total_questions: z.coerce.number().int().nonnegative() });
+const attemptSchema = z.object({ subject_id: z.coerce.number().int().positive(), topic_id: z.coerce.number().int().positive(), total_questions: z.coerce.number().int().nonnegative(), topic_access_token: z.string().trim().max(100).optional() });
 const answerSchema = z.object({ question_id: z.coerce.number().int().positive(), selected_keys: z.array(z.string().min(1)).min(1), elapsed_seconds: z.coerce.number().int().nonnegative() });
 const eventSchema = z.object({ event_type: z.enum(['fullscreen_exit', 'tab_hidden', 'window_blur', 'blocked_shortcut']), occurred_at: z.string().datetime().optional() });
 
@@ -31,6 +31,9 @@ export function examAttemptRoutes(pool: Pool) {
     if (!created) return c.json({ error: 'profile_required', message: 'Lengkapi profil peserta terlebih dahulu.' }, 400);
     if ('assignmentMismatch' in created && created.assignmentMismatch) {
       return c.json({ error: 'assignment_mismatch', message: 'Asesmen ini tidak sesuai dengan penugasan akun siswa.' }, 403);
+    }
+    if ('tokenRequired' in created && created.tokenRequired) {
+      return c.json({ error: 'topic_token_required', message: 'Masukkan token topik sebelum memulai asesmen.' }, 403);
     }
     if (created.limited) return c.json({ error: 'attempt_limit_reached', message: 'Batas percobaan untuk asesmen ini sudah habis.', availability: created.availability }, 409);
     return c.json({ attempt: created.attempt }, 201);

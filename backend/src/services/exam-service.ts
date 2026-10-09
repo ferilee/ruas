@@ -9,6 +9,7 @@ import { participantProfiles } from '@/db/schema/participant-profiles';
 import { questions } from '@/db/schema/questions';
 import type { Pool } from '@/db/connection';
 import { users } from '@/db/schema/users';
+import { canAccessTopic, getTopicAccess } from '@/services/topic-access-service';
 
 type ExamDb = ReturnType<typeof drizzle>;
 
@@ -138,7 +139,11 @@ export async function getExamReview(db: ExamDb, attemptId: number, identityKey: 
   return { mode, items: rows };
 }
 
-export async function createAttempt(db: ExamDb, identityKey: string, input: { subject_id: number; topic_id: number; total_questions: number }) {
+export async function createAttempt(
+  db: ExamDb,
+  identityKey: string,
+  input: { subject_id: number; topic_id: number; total_questions: number; topic_access_token?: string },
+) {
   const [participant] = await db
     .select({ id: participantProfiles.id, subject_id: participantProfiles.subject_id })
     .from(participantProfiles)
@@ -148,6 +153,10 @@ export async function createAttempt(db: ExamDb, identityKey: string, input: { su
 
   const assignedSubjectId = await findAssignedSubjectId(db, identityKey, participant.subject_id);
   if (!assignedSubjectId || assignedSubjectId !== input.subject_id) return { assignmentMismatch: true as const };
+
+  const topicAccess = await getTopicAccess(db, input.topic_id);
+  if (!topicAccess) return null;
+  if (!canAccessTopic(topicAccess, input.topic_access_token)) return { tokenRequired: true as const };
 
   const availability = await getAttemptAvailability(db, identityKey, input.subject_id, input.topic_id);
   if (!availability) return null;

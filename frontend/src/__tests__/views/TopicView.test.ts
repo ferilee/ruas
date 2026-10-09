@@ -3,22 +3,27 @@ import { mount } from '@vue/test-utils';
 import { defineComponent, h } from 'vue';
 import TopicView from '@/views/TopicView.vue';
 
-const { fetchTopics, fetchSubjects, fetchAssessmentSchedule } = vi.hoisted(() => ({
+const { fetchTopics, fetchSubjects, fetchAssessmentSchedule, getTopicAccessToken, verifyTopicAccess } = vi.hoisted(() => ({
   fetchTopics: vi.fn(),
   fetchSubjects: vi.fn(),
   fetchAssessmentSchedule: vi.fn(),
+  getTopicAccessToken: vi.fn(),
+  verifyTopicAccess: vi.fn(),
 }));
 
 vi.mock('@/api/client', () => ({
   fetchTopics,
   fetchSubjects,
   fetchAssessmentSchedule,
+  getTopicAccessToken,
+  verifyTopicAccess,
 }));
 
 vi.mock('vue-router', () => ({
   useRoute: () => ({
     params: { id: '7' },
   }),
+  useRouter: () => ({ push: vi.fn() }),
 }));
 
 const RouterLinkStub = defineComponent({
@@ -39,11 +44,14 @@ describe('TopicView', () => {
     fetchTopics.mockReset();
     fetchSubjects.mockReset();
     fetchAssessmentSchedule.mockReset();
+    getTopicAccessToken.mockReset();
+    verifyTopicAccess.mockReset();
+    getTopicAccessToken.mockReturnValue(null);
   });
 
   it('passes subject_id and topic_label to quiz route', async () => {
     fetchTopics.mockResolvedValue([
-      { id: 11, subject_id: 7, slug: 'aljabar', label: 'Aljabar', display_order: 1, question_count: 5 },
+      { id: 11, subject_id: 7, slug: 'aljabar', label: 'Aljabar', display_order: 1, question_count: 5, requires_token: false },
     ]);
     fetchSubjects.mockResolvedValue([
       { id: 7, slug: 'pm', label: 'Penalaran Matematika', display_order: 1 },

@@ -71,6 +71,7 @@ export interface Topic {
   label: string;
   display_order: number;
   question_count: number;
+  requires_token: boolean;
 }
 
 export interface QuestionOption {
@@ -113,6 +114,8 @@ export interface AdminTopic {
   slug: string;
   label: string;
   display_order: number;
+  requires_token: boolean;
+  token_configured: boolean;
 }
 
 export interface AdminQuestionInput {
