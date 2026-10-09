@@ -36,19 +36,19 @@
       </div>
 
       <div class="topic-list">
-        <router-link
+        <button
           v-for="topic in topics"
           :key="topic.id"
-          :to="{ path: `/quiz/${topic.id}`, query: { subject_id: String(subjectId), topic_label: topic.label } }"
           class="topic-card"
+          type="button"
           :class="{ locked: !canStart || !canOpenTopic(topic), 'token-locked': topic.requires_token && !hasTopicAccess(topic.id) }"
           :aria-disabled="!canStart || !canOpenTopic(topic)"
           :tabindex="canStart && canOpenTopic(topic) ? 0 : -1"
-          @click="handleTopicClick($event, topic)"
+          @click="handleTopicClick(topic)"
         >
         <span class="topic-label"><span>{{ topic.label }} <span class="topic-count">({{ topic.question_count }})</span></span><small class="topic-attempts"><span v-if="topic.requires_token && !hasTopicAccess(topic.id)" class="topic-lock-label">🔒 Token diperlukan · </span>{{ attemptsLabel(topic.id) }}</small></span>
         <span class="topic-arrow">{{ topic.requires_token && !hasTopicAccess(topic.id) ? '🔐' : '→' }}</span>
-        </router-link>
+        </button>
       </div>
     </template>
   </div>
@@ -154,16 +154,16 @@ async function submitTopicToken() {
   }
 }
 
-function handleTopicClick(event: MouseEvent, topic: Topic) {
+async function handleTopicClick(topic: Topic) {
   const availability = topicAvailability.value[topic.id];
   if (!canStart.value || (!availability?.has_active_attempt && availability && !availability.can_start)) {
-    event.preventDefault();
     return;
   }
   if (topic.requires_token && !hasTopicAccess(topic.id) && !availability?.has_active_attempt) {
-    event.preventDefault();
     openTokenModal(topic);
+    return;
   }
+  await router.push({ path: `/quiz/${topic.id}`, query: { subject_id: String(subjectId), topic_label: topic.label } });
 }
 
 function attemptsLabel(topicId: number) {
@@ -440,6 +440,11 @@ onUnmounted(() => {
   text-decoration: none;
   box-shadow: 8px 12px 20px rgba(133, 159, 207, 0.14), inset 2px 2px 8px rgba(255, 255, 255, 0.62);
   transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .topic-card:hover {

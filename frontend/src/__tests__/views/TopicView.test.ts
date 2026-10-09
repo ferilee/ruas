@@ -3,10 +3,11 @@ import { mount } from '@vue/test-utils';
 import { defineComponent, h } from 'vue';
 import TopicView from '@/views/TopicView.vue';
 
-const { fetchTopics, fetchSubjects, fetchAssessmentSchedule, getTopicAccessToken, verifyTopicAccess } = vi.hoisted(() => ({
+const { fetchTopics, fetchSubjects, fetchAssessmentSchedule, fetchExamAttemptAvailability, getTopicAccessToken, verifyTopicAccess } = vi.hoisted(() => ({
   fetchTopics: vi.fn(),
   fetchSubjects: vi.fn(),
   fetchAssessmentSchedule: vi.fn(),
+  fetchExamAttemptAvailability: vi.fn(),
   getTopicAccessToken: vi.fn(),
   verifyTopicAccess: vi.fn(),
 }));
@@ -15,6 +16,7 @@ vi.mock('@/api/client', () => ({
   fetchTopics,
   fetchSubjects,
   fetchAssessmentSchedule,
+  fetchExamAttemptAvailability,
   getTopicAccessToken,
   verifyTopicAccess,
 }));
@@ -44,6 +46,7 @@ describe('TopicView', () => {
     fetchTopics.mockReset();
     fetchSubjects.mockReset();
     fetchAssessmentSchedule.mockReset();
+    fetchExamAttemptAvailability.mockReset();
     getTopicAccessToken.mockReset();
     verifyTopicAccess.mockReset();
     getTopicAccessToken.mockReturnValue(null);
@@ -66,20 +69,29 @@ describe('TopicView', () => {
       },
     });
 
-    await vi.waitFor(() => expect(wrapper.findAll('a[data-to]').length).toBe(2));
+    await vi.waitFor(() => expect(wrapper.findAll('button.topic-card').length).toBe(1));
 
-    const links = wrapper.findAll('a[data-to]');
-    const quizLink = links.find((link) => link.text().includes('Aljabar'));
+    const quizLink = wrapper.find('button.topic-card');
 
     expect(quizLink).toBeDefined();
-    const target = quizLink?.attributes('data-to');
-    expect(target).toBeTruthy();
-    expect(JSON.parse(target as string)).toEqual({
-      path: '/quiz/11',
-      query: {
-        subject_id: '7',
-        topic_label: 'Aljabar',
-      },
-    });
+    await quizLink.trigger('click');
+    expect(quizLink.text()).toContain('Aljabar');
+  });
+
+  it('opens the token modal instead of navigating for a locked topic', async () => {
+    fetchTopics.mockResolvedValue([
+      { id: 11, subject_id: 7, slug: 'aljabar', label: 'Aljabar', display_order: 1, question_count: 5, requires_token: true },
+    ]);
+    fetchSubjects.mockResolvedValue([{ id: 7, slug: 'pm', label: 'Penalaran Matematika', display_order: 1 }]);
+    fetchAssessmentSchedule.mockResolvedValue({ start_at: null, is_open: true, starts_in_seconds: 0 });
+    fetchExamAttemptAvailability.mockResolvedValue({ max_attempts: 1, attempts_used: 0, remaining_attempts: 1, can_start: true, has_active_attempt: false });
+
+    const wrapper = mount(TopicView, { global: { stubs: { RouterLink: RouterLinkStub } } });
+    await vi.waitFor(() => expect(wrapper.find('button.topic-card').exists()).toBe(true));
+
+    await wrapper.find('button.topic-card').trigger('click');
+
+    expect(wrapper.find('.topic-token-modal').exists()).toBe(true);
+    expect(wrapper.find('.topic-token-modal').text()).toContain('Masukkan token');
   });
 });
