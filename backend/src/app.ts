@@ -108,6 +108,7 @@ export function createApp(config: AppConfig) {
   if (process.env.NODE_ENV === 'production') {
     const distDir = '../frontend/dist';
     app.get('/assets/*', serveStatic({ root: distDir }));
+    app.get('/templates/*', serveStatic({ root: distDir }));
     app.get('/favicon.svg', serveStatic({ root: distDir }));
     app.get('/manifest.webmanifest', serveStatic({ root: distDir }));
     app.get('/sw.js', serveStatic({ root: distDir }));
