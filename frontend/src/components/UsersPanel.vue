@@ -31,7 +31,14 @@
         </div>
         <div class="import-step"><span class="step-number">1</span><div><strong>Pilih file atau tempel data</strong><small>Gunakan format CSV atau JSON.</small></div></div>
         <input ref="fileInput" class="hidden-file-input" type="file" accept=".csv,.json,application/json,text/csv" @change="readFile" />
-        <button class="file-picker-button" type="button" @click="openFilePicker"><span class="action-icon" aria-hidden="true">↥</span><span><strong>Pilih File</strong><small>{{ selectedFileName || 'CSV atau JSON' }}</small></span></button>
+        <div class="import-file-actions">
+          <button class="file-picker-button" type="button" @click="openFilePicker"><span class="action-icon" aria-hidden="true">↥</span><span><strong>Pilih File</strong><small>{{ selectedFileName || 'CSV atau JSON' }}</small></span></button>
+          <div class="template-links" aria-label="Unduh template impor">
+            <span>Template:</span>
+            <a href="/templates/pengguna.csv" download>CSV</a>
+            <a href="/templates/pengguna.json" download>JSON</a>
+          </div>
+        </div>
         <textarea v-model="importText" rows="7" placeholder="Atau tempel CSV atau JSON di sini..." spellcheck="false"></textarea>
         <div class="import-step"><span class="step-number">2</span><div><strong>Periksa lalu terapkan</strong><small>Preview untuk memvalidasi data sebelum disimpan.</small></div></div>
         <div class="import-actions"><button class="secondary-btn action-btn" type="button" :disabled="importing || !importText.trim()" @click="previewImport"><span aria-hidden="true">◉</span> Preview</button><button class="primary-btn action-btn" type="button" :disabled="importing || !parsedImport" @click="applyImport"><span aria-hidden="true">✓</span> Terapkan</button></div>
@@ -169,10 +176,14 @@ onMounted(async () => { await Promise.all([loadUsers(), fetchAdminCurriculum().t
 .import-mode-field { display: flex; min-width: 150px; flex-direction: column; gap: 5px; color: #6c83a0; font-size: .68rem; font-weight: 700; }
 .import-mode-field select { padding: 8px 10px; border: 1px solid #d9e5f2; border-radius: 8px; color: #28558a; background: #f8fbff; font: inherit; font-size: .75rem; }
 .hidden-file-input { display: none; }
+.import-file-actions { display: flex; flex-direction: column; gap: 8px; }
 .file-picker-button { display: flex; width: 100%; align-items: center; gap: 10px; padding: 12px; border: 1px dashed #9fc3ec; border-radius: 10px; color: #2865ad; background: #f1f7ff; font: inherit; text-align: left; cursor: pointer; }
 .file-picker-button:hover { border-color: #2b72ce; background: #e9f3ff; }
 .file-picker-button strong, .file-picker-button small { display: block; }.file-picker-button strong { font-size: .78rem; }.file-picker-button small { margin-top: 2px; color: #7890ac; font-size: .7rem; font-weight: 400; }
 .action-icon { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 9px; color: #fff; background: #2c78d2; font-size: 1.1rem; font-weight: 800; }
+.template-links { display: flex; align-items: center; gap: 8px; color: #7890ac; font-size: .72rem; }
+.template-links a { padding: 4px 9px; border: 1px solid #c9dcef; border-radius: 999px; color: #246bc5; background: #fff; font-weight: 700; text-decoration: none; }
+.template-links a:hover { border-color: #2b72ce; background: #edf6ff; }
 .import-step { display: flex; align-items: flex-start; gap: 9px; color: #31577f; }.step-number { display: grid; width: 21px; height: 21px; flex: 0 0 auto; place-items: center; border-radius: 50%; color: #fff; background: #2c78d2; font-size: .68rem; font-weight: 800; }.import-step strong, .import-step small { display: block; }.import-step strong { font-size: .75rem; }.import-step small { margin-top: 2px; color: #8298b2; font-size: .68rem; font-weight: 400; }
 .import-users-panel textarea { resize: vertical; font-family: monospace; font-size: .75rem; }
 .import-users-panel input[type=file] { padding: 8px; font-size: .75rem; }
@@ -215,6 +226,7 @@ onMounted(async () => { await Promise.all([loadUsers(), fetchAdminCurriculum().t
   .mobile-add-user { display: block; width: 100%; padding: 10px 14px; border: 0; border-radius: 9px; color: #fff; background: linear-gradient(110deg, #2378db, #2251b5); font: inherit; font-size: .8rem; font-weight: 700; cursor: pointer; }
   .import-users-panel .panel-heading { align-items: flex-start; flex-direction: column; }
   .import-mode-field { width: 100%; }
+  .template-links { justify-content: flex-end; }
   .import-actions { display: grid; grid-template-columns: 1fr 1fr; }
   .action-btn { width: 100%; min-width: 0; }
   .user-table-wrap { overflow: visible; }
