@@ -12,13 +12,13 @@ Keduanya dapat diunduh langsung dari panel **Pengguna → Import pengguna** di `
 Header CSV yang didukung:
 
 ```csv
-username,password,display_name,role,active,class_id,subject_id
+username,password,display_name,role,active,class_id,class_code,subject_id
 ```
 
 Contoh satu baris data:
 
 ```csv
-P130100231,PasswordSementara123!,Budi Santoso,participant,true,2,
+P130100231,PasswordSementara123!,Budi Santoso,participant,true,,11-TKJ-A,
 ```
 
 ## Format JSON
@@ -34,7 +34,7 @@ JSON dapat berupa array langsung atau objek dengan properti `users`. Format yang
       "display_name": "Budi Santoso",
       "role": "participant",
       "active": true,
-      "class_id": 2,
+      "class_code": "11-TKJ-A",
       "subject_id": null
     }
   ]
@@ -50,7 +50,8 @@ JSON dapat berupa array langsung atau objek dengan properti `users`. Format yang
 | `display_name` | Ya | Nama yang tampil di aplikasi. |
 | `role` | Tidak | `participant` untuk siswa, `editor` untuk pengelola, atau `admin` untuk administrator. Default: `participant`. |
 | `active` | Tidak | `true` atau `false`. Default: aktif. |
-| `class_id` | Tidak | ID kelas yang sudah ada di database. Kosongkan atau gunakan `null` untuk menetapkan kemudian. |
+| `class_id` | Tidak | ID kelas yang sudah ada di database. Kosongkan atau gunakan `null` jika memakai `class_code`. |
+| `class_code` | Tidak | Kode kelas unik, misalnya `11-TKJ-A`. Kode harus sudah dibuat di menu Kurikulum. |
 | `subject_id` | Tidak | ID mata pelajaran yang sudah ada di database. Kosongkan atau gunakan `null` untuk menetapkan kemudian. |
 
 Mode **Tambah baru** melewati username yang sudah ada. Mode **Tambah atau perbarui** memperbarui akun dengan username yang sama.

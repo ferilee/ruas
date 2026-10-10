@@ -293,18 +293,19 @@ export async function importAdminUsers(data: unknown, mode: 'insert' | 'upsert',
 }
 
 export type CurriculumItemInput = { slug: string; label: string; display_order: number };
+export type CurriculumClassInput = CurriculumItemInput & { academic_year: string; grade: number; program: string; section: string | null };
 export type CurriculumSubjectInput = CurriculumItemInput & { class_id: number | null; assessment_type_id: number | null; max_attempts: number; explanation_mode: Subject['explanation_mode'] };
 
 export async function fetchAdminCurriculum(): Promise<CurriculumData> {
   return adminRequest<CurriculumData>('/admin/curriculum');
 }
 
-async function createCurriculumItem(path: string, input: CurriculumItemInput): Promise<number> {
+async function createCurriculumItem(path: string, input: CurriculumItemInput | CurriculumClassInput): Promise<number> {
   const data = await adminRequest<{ id: number }>(`/admin/curriculum/${path}`, { method: 'POST', body: JSON.stringify(input) });
   return data.id;
 }
 
-async function updateCurriculumItem(path: string, id: number, input: CurriculumItemInput): Promise<void> {
+async function updateCurriculumItem(path: string, id: number, input: CurriculumItemInput | CurriculumClassInput): Promise<void> {
   await adminRequest(`/admin/curriculum/${path}/${id}`, { method: 'PUT', body: JSON.stringify(input) });
 }
 
@@ -312,8 +313,8 @@ async function deleteCurriculumItem(path: string, id: number): Promise<void> {
   await adminRequest(`/admin/curriculum/${path}/${id}`, { method: 'DELETE' });
 }
 
-export const createAdminClass = (input: CurriculumItemInput) => createCurriculumItem('classes', input);
-export const updateAdminClass = (id: number, input: CurriculumItemInput) => updateCurriculumItem('classes', id, input);
+export const createAdminClass = (input: CurriculumClassInput) => createCurriculumItem('classes', input);
+export const updateAdminClass = (id: number, input: CurriculumClassInput) => updateCurriculumItem('classes', id, input);
 export const deleteAdminClass = (id: number) => deleteCurriculumItem('classes', id);
 export const createAdminAssessmentType = (input: CurriculumItemInput) => createCurriculumItem('assessment-types', input);
 export const updateAdminAssessmentType = (id: number, input: CurriculumItemInput) => updateCurriculumItem('assessment-types', id, input);

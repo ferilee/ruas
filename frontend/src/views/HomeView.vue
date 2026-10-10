@@ -89,7 +89,7 @@ const scheduleRemainingSeconds = ref(0);
 let scheduleTimer: ReturnType<typeof setInterval> | undefined;
 
 const canStart = computed(() => schedule.value?.is_open === true && scheduleRemainingSeconds.value === 0);
-const classOptions = computed(() => curriculum.value.classes.map((item) => ({ value: item.id, label: item.label })));
+const classOptions = computed(() => curriculum.value.classes.map((item) => ({ value: item.id, label: `${item.label} · ${item.academic_year}` })));
 const assessmentTypeOptions = computed(() => curriculum.value.assessment_types.map((item) => ({ value: item.id, label: item.label })));
 const filteredSubjects = computed(() => curriculum.value.subjects.filter((subject) => {
   const classMatches = subject.class_id == null || subject.class_id === Number(selectedClassId.value);

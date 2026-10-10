@@ -19,12 +19,16 @@
       </div>
 
       <div class="curriculum-grid">
-      <section :class="['curriculum-group', { 'mobile-active': mobileTab === 'classes', 'mobile-form-open': mobileFormOpen && mobileTab === 'classes' }]">
+      <section :class="['curriculum-group', 'class-group', { 'mobile-active': mobileTab === 'classes', 'mobile-form-open': mobileFormOpen && mobileTab === 'classes' }]">
         <div class="curriculum-group-heading"><h3>Kelas</h3><button class="mobile-add-btn" type="button" @click="openClassForm">＋ Tambah</button></div>
-        <form class="curriculum-form" @submit.prevent="saveClass">
+        <form class="curriculum-form class-form" @submit.prevent="saveClass">
           <div class="mobile-form-heading"><strong>{{ editingClassId ? 'Edit kelas' : 'Tambah kelas' }}</strong><button type="button" aria-label="Tutup form kelas" @click="closeMobileForm">×</button></div>
-          <label><span>Slug</span><input v-model.trim="classForm.slug" placeholder="Contoh: kelas-12" required /></label>
-          <label><span>Nama kelas</span><input v-model.trim="classForm.label" placeholder="Contoh: Kelas 12" required /></label>
+          <label><span>Kode kelas</span><input v-model.trim="classForm.slug" placeholder="Contoh: 11-tkj-a" required /></label>
+          <label><span>Nama kelas</span><input v-model.trim="classForm.label" placeholder="Contoh: Kelas 11 TKJ A" required /></label>
+          <label><span>Tingkat</span><input v-model.number="classForm.grade" type="number" min="1" max="12" placeholder="11" required /></label>
+          <label><span>Program keahlian</span><input v-model.trim="classForm.program" placeholder="Contoh: TKJ" required /></label>
+          <label><span>Rombel</span><input v-model.trim="classForm.section" placeholder="Contoh: A (opsional)" /></label>
+          <label><span>Tahun ajaran</span><input v-model.trim="classForm.academic_year" placeholder="Contoh: 2026/2027" required /></label>
           <label><span>Urutan tampil</span><input v-model.number="classForm.display_order" type="number" min="1" placeholder="1" required /></label>
           <div class="form-actions">
             <button class="primary-btn" type="submit">{{ editingClassId ? 'Perbarui' : 'Tambah' }}</button>
@@ -33,7 +37,7 @@
         </form>
         <div class="curriculum-items">
           <div v-for="item in curriculum.classes" :key="item.id" class="curriculum-item">
-            <div><strong>{{ item.label }}</strong><small>{{ item.slug }}</small></div>
+            <div><strong>{{ item.label }}</strong><small>{{ item.slug }} · Tingkat {{ item.grade }} · {{ item.program }}{{ item.section ? ` ${item.section}` : '' }} · {{ item.academic_year }}</small></div>
             <div class="item-actions"><button type="button" @click="editClass(item)">Edit</button><button type="button" class="delete-action" @click="removeClass(item.id)">Hapus</button></div>
           </div>
         </div>
@@ -95,7 +99,7 @@ import {
   createAdminAssessmentType, createAdminClass, createAdminSubject,
   deleteAdminAssessmentType, deleteAdminClass, deleteAdminSubject,
   fetchAdminCurriculum, updateAdminAssessmentType, updateAdminClass, updateAdminSubject,
-  type CurriculumItemInput, type CurriculumSubjectInput,
+  type CurriculumClassInput, type CurriculumItemInput, type CurriculumSubjectInput,
 } from '@/api/client';
 import type { AssessmentType, CurriculumClass, CurriculumData, Subject } from '@/types';
 
@@ -118,7 +122,7 @@ const mobileTabs: Array<{ value: MobileCurriculumTab; label: string }> = [
   { value: 'types', label: 'Jenis Asesmen' },
   { value: 'subjects', label: 'Mata Pelajaran' },
 ];
-const classForm = reactive<CurriculumItemInput>({ slug: '', label: '', display_order: 1 });
+const classForm = reactive<CurriculumClassInput>({ slug: '', label: '', academic_year: '2026/2027', grade: 10, program: '', section: null, display_order: 1 });
 const typeForm = reactive<CurriculumItemInput>({ slug: '', label: '', display_order: 1 });
 const subjectForm = reactive<CurriculumSubjectInput>({ slug: '', label: '', display_order: 1, max_attempts: 1, explanation_mode: 'hidden', class_id: null, assessment_type_id: null });
 const explanationModeOptions = [
@@ -126,14 +130,14 @@ const explanationModeOptions = [
   { value: 'after_exam', label: 'Setelah asesmen selesai' },
   { value: 'hidden', label: 'Jangan tampilkan' },
 ];
-const classOptions = computed(() => [{ value: null, label: 'Semua kelas' }, ...curriculum.value.classes.map((item) => ({ value: item.id, label: item.label }))]);
+const classOptions = computed(() => [{ value: null, label: 'Semua kelas' }, ...curriculum.value.classes.map((item) => ({ value: item.id, label: `${item.label} · ${item.academic_year}` }))]);
 const assessmentTypeOptions = computed(() => [{ value: null, label: 'Semua jenis asesmen' }, ...curriculum.value.assessment_types.map((item) => ({ value: item.id, label: item.label }))]);
 
 function showError(error: unknown) { errorMessage.value = error instanceof Error ? error.message : 'Gagal memproses kurikulum.'; successMessage.value = ''; }
 function showSuccess(message: string) { successMessage.value = message; errorMessage.value = ''; }
 async function loadData() { loading.value = true; try { curriculum.value = await fetchAdminCurriculum(); } catch (error) { showError(error); } finally { loading.value = false; } }
 function clearForm(form: CurriculumItemInput) { form.slug = ''; form.label = ''; form.display_order = 1; }
-function resetClass() { editingClassId.value = null; clearForm(classForm); mobileFormOpen.value = false; }
+function resetClass() { editingClassId.value = null; classForm.slug = ''; classForm.label = ''; classForm.academic_year = '2026/2027'; classForm.grade = 10; classForm.program = ''; classForm.section = null; classForm.display_order = 1; mobileFormOpen.value = false; }
 function resetType() { editingTypeId.value = null; clearForm(typeForm); mobileFormOpen.value = false; }
 function resetSubject() { editingSubjectId.value = null; subjectForm.slug = ''; subjectForm.label = ''; subjectForm.display_order = 1; subjectForm.max_attempts = 1; subjectForm.explanation_mode = 'hidden'; subjectForm.class_id = null; subjectForm.assessment_type_id = null; mobileFormOpen.value = false; }
 function openClassForm() { resetClass(); mobileTab.value = 'classes'; mobileFormOpen.value = true; }
@@ -204,6 +208,8 @@ onMounted(loadData);
 .curriculum-group h3 { color: #233d61; font-size: 1rem; }
 .mobile-curriculum-tabs, .mobile-add-btn, .mobile-form-heading { display: none; }
 .curriculum-form { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.5fr) 80px; gap: 8px; }
+.class-form { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.class-form .form-actions { grid-column: 4; }
 .subject-group .curriculum-form { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) 80px minmax(145px, 1.1fr) minmax(170px, 1.3fr) minmax(0, 1fr) minmax(0, 1fr) auto; }
 .curriculum-form > label { display: flex; min-width: 0; flex-direction: column; align-items: stretch; gap: 5px; color: #496482; font-size: .7rem; font-weight: 700; }
 .curriculum-form > label small { color: #8292a6; font-size: .66rem; font-weight: 400; }
@@ -219,7 +225,7 @@ onMounted(loadData);
 .item-actions button { border: 0; color: #1e5ec8; background: transparent; font: inherit; font-size: .74rem; font-weight: 700; cursor: pointer; }
 .item-actions .delete-action { color: #c53030; }
 .curriculum-loading { color: #778899; }
-@media (max-width: 900px) { .curriculum-grid { grid-template-columns: 1fr; } .subject-group { grid-column: auto; } .subject-group .curriculum-form, .curriculum-form { grid-template-columns: 1fr 1fr; } .subject-group .form-actions, .curriculum-form .form-actions { grid-column: 1 / -1; } }
+@media (max-width: 900px) { .curriculum-grid { grid-template-columns: 1fr; } .subject-group { grid-column: auto; } .subject-group .curriculum-form, .curriculum-form { grid-template-columns: 1fr 1fr; } .subject-group .form-actions, .curriculum-form .form-actions, .class-form .form-actions { grid-column: 1 / -1; } }
 @media (max-width: 520px) { .curriculum-heading { flex-direction: column; } .subject-group .curriculum-form, .curriculum-form { grid-template-columns: 1fr; } .subject-group .form-actions, .curriculum-form .form-actions { grid-column: auto; } .curriculum-item { align-items: flex-start; flex-direction: column; } }
 @media (max-width: 720px) {
   .mobile-curriculum-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; margin: 0 0 14px; padding: 5px; border: 1px solid #dce8f4; border-radius: 12px; background: #edf4fb; }

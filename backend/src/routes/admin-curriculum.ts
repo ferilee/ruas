@@ -24,6 +24,14 @@ const itemSchema = z.object({
   display_order: z.coerce.number().int().positive(),
 });
 
+const classSchema = itemSchema.extend({
+  slug: z.string().trim().min(1).max(50).regex(/^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$/, 'Kode kelas hanya boleh berisi huruf, angka, dan tanda hubung.').transform((value) => value.toLowerCase()),
+  academic_year: z.string().trim().min(4).max(20),
+  grade: z.coerce.number().int().min(1).max(12),
+  program: z.string().trim().min(1).max(50),
+  section: z.preprocess((value) => (value === '' || value === undefined ? null : value), z.string().trim().max(20).nullable()),
+});
+
 const subjectSchema = itemSchema.extend({
   max_attempts: z.coerce.number().int().min(0).max(100).default(1),
   explanation_mode: z.enum(['after_answer', 'after_exam', 'hidden']).default('hidden'),
@@ -49,7 +57,7 @@ export function adminCurriculumRoutes(pool: Pool) {
   app.get('/', async (c) => c.json(await listCurriculum(db)));
 
   app.post('/classes', async (c) => {
-    const parsed = itemSchema.safeParse(await c.req.json());
+    const parsed = classSchema.safeParse(await c.req.json());
     if (!parsed.success) return c.json({ error: 'invalid_body', message: 'Data kelas tidak valid.' }, 400);
     const [result] = await db.insert(educationClasses).values(parsed.data);
     return c.json({ id: Number(result.insertId) }, 201);
@@ -57,7 +65,7 @@ export function adminCurriculumRoutes(pool: Pool) {
 
   app.put('/classes/:id', async (c) => {
     const id = parseId(c.req.param('id'));
-    const parsed = itemSchema.safeParse(await c.req.json());
+    const parsed = classSchema.safeParse(await c.req.json());
     if (!id || !parsed.success) return c.json({ error: 'invalid_body', message: 'Data kelas tidak valid.' }, 400);
     if (!(await findClass(db, id))) return c.json({ error: 'not_found', message: 'Kelas tidak ditemukan.' }, 404);
     await db.update(educationClasses).set(parsed.data).where(eq(educationClasses.id, id));

@@ -15,6 +15,10 @@ export interface CurriculumClass {
   id: number;
   slug: string;
   label: string;
+  academic_year: string;
+  grade: number;
+  program: string;
+  section: string | null;
   display_order: number;
 }
 

@@ -47,6 +47,9 @@ function userSearchCondition(search?: string) {
         like(users.display_name, `%${normalizedSearch}%`),
         like(educationClasses.label, `%${normalizedSearch}%`),
         like(educationClasses.slug, `%${normalizedSearch}%`),
+        like(educationClasses.program, `%${normalizedSearch}%`),
+        like(educationClasses.section, `%${normalizedSearch}%`),
+        like(educationClasses.academic_year, `%${normalizedSearch}%`),
       )
     : undefined;
 }

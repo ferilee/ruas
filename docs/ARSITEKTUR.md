@@ -77,6 +77,7 @@ Setiap jawaban masuk ke `exam_answers`, sedangkan aktivitas integritas masuk ke
 | username | varchar(100) unique | Identitas login |
 | password_hash | varchar(255) | Password hasil hashing scrypt |
 | display_name | varchar(150) | Nama yang ditampilkan admin |
+| class_id | int nullable FK | Kelas rombel peserta |
 | subject_id | int nullable FK | Mata pelajaran yang ditetapkan admin |
 | role | enum | `admin`, `editor`, `participant` |
 | active | int | Status akun |
@@ -85,13 +86,26 @@ Password pengguna tidak disimpan dalam bentuk plaintext. Admin menetapkan mata
 pelajaran pada akun peserta. Profil peserta hanya melengkapi jenis kelamin,
 tanggal lahir, dan token sesi setelah login pertama.
 
+### education_classes
+
+| Kolom | Tipe | Keterangan |
+|---|---|---|
+| id | int auto_increment | PK |
+| slug | varchar(50) unique | Kode kelas, misalnya `11-tkj-a` |
+| label | varchar(100) | Nama kelas, misalnya `Kelas 11 TKJ A` |
+| academic_year | varchar(20) | Tahun ajaran, misalnya `2026/2027` |
+| grade | int | Tingkat kelas, misalnya `10` atau `11` |
+| program | varchar(50) | Program keahlian, misalnya `TKJ` atau `RPL` |
+| section | varchar(20) nullable | Rombel, misalnya `A` atau `B` |
+| display_order | int | Urutan tampil |
+
 ### subjects
 
 | Kolom | Tipe | Keterangan |
 |---|---|---|
 | id | int auto_increment | PK |
-| slug | varchar(50) unique | `tps`, `literasi-bahasa-indonesia` |
-| label | varchar(100) | `TPS`, `Literasi Bahasa Indonesia` |
+| slug | varchar(50) unique | Kode mata pelajaran, misalnya `penalaran-umum` |
+| label | varchar(100) | Nama mata pelajaran |
 | display_order | int | Urutan tampil |
 | max_attempts | int | Batas percobaan per siswa dan topik; `0` berarti tanpa batas |
 

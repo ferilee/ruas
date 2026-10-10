@@ -27,7 +27,7 @@
 
       <div class="panel import-users-panel">
         <div class="panel-heading">
-          <div><h2>Import pengguna</h2><p>CSV: <code>username,password,display_name,role,active,class_id,subject_id</code></p></div>
+          <div><h2>Import pengguna</h2><p>CSV: <code>username,password,display_name,role,active,class_id,class_code,subject_id</code></p></div>
           <label class="import-mode-field"><span>Mode import</span><RuasSelect v-model="importMode" :options="importModeOptions" aria-label="Mode import pengguna" /></label>
         </div>
         <div class="import-step"><span class="step-number">1</span><div><strong>Pilih file atau tempel data</strong><small>Gunakan format CSV atau JSON.</small></div></div>
@@ -101,7 +101,7 @@ const confirmMessage = ref('Apakah kamu yakin ingin melanjutkan?');
 const confirmLabel = ref('OK');
 const pendingConfirmation = ref<(() => Promise<void>) | null>(null);
 const form = reactive<AdminUserInput>({ username: '', password: '', display_name: '', class_id: null, subject_id: null, role: 'participant', active: true });
-const classOptions = computed(() => [{ value: null, label: 'Belum ditetapkan' }, ...classes.value.map((item) => ({ value: item.id, label: item.label }))]);
+const classOptions = computed(() => [{ value: null, label: 'Belum ditetapkan' }, ...classes.value.map((item) => ({ value: item.id, label: `${item.label} · ${item.academic_year}` }))]);
 const subjectOptions = computed(() => [{ value: null, label: 'Belum ditetapkan' }, ...subjects.value.map((subject) => ({ value: subject.id, label: subject.label }))]);
 const roleOptions = [
   { value: 'participant', label: 'Peserta' },

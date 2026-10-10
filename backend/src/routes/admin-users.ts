@@ -129,6 +129,11 @@ async function classExists(db: ReturnType<typeof createUserDb>, classId: number)
   return Boolean(educationClass);
 }
 
+async function findClassIdByCode(db: ReturnType<typeof createUserDb>, code: string) {
+  const [educationClass] = await db.select({ id: educationClasses.id }).from(educationClasses).where(eq(educationClasses.slug, code)).limit(1);
+  return educationClass?.id ?? null;
+}
+
 export function adminUserRoutes(pool: Pool) {
   const db = createUserDb(pool);
   const app = new Hono();
@@ -156,11 +161,18 @@ export function adminUserRoutes(pool: Pool) {
     const summary = { inserted: 0, updated: 0, skipped: 0, errors: [] as string[] };
     const validRows: Array<{ row: ImportRow; line: number }> = [];
     for (const [index, value] of rows.entries()) {
-      const parsed = validateImportRow(value);
+      const raw = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+      const classCode = String(raw.class_code ?? '').trim();
+      const classId = raw.class_id || classCode ? raw.class_id || await findClassIdByCode(db, classCode) : null;
+      if (classCode && !classId) {
+        summary.errors.push(`Baris ${index + 1}: kode kelas ${classCode} tidak ditemukan.`);
+        continue;
+      }
+      const parsed = validateImportRow({ ...raw, class_id: classId });
       if (!parsed.success) {
         summary.errors.push(`Baris ${index + 1}: username, password, display_name, dan role wajib valid.`);
       } else if (parsed.data.class_id && !(await classExists(db, parsed.data.class_id))) {
-        summary.errors.push(`Baris ${index + 1}: kelas tidak ditemukan.`);
+        summary.errors.push(`Baris ${index + 1}: kelas dengan ID atau kode tersebut tidak ditemukan.`);
       } else if (parsed.data.subject_id && !(await subjectExists(db, parsed.data.subject_id))) {
         summary.errors.push(`Baris ${index + 1}: mata pelajaran tidak ditemukan.`);
       } else {

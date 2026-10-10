@@ -130,7 +130,7 @@ const statusOptions = [
   { value: 'in_progress', label: 'Sedang berjalan' },
   { value: 'abandoned', label: 'Ditinggalkan' },
 ];
-const classOptions = computed(() => [{ value: undefined, label: 'Semua kelas' }, ...curriculum.classes.map((item) => ({ value: item.id, label: item.label }))]);
+const classOptions = computed(() => [{ value: undefined, label: 'Semua kelas' }, ...curriculum.classes.map((item) => ({ value: item.id, label: `${item.label} · ${item.academic_year}` }))]);
 const assessmentTypeOptions = computed(() => [{ value: undefined, label: 'Semua jenis' }, ...curriculum.assessment_types.map((item) => ({ value: item.id, label: item.label }))]);
 
 const filteredSubjects = computed(() => curriculum.subjects.filter((subject) => {
