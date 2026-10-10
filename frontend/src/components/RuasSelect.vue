@@ -135,6 +135,7 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
 <style scoped>
 .ruas-select { position: relative; width: 100%; }
 .ruas-select-trigger { display: flex; width: 100%; min-height: 44px; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 13px; border: 1px solid #d6e3f2; border-radius: 12px; color: #294c7a; background: linear-gradient(145deg, #fff, #f4f8ff); box-shadow: 0 5px 12px rgba(35, 91, 160, .07); font: inherit; font-size: .8rem; text-align: left; cursor: pointer; transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease; }
+.ruas-select-trigger > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ruas-select-trigger:hover, .ruas-select.open .ruas-select-trigger { border-color: #6ca7ea; box-shadow: 0 8px 17px rgba(35, 101, 199, .14); }
 .ruas-select.open .ruas-select-trigger { transform: translateY(-1px); }
 .ruas-select-trigger:focus-visible { outline: 3px solid rgba(35, 139, 255, .2); outline-offset: 2px; }

@@ -199,7 +199,8 @@ onMounted(async () => { await Promise.all([loadUsers(), fetchAdminCurriculum().t
 .check-line { display: flex; align-items: center; gap: 8px; min-height: 42px; color: #43648d; font-weight: 500; }
 .check-line input { width: auto; }
 .text-button { border: 0; padding: 6px 0; color: #1d69c5; background: transparent; font: inherit; font-weight: 700; cursor: pointer; }
-.import-users-panel code { font-size: .72rem; }
+.import-users-panel .panel-heading > div { min-width: 0; }
+.import-users-panel code { font-size: .72rem; white-space: normal; overflow-wrap: anywhere; word-break: break-word; }
 .import-mode-field { display: flex; min-width: 150px; flex-direction: column; gap: 5px; color: #6c83a0; font-size: .68rem; font-weight: 700; }
 .import-mode-field select { padding: 8px 10px; border: 1px solid #d9e5f2; border-radius: 8px; color: #28558a; background: #f8fbff; font: inherit; font-size: .75rem; }
 .hidden-file-input { display: none; }
@@ -234,7 +235,7 @@ onMounted(async () => { await Promise.all([loadUsers(), fetchAdminCurriculum().t
 .bulk-assignment-bar { display: grid; grid-template-columns: minmax(180px, 1.3fr) auto minmax(280px, 1fr) minmax(280px, 1fr); align-items: center; gap: 10px; padding: 12px; border: 1px solid #cfe0f3; border-radius: 12px; background: linear-gradient(110deg, #f4f9ff, #edf5ff); }
 .bulk-assignment-copy strong, .bulk-assignment-copy small { display: block; }.bulk-assignment-copy strong { color: #24558f; font-size: .8rem; }.bulk-assignment-copy small { margin-top: 3px; color: #7890ac; font-size: .7rem; }
 .select-all-button { padding: 9px 11px; border: 1px solid #b9d2ef; border-radius: 9px; color: #2464ad; background: #fff; font: inherit; font-size: .72rem; font-weight: 700; cursor: pointer; }
-.bulk-action-row { display: flex; align-items: center; gap: 8px; min-width: 0; }.bulk-action-row .ruas-select { min-width: 0; }.bulk-apply-button { flex: 0 0 auto; padding: 10px 14px; white-space: nowrap; }
+.bulk-action-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; min-width: 0; }.bulk-action-row .ruas-select { min-width: 0; width: 100%; }.bulk-apply-button { min-width: 0; padding: 10px 14px; white-space: nowrap; }
 @media (max-width: 820px) { .users-grid { grid-template-columns: 1fr; } }
 @media (max-width: 720px) {
   .users-panel { gap: 14px; }
@@ -269,7 +270,7 @@ onMounted(async () => { await Promise.all([loadUsers(), fetchAdminCurriculum().t
   .import-users-panel { order: 2; }
   .bulk-assignment-bar { grid-template-columns: 1fr 1fr; }
   .bulk-assignment-copy { grid-column: 1 / -1; }
-  .bulk-action-row { grid-column: 1 / -1; }.bulk-action-row .ruas-select, .bulk-action-row .bulk-apply-button { width: 100%; }
+  .bulk-action-row { grid-column: 1 / -1; }.bulk-action-row .ruas-select { width: 100%; }.bulk-action-row .bulk-apply-button { width: auto; }
 }
 @media (max-width: 560px) { .user-fields-row { grid-template-columns: 1fr; } }
 </style>
