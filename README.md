@@ -87,7 +87,8 @@ beserta cakupannya. Pilihan tersebut langsung digunakan pada halaman awal
 peserta. Dashboard admin memisahkan Ringkasan, Struktur Asesmen, Bank Soal,
 Jadwal, dan Laporan agar setiap pekerjaan dapat dilakukan dari menu yang jelas.
 Pengguna juga tersedia untuk menambah akun manual atau import CSV/JSON. Admin
-dapat menetapkan mata pelajaran peserta dari menu ini. Admin juga dapat mengatur
+dapat menetapkan kelas dan mata pelajaran peserta dari menu ini, termasuk memilih
+semua hasil pencarian berdasarkan username, nama, atau kelas. Admin juga dapat mengatur
 jumlah percobaan siswa pada setiap mata pelajaran; isi `0` untuk tanpa batas.
 Menu Laporan menampilkan
 ringkasan skor, akurasi, waktu, aktivitas anti-cheat, filter hasil siswa, detail

@@ -71,6 +71,13 @@
       "when": 1791582222012,
       "tag": "0009_needy_nico_minoru",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1791592423074,
+      "tag": "0010_short_fallen_one",
+      "breakpoints": true
     }
   ]
 }

@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import type { Pool } from '@/db/connection';
-import { createReportDb, getReportDetail, listReportAttempts, summarizeReport } from '@/services/report-service';
+import { createReportDb, getReportDetail, listReportAttempts, summarizeReport, summarizeReportByClass } from '@/services/report-service';
 
 const querySchema = z.object({
   status: z.enum(['all', 'in_progress', 'completed', 'abandoned']).default('completed'),
@@ -29,7 +29,7 @@ export function adminReportRoutes(pool: Pool) {
       return c.json({ error: 'invalid_query', message: 'Tanggal mulai harus sebelum tanggal selesai.' }, 400);
     }
     const rows = await listReportAttempts(db, parsed.data);
-    return c.json({ filters: parsed.data, summary: summarizeReport(rows), rows });
+    return c.json({ filters: parsed.data, summary: summarizeReport(rows), class_statistics: summarizeReportByClass(rows), rows });
   });
 
   app.get('/:id', async (c) => {

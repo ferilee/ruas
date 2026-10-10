@@ -250,6 +250,8 @@ Token admin dikirim dengan header `x-admin-token`.
 | POST | `/api/admin/users` | Tambah akun manual |
 | PUT/DELETE | `/api/admin/users/:id` | Edit atau hapus akun |
 | POST | `/api/admin/users/import` | Preview atau terapkan import CSV/JSON |
+| PATCH | `/api/admin/users/bulk-class` | Menetapkan atau mengosongkan kelas untuk banyak akun |
+| PATCH | `/api/admin/users/bulk-subject` | Menetapkan atau mengosongkan mata pelajaran untuk banyak akun |
 | GET | `/api/admin/reports` | Ringkasan dan daftar hasil asesmen dengan filter |
 | GET | `/api/admin/reports/:id` | Detail hasil, jawaban, dan aktivitas anti-cheat |
 | GET | `/api/admin/curriculum` | Daftar kelas, jenis asesmen, dan mata pelajaran |

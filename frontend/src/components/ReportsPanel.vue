@@ -43,6 +43,28 @@
       <article class="summary-card orange"><span>Pelanggaran tercatat</span><strong>{{ summary.total_violations }}</strong><small>Semua hasil selesai</small></article>
     </section>
 
+    <section v-if="classStatistics.length" class="panel class-statistics-panel report-print-area">
+      <div class="panel-heading">
+        <div><h3>Statistik berdasarkan kelas</h3><p>Perbandingan capaian dari hasil yang sedang ditampilkan.</p></div>
+      </div>
+      <div class="class-statistics-wrap">
+        <table class="class-statistics-table">
+          <thead><tr><th>Kelas</th><th>Siswa</th><th>Hasil selesai</th><th>Rata-rata skor</th><th>Akurasi</th><th class="no-print">Waktu rata-rata</th><th>Pelanggaran</th></tr></thead>
+          <tbody>
+            <tr v-for="stat in classStatistics" :key="stat.class_id ?? 'none'">
+              <td><strong>{{ stat.class_label }}</strong></td>
+              <td>{{ stat.participant_count }}</td>
+              <td>{{ stat.completed_attempts }}/{{ stat.total_attempts }}</td>
+              <td class="score-cell">{{ stat.average_score }}</td>
+              <td>{{ stat.average_accuracy }}%</td>
+              <td class="no-print">{{ formatDuration(stat.average_time_seconds) }}</td>
+              <td><span :class="['violation-badge', { clean: stat.total_violations === 0 }]">{{ stat.total_violations }}</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
     <section class="panel table-panel report-print-area">
       <div class="panel-heading table-heading">
         <div><h3>Hasil siswa</h3><p>{{ rows.length }} hasil sesuai filter</p></div>
@@ -91,13 +113,14 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { fetchAdminCurriculum, fetchAdminReport, fetchAdminReportDetail } from '@/api/client';
 import RuasSelect from '@/components/RuasSelect.vue';
-import type { AdminReportDetail, AdminReportFilters, AdminReportRow, AdminReportSummary, CurriculumData } from '@/types';
+import type { AdminReportClassStatistic, AdminReportDetail, AdminReportFilters, AdminReportRow, AdminReportSummary, CurriculumData } from '@/types';
 
 const emptySummary: AdminReportSummary = { total_attempts: 0, completed_attempts: 0, in_progress_attempts: 0, abandoned_attempts: 0, average_score: 0, average_accuracy: 0, average_time_seconds: 0, total_violations: 0 };
 const curriculum = reactive<CurriculumData>({ classes: [], assessment_types: [], subjects: [] });
 const filters = reactive<AdminReportFilters>({ status: 'completed', search: '' });
 const rows = ref<AdminReportRow[]>([]);
 const summary = ref<AdminReportSummary>({ ...emptySummary });
+const classStatistics = ref<AdminReportClassStatistic[]>([]);
 const detail = ref<AdminReportDetail | null>(null);
 const loading = ref(false);
 const errorMessage = ref('');
@@ -124,6 +147,7 @@ async function loadReport() {
     const data = await fetchAdminReport(filters);
     rows.value = data.rows;
     summary.value = data.summary;
+    classStatistics.value = data.class_statistics;
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Gagal memuat laporan.';
   } finally {
@@ -208,6 +232,13 @@ input, select { min-width: 0; width: 100%; padding: 10px 11px; border: 1px solid
 .summary-card strong { color: #1d4f94; font-size: 1.55rem; }
 .summary-card.blue { border-top: 3px solid #2b78d0; }.summary-card.green { border-top: 3px solid #32a476; }.summary-card.purple { border-top: 3px solid #8162d4; }.summary-card.orange { border-top: 3px solid #e19a3c; }
 .table-panel { overflow: hidden; padding: 0; }
+.class-statistics-panel { overflow: hidden; }
+.class-statistics-wrap { overflow-x: auto; margin-top: 16px; }
+.class-statistics-table { width: 100%; min-width: 700px; border-collapse: collapse; }
+.class-statistics-table th, .class-statistics-table td { padding: 11px 13px; border-bottom: 1px solid #edf2f7; color: #47617f; font-size: .76rem; text-align: left; white-space: nowrap; }
+.class-statistics-table th { color: #7890aa; background: #f8fbff; font-size: .68rem; letter-spacing: .04em; text-transform: uppercase; }
+.class-statistics-table td strong { color: #234d87; }
+.class-statistics-table tbody tr:last-child td { border-bottom: 0; }
 .table-heading { padding: 20px; border-bottom: 1px solid #e4ebf3; }
 .print-note { color: #8495a9; font-size: .73rem; }
 .table-wrap { overflow-x: auto; }
@@ -230,6 +261,6 @@ td strong, td small { display: block; }.report-row { cursor: pointer; }.report-r
   :global(.admin-sidebar), :global(.dashboard-header), .no-print { display: none !important; }
   :global(.admin-layout) { display: block !important; }
   :global(.admin-content) { width: 100% !important; }
-  .reports-panel { gap: 12px; }.report-toolbar { display: block; padding: 0 0 12px; color: #173e7f; background: #fff; box-shadow: none; }.report-toolbar h2 { color: #173e7f; }.report-toolbar p { color: #71849b; }.summary-grid { grid-template-columns: repeat(4, 1fr); }.panel { border-color: #d8e1eb; box-shadow: none; } .table-panel { overflow: visible; } table { min-width: 0; } th, td { padding: 8px; font-size: 9px; } .report-row { cursor: default; }
+  .reports-panel { gap: 12px; }.report-toolbar { display: block; padding: 0 0 12px; color: #173e7f; background: #fff; box-shadow: none; }.report-toolbar h2 { color: #173e7f; }.report-toolbar p { color: #71849b; }.summary-grid { grid-template-columns: repeat(4, 1fr); }.panel { border-color: #d8e1eb; box-shadow: none; } .table-panel, .class-statistics-panel { overflow: visible; } table { min-width: 0; } th, td { padding: 8px; font-size: 9px; } .class-statistics-table { min-width: 0; } .class-statistics-table th, .class-statistics-table td { padding: 6px; font-size: 8px; } .report-row { cursor: default; }
 }
 </style>

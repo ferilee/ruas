@@ -30,8 +30,9 @@ export async function findParticipantProfile(db: ParticipantDb, identityKey: str
       .where(eq(participantProfiles.identity_key, identityKey))
       .limit(1),
     db
-      .select({ username: users.username, display_name: users.display_name, subject_id: users.subject_id })
+      .select({ username: users.username, display_name: users.display_name, class_id: users.class_id, class_label: educationClasses.label, subject_id: users.subject_id })
       .from(users)
+      .leftJoin(educationClasses, eq(users.class_id, educationClasses.id))
       .where(eq(users.username, identityKey))
       .limit(1),
   ]);
@@ -61,7 +62,7 @@ export async function findParticipantProfile(db: ParticipantDb, identityKey: str
     birth_date: profile?.birth_date ?? '',
     subject_id: subjectId,
     subject_label: subjectContext?.label ?? profile?.subject_label ?? '',
-    class_label: subjectContext?.class_label ?? '',
+    class_label: account?.class_label ?? subjectContext?.class_label ?? '',
     assessment_type_label: subjectContext?.assessment_type_label ?? '',
     access_token: profile?.access_token ?? '',
     is_complete: Boolean(profile),

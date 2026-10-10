@@ -264,6 +264,14 @@ export async function updateAdminUser(id: number, input: AdminUserInput): Promis
   return data.user;
 }
 
+export async function assignAdminUsersClass(userIds: number[], classId: number | null, search?: string): Promise<number> {
+  const data = await adminRequest<{ updated: number }>('/admin/users/bulk-class', {
+    method: 'PATCH',
+    body: JSON.stringify({ user_ids: userIds.length ? userIds : undefined, search, class_id: classId }),
+  });
+  return data.updated;
+}
+
 export async function assignAdminUsersSubject(userIds: number[], subjectId: number | null): Promise<number> {
   const data = await adminRequest<{ updated: number }>('/admin/users/bulk-subject', {
     method: 'PATCH',

@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
+import { educationClasses } from '@/db/schema/education-classes';
 import { users } from '@/db/schema/users';
 import { subjects } from '@/db/schema/subjects';
 import type { Pool } from '@/db/connection';
@@ -10,9 +11,11 @@ import {
   deleteUser,
   findUserById,
   listUsers,
+  listUserIds,
   toPublicUser,
   updateUser,
   assignSubjectToUsers,
+  assignClassToUsers,
 } from '@/services/user-service';
 
 const roleSchema = z.enum(['admin', 'editor', 'participant']);
@@ -20,6 +23,7 @@ const createUserSchema = z.object({
   username: z.string().trim().min(1).max(100).regex(/^[A-Za-z0-9._@+-]+$/, 'Username mengandung karakter yang tidak didukung.'),
   password: z.string().min(1).max(200),
   display_name: z.string().trim().min(1).max(150),
+  class_id: z.preprocess((value) => (value === '' || value === undefined ? null : value), z.coerce.number().int().positive().nullable()).default(null),
   subject_id: z.preprocess((value) => (value === '' || value === undefined ? null : value), z.coerce.number().int().positive().nullable()).default(null),
   role: roleSchema,
   active: z.boolean().default(true),
@@ -108,6 +112,7 @@ function validateImportRow(value: unknown) {
     username: row.username,
     password: row.password,
     display_name: row.display_name || row.name || row.username,
+    class_id: row.class_id,
     subject_id: row.subject_id,
     role: row.role || 'participant',
     active: parseBoolean(row.active),
@@ -119,6 +124,11 @@ async function subjectExists(db: ReturnType<typeof createUserDb>, subjectId: num
   return Boolean(subject);
 }
 
+async function classExists(db: ReturnType<typeof createUserDb>, classId: number) {
+  const [educationClass] = await db.select({ id: educationClasses.id }).from(educationClasses).where(eq(educationClasses.id, classId)).limit(1);
+  return Boolean(educationClass);
+}
+
 export function adminUserRoutes(pool: Pool) {
   const db = createUserDb(pool);
   const app = new Hono();
@@ -128,6 +138,7 @@ export function adminUserRoutes(pool: Pool) {
   app.post('/', async (c) => {
     const parsed = createUserSchema.safeParse(await c.req.json());
     if (!parsed.success) return c.json({ error: 'invalid_body', message: 'Data pengguna tidak valid.' }, 400);
+    if (parsed.data.class_id && !(await classExists(db, parsed.data.class_id))) return c.json({ error: 'invalid_reference', message: 'Kelas tidak ditemukan.' }, 400);
     if (parsed.data.subject_id && !(await subjectExists(db, parsed.data.subject_id))) return c.json({ error: 'invalid_reference', message: 'Mata pelajaran tidak ditemukan.' }, 400);
     const [duplicate] = await db.select({ id: users.id }).from(users).where(eq(users.username, parsed.data.username)).limit(1);
     if (duplicate) {
@@ -148,6 +159,8 @@ export function adminUserRoutes(pool: Pool) {
       const parsed = validateImportRow(value);
       if (!parsed.success) {
         summary.errors.push(`Baris ${index + 1}: username, password, display_name, dan role wajib valid.`);
+      } else if (parsed.data.class_id && !(await classExists(db, parsed.data.class_id))) {
+        summary.errors.push(`Baris ${index + 1}: kelas tidak ditemukan.`);
       } else if (parsed.data.subject_id && !(await subjectExists(db, parsed.data.subject_id))) {
         summary.errors.push(`Baris ${index + 1}: mata pelajaran tidak ditemukan.`);
       } else {
@@ -193,10 +206,28 @@ export function adminUserRoutes(pool: Pool) {
     return c.json({ updated });
   });
 
+  app.patch('/bulk-class', async (c) => {
+    const parsed = z.object({
+      user_ids: z.array(z.coerce.number().int().positive()).min(1).max(500).optional(),
+      search: z.string().max(100).optional(),
+      class_id: z.preprocess((value) => (value === '' || value === undefined || value === null ? null : value), z.coerce.number().int().positive().nullable()),
+    }).refine((value) => Boolean(value.user_ids?.length) || value.search !== undefined, 'Pilih pengguna atau gunakan pencarian.').safeParse(await c.req.json());
+    if (!parsed.success) return c.json({ error: 'invalid_body', message: 'Pilihan pengguna atau kelas tidak valid.' }, 400);
+    if (parsed.data.class_id !== null && !(await classExists(db, parsed.data.class_id))) {
+      return c.json({ error: 'invalid_reference', message: 'Kelas tidak ditemukan.' }, 400);
+    }
+
+    const userIds = parsed.data.search !== undefined ? await listUserIds(db, parsed.data.search) : parsed.data.user_ids ?? [];
+    if (userIds.length === 0) return c.json({ updated: 0 });
+    const updated = await assignClassToUsers(db, userIds, parsed.data.class_id);
+    return c.json({ updated });
+  });
+
   app.put('/:id', async (c) => {
     const id = parseId(c.req.param('id'));
     const parsed = updateUserSchema.safeParse(await c.req.json());
     if (!id || !parsed.success) return c.json({ error: 'invalid_body', message: 'Data pengguna tidak valid.' }, 400);
+    if (parsed.data.class_id && !(await classExists(db, parsed.data.class_id))) return c.json({ error: 'invalid_reference', message: 'Kelas tidak ditemukan.' }, 400);
     if (parsed.data.subject_id && !(await subjectExists(db, parsed.data.subject_id))) return c.json({ error: 'invalid_reference', message: 'Mata pelajaran tidak ditemukan.' }, 400);
     const existing = await findUserById(db, id);
     if (!existing) return c.json({ error: 'not_found', message: 'Pengguna tidak ditemukan.' }, 404);

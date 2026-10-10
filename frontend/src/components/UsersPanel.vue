@@ -6,13 +6,14 @@
         <div class="panel-heading">
           <div>
             <h2>{{ editingId === null ? 'Tambah pengguna' : `Edit pengguna #${editingId}` }}</h2>
-            <p>Akun dan penetapan mata pelajaran disimpan aman di database.</p>
+            <p>Akun, kelas, dan penetapan mata pelajaran disimpan aman di database.</p>
           </div>
           <div class="user-form-actions"><button v-if="editingId !== null" class="text-button" type="button" @click="resetForm">Batal</button><button class="mobile-close-button" type="button" aria-label="Tutup form pengguna" @click="closeUserForm">×</button></div>
         </div>
         <form class="user-form" @submit.prevent="saveUser">
           <label>Username<input v-model.trim="form.username" required autocomplete="off" placeholder="Contoh: P130100230" /></label>
           <label>Nama tampilan<input v-model.trim="form.display_name" required placeholder="Nama peserta" /></label>
+          <label>Kelas peserta<RuasSelect v-model="form.class_id" :options="classOptions" aria-label="Kelas peserta" /></label>
           <label>Mata pelajaran peserta<RuasSelect v-model="form.subject_id" :options="subjectOptions" aria-label="Mata pelajaran peserta" /></label>
           <label>Password {{ editingId === null ? '' : '(kosongkan jika tidak diubah)' }}<input v-model="form.password" :required="editingId === null" type="password" autocomplete="new-password" placeholder="Password akun" /></label>
           <div class="user-fields-row">
@@ -26,7 +27,7 @@
 
       <div class="panel import-users-panel">
         <div class="panel-heading">
-          <div><h2>Import pengguna</h2><p>CSV: <code>username,password,display_name,role,active,subject_id</code></p></div>
+          <div><h2>Import pengguna</h2><p>CSV: <code>username,password,display_name,role,active,class_id,subject_id</code></p></div>
           <label class="import-mode-field"><span>Mode import</span><RuasSelect v-model="importMode" :options="importModeOptions" aria-label="Mode import pengguna" /></label>
         </div>
         <div class="import-step"><span class="step-number">1</span><div><strong>Pilih file atau tempel data</strong><small>Gunakan format CSV atau JSON.</small></div></div>
@@ -47,30 +48,31 @@
     </div>
 
     <div class="panel users-list-panel">
-      <div class="panel-heading users-list-heading"><div><h2>Daftar pengguna</h2><p>{{ users.length }} akun ditemukan.</p></div><div class="user-list-actions"><div class="user-search"><span class="search-icon" aria-hidden="true">⌕</span><input v-model="search" placeholder="Cari username atau nama" @keyup.enter="loadUsers" /><button class="search-button" type="button" aria-label="Cari pengguna" title="Cari" @click="loadUsers">Cari</button></div><button class="mobile-add-user" type="button" @click="openNewUser">＋ Tambah Pengguna</button></div></div>
+      <div class="panel-heading users-list-heading"><div><h2>Daftar pengguna</h2><p>{{ users.length }} akun ditemukan.</p></div><div class="user-list-actions"><div class="user-search"><span class="search-icon" aria-hidden="true">⌕</span><input v-model="search" placeholder="Cari username, nama, atau kelas" @keyup.enter="loadUsers" /><button class="search-button" type="button" aria-label="Cari pengguna" title="Cari" @click="loadUsers">Cari</button></div><button class="mobile-add-user" type="button" @click="openNewUser">＋ Tambah Pengguna</button></div></div>
       <div v-if="users.length" class="bulk-assignment-bar">
-        <div class="bulk-assignment-copy"><strong>Penetapan massal</strong><small>{{ selectedUserIds.length ? `${selectedUserIds.length} pengguna dipilih` : 'Pilih pengguna untuk menetapkan mata pelajaran sekaligus.' }}</small></div>
-        <button class="select-all-button" type="button" @click="toggleAllUsers">{{ allUsersSelected ? 'Batalkan semua' : 'Pilih semua' }}</button>
-        <RuasSelect v-model="bulkSubjectId" :options="subjectOptions" placeholder="Pilih mata pelajaran" aria-label="Mata pelajaran penetapan massal" />
-        <button class="primary-btn bulk-apply-button" type="button" :disabled="bulkSaving || selectedUserIds.length === 0 || bulkSubjectId === undefined" @click="applyBulkAssignment">{{ bulkSaving ? 'Menyimpan...' : 'Terapkan' }}</button>
+        <div class="bulk-assignment-copy"><strong>Penetapan massal</strong><small>{{ selectedUserIds.length ? `${selectedUserIds.length} pengguna dipilih` : 'Cari kelas atau identitas pengguna, lalu pilih semua hasil.' }}</small></div>
+        <button class="select-all-button" type="button" @click="toggleAllUsers">{{ allUsersSelected ? 'Batalkan semua' : 'Pilih semua hasil' }}</button>
+        <div class="bulk-action-row"><RuasSelect v-model="bulkClassId" :options="classOptions" placeholder="Pilih kelas" aria-label="Kelas penetapan massal" /><button class="primary-btn bulk-apply-button" type="button" :disabled="bulkSaving || selectedUserIds.length === 0 || bulkClassId === undefined" @click="applyBulkClass">{{ bulkSaving ? 'Menyimpan...' : 'Tetapkan kelas' }}</button></div>
+        <div class="bulk-action-row"><RuasSelect v-model="bulkSubjectId" :options="subjectOptions" placeholder="Pilih mata pelajaran" aria-label="Mata pelajaran penetapan massal" /><button class="secondary-btn bulk-apply-button" type="button" :disabled="bulkSaving || selectedUserIds.length === 0 || bulkSubjectId === undefined" @click="applyBulkSubject">{{ bulkSaving ? 'Menyimpan...' : 'Tetapkan mapel' }}</button></div>
       </div>
       <p v-if="bulkMessage" :class="bulkMessageType === 'error' ? 'error-text' : 'success-text'">{{ bulkMessage }}</p>
       <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
       <div v-if="loading" class="panel-empty">Memuat pengguna...</div>
       <div v-else-if="users.length === 0" class="panel-empty">Belum ada pengguna.</div>
-      <div v-else class="user-table-wrap"><table class="user-table"><thead><tr><th class="selection-column"><input type="checkbox" :checked="allUsersSelected" aria-label="Pilih semua pengguna" @change="toggleAllUsers" /></th><th>Pengguna</th><th>Peran / penetapan</th><th>Status</th><th>Aksi</th></tr></thead><tbody><tr v-for="user in users" :key="user.id"><td class="selection-column"><input type="checkbox" :checked="isUserSelected(user.id)" :aria-label="`Pilih ${user.display_name}`" @change="toggleUser(user.id)" /></td><td><strong>{{ user.display_name }}</strong><small>{{ user.username }}</small></td><td><span class="role-badge">{{ roleLabel(user.role) }}</span><small>{{ subjectLabel(user.subject_id) }}</small></td><td><span :class="['status-badge', { inactive: !user.active }]">{{ user.active ? 'Aktif' : 'Nonaktif' }}</span></td><td class="user-actions"><button class="text-button" type="button" @click="editUser(user)">Edit</button><button class="danger-link" type="button" @click="removeUser(user)">Hapus</button></td></tr></tbody></table></div>
+      <div v-else class="user-table-wrap"><table class="user-table"><thead><tr><th class="selection-column"><input type="checkbox" :checked="allUsersSelected" aria-label="Pilih semua pengguna" @change="toggleAllUsers" /></th><th>Pengguna</th><th>Peran / penetapan</th><th>Status</th><th>Aksi</th></tr></thead><tbody><tr v-for="user in users" :key="user.id"><td class="selection-column"><input type="checkbox" :checked="isUserSelected(user.id)" :aria-label="`Pilih ${user.display_name}`" @change="toggleUser(user.id)" /></td><td><strong>{{ user.display_name }}</strong><small>{{ user.username }}</small></td><td><span class="role-badge">{{ roleLabel(user.role) }}</span><small>Kelas: {{ user.class_label || 'Belum ditetapkan' }}</small><small>Mapel: {{ subjectLabel(user.subject_id) }}</small></td><td><span :class="['status-badge', { inactive: !user.active }]">{{ user.active ? 'Aktif' : 'Nonaktif' }}</span></td><td class="user-actions"><button class="text-button" type="button" @click="editUser(user)">Edit</button><button class="danger-link" type="button" @click="removeUser(user)">Hapus</button></td></tr></tbody></table></div>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
-import { assignAdminUsersSubject, createAdminUser, deleteAdminUser, fetchAdminCurriculum, fetchAdminUsers, importAdminUsers, updateAdminUser } from '@/api/client';
+import { assignAdminUsersClass, assignAdminUsersSubject, createAdminUser, deleteAdminUser, fetchAdminCurriculum, fetchAdminUsers, importAdminUsers, updateAdminUser } from '@/api/client';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import RuasSelect from '@/components/RuasSelect.vue';
-import type { AdminUser, AdminUserInput, Subject, UserImportSummary, UserRole } from '@/types';
+import type { AdminUser, AdminUserInput, CurriculumClass, Subject, UserImportSummary, UserRole } from '@/types';
 
 const users = ref<AdminUser[]>([]);
+const classes = ref<CurriculumClass[]>([]);
 const subjects = ref<Subject[]>([]);
 const loading = ref(false);
 const saving = ref(false);
@@ -86,6 +88,7 @@ const parsedImport = ref<unknown>(null);
 const importMode = ref<'insert' | 'upsert'>('insert');
 const importSummary = ref<UserImportSummary | null>(null);
 const selectedUserIds = ref<number[]>([]);
+const bulkClassId = ref<number | null | undefined>(undefined);
 const bulkSubjectId = ref<number | null | undefined>(undefined);
 const bulkSaving = ref(false);
 const bulkMessage = ref('');
@@ -97,7 +100,8 @@ const confirmTitle = ref('Konfirmasi tindakan');
 const confirmMessage = ref('Apakah kamu yakin ingin melanjutkan?');
 const confirmLabel = ref('OK');
 const pendingConfirmation = ref<(() => Promise<void>) | null>(null);
-const form = reactive<AdminUserInput>({ username: '', password: '', display_name: '', subject_id: null, role: 'participant', active: true });
+const form = reactive<AdminUserInput>({ username: '', password: '', display_name: '', class_id: null, subject_id: null, role: 'participant', active: true });
+const classOptions = computed(() => [{ value: null, label: 'Belum ditetapkan' }, ...classes.value.map((item) => ({ value: item.id, label: item.label }))]);
 const subjectOptions = computed(() => [{ value: null, label: 'Belum ditetapkan' }, ...subjects.value.map((subject) => ({ value: subject.id, label: subject.label }))]);
 const roleOptions = [
   { value: 'participant', label: 'Peserta' },
@@ -110,11 +114,11 @@ const importModeOptions = [
 ];
 const allUsersSelected = computed(() => users.value.length > 0 && users.value.every((user) => selectedUserIds.value.includes(user.id)));
 
-function resetForm() { Object.assign(form, { username: '', password: '', display_name: '', subject_id: null, role: 'participant', active: true }); editingId.value = null; formMessage.value = ''; userFormOpen.value = false; }
+function resetForm() { Object.assign(form, { username: '', password: '', display_name: '', class_id: null, subject_id: null, role: 'participant', active: true }); editingId.value = null; formMessage.value = ''; userFormOpen.value = false; }
 function openNewUser() { resetForm(); userFormOpen.value = true; }
 function closeUserForm() { userFormOpen.value = false; }
 function openFilePicker() { fileInput.value?.click(); }
-function editUser(user: AdminUser) { Object.assign(form, { username: user.username, password: '', display_name: user.display_name, subject_id: user.subject_id, role: user.role, active: user.active }); editingId.value = user.id; formMessage.value = ''; userFormOpen.value = true; window.scrollTo({ top: 0, behavior: 'smooth' }); }
+function editUser(user: AdminUser) { Object.assign(form, { username: user.username, password: '', display_name: user.display_name, class_id: user.class_id, subject_id: user.subject_id, role: user.role, active: user.active }); editingId.value = user.id; formMessage.value = ''; userFormOpen.value = true; window.scrollTo({ top: 0, behavior: 'smooth' }); }
 function askConfirmation(title: string, message: string, action: () => Promise<void>, label = 'OK') { confirmTitle.value = title; confirmMessage.value = message; confirmLabel.value = label; pendingConfirmation.value = action; confirmOpen.value = true; }
 function closeConfirmation() { confirmOpen.value = false; pendingConfirmation.value = null; }
 async function runConfirmation() { const action = pendingConfirmation.value; closeConfirmation(); if (action) await action(); }
@@ -124,7 +128,7 @@ function removeUser(user: AdminUser) { askConfirmation('Hapus pengguna?', `Akun 
 function isUserSelected(id: number) { return selectedUserIds.value.includes(id); }
 function toggleUser(id: number) { selectedUserIds.value = isUserSelected(id) ? selectedUserIds.value.filter((selectedId) => selectedId !== id) : [...selectedUserIds.value, id]; }
 function toggleAllUsers() { selectedUserIds.value = allUsersSelected.value ? [] : users.value.map((user) => user.id); }
-function applyBulkAssignment() {
+function applyBulkSubject() {
   if (selectedUserIds.value.length === 0 || bulkSubjectId.value === undefined) return;
   const selectedIds = [...selectedUserIds.value];
   const subjectId = bulkSubjectId.value;
@@ -145,13 +149,36 @@ function applyBulkAssignment() {
     } finally { bulkSaving.value = false; }
   }, 'Terapkan');
 }
+function applyBulkClass() {
+  if (selectedUserIds.value.length === 0 || bulkClassId.value === undefined) return;
+  const selectedIds = [...selectedUserIds.value];
+  const classId = bulkClassId.value;
+  const classLabelText = classId === null ? 'Belum ditetapkan' : classLabel(classId);
+  const selectedSearch = allUsersSelected.value ? search.value : undefined;
+  askConfirmation('Tetapkan kelas?', `${selectedIds.length} pengguna akan ditetapkan ke ${classLabelText}.`, async () => {
+    bulkSaving.value = true;
+    bulkMessage.value = '';
+    try {
+      const updated = await assignAdminUsersClass(selectedIds, classId, selectedSearch);
+      selectedUserIds.value = [];
+      bulkClassId.value = undefined;
+      bulkMessageType.value = 'success';
+      bulkMessage.value = `${updated} pengguna berhasil ditetapkan ke ${classLabelText}.`;
+      await loadUsers();
+    } catch (error) {
+      bulkMessageType.value = 'error';
+      bulkMessage.value = error instanceof Error ? error.message : 'Gagal menetapkan kelas.';
+    } finally { bulkSaving.value = false; }
+  }, 'Terapkan');
+}
 async function readFile(event: Event) { const file = (event.target as HTMLInputElement).files?.[0]; if (file) { selectedFileName.value = file.name; importText.value = await file.text(); parsedImport.value = null; importSummary.value = null; } }
 function parseImportText() { const value = importText.value.trim(); try { parsedImport.value = JSON.parse(value); } catch { parsedImport.value = value; } }
 async function previewImport() { parseImportText(); importing.value = true; try { importSummary.value = await importAdminUsers(parsedImport.value, importMode.value, true); } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Import tidak valid.'; } finally { importing.value = false; } }
 function applyImport() { if (parsedImport.value === null) return; askConfirmation('Terapkan import?', 'Data pengguna yang sudah dipreview akan disimpan ke database.', async () => { importing.value = true; try { importSummary.value = await importAdminUsers(parsedImport.value, importMode.value, false); await loadUsers(); } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Gagal menerapkan import.'; } finally { importing.value = false; } }, 'Terapkan'); }
 function roleLabel(role: UserRole) { return { admin: 'Admin', editor: 'Editor', participant: 'Peserta' }[role]; }
+function classLabel(classId: number) { return classes.value.find((item) => item.id === classId)?.label ?? 'Kelas tidak ditemukan'; }
 function subjectLabel(subjectId: number | null) { return subjects.value.find((subject) => subject.id === subjectId)?.label ?? 'Belum ditetapkan'; }
-onMounted(async () => { await Promise.all([loadUsers(), fetchAdminCurriculum().then((data) => { subjects.value = data.subjects; }).catch(() => undefined)]); });
+onMounted(async () => { await Promise.all([loadUsers(), fetchAdminCurriculum().then((data) => { classes.value = data.classes; subjects.value = data.subjects; }).catch(() => undefined)]); });
 </script>
 
 <style scoped>
@@ -204,10 +231,10 @@ onMounted(async () => { await Promise.all([loadUsers(), fetchAdminCurriculum().t
 .status-badge { color: #17734c; background: #e9f8f0; }
 .status-badge.inactive { color: #a55b2d; background: #fff1e7; }
 .user-actions .danger-link { margin-left: 4px; }
-.bulk-assignment-bar { display: grid; grid-template-columns: minmax(180px, 1.4fr) auto minmax(190px, .9fr) auto; align-items: center; gap: 10px; padding: 12px; border: 1px solid #cfe0f3; border-radius: 12px; background: linear-gradient(110deg, #f4f9ff, #edf5ff); }
+.bulk-assignment-bar { display: grid; grid-template-columns: minmax(180px, 1.3fr) auto minmax(280px, 1fr) minmax(280px, 1fr); align-items: center; gap: 10px; padding: 12px; border: 1px solid #cfe0f3; border-radius: 12px; background: linear-gradient(110deg, #f4f9ff, #edf5ff); }
 .bulk-assignment-copy strong, .bulk-assignment-copy small { display: block; }.bulk-assignment-copy strong { color: #24558f; font-size: .8rem; }.bulk-assignment-copy small { margin-top: 3px; color: #7890ac; font-size: .7rem; }
 .select-all-button { padding: 9px 11px; border: 1px solid #b9d2ef; border-radius: 9px; color: #2464ad; background: #fff; font: inherit; font-size: .72rem; font-weight: 700; cursor: pointer; }
-.bulk-apply-button { padding: 10px 14px; }
+.bulk-action-row { display: flex; align-items: center; gap: 8px; min-width: 0; }.bulk-action-row .ruas-select { min-width: 0; }.bulk-apply-button { flex: 0 0 auto; padding: 10px 14px; white-space: nowrap; }
 @media (max-width: 820px) { .users-grid { grid-template-columns: 1fr; } }
 @media (max-width: 720px) {
   .users-panel { gap: 14px; }
@@ -242,7 +269,7 @@ onMounted(async () => { await Promise.all([loadUsers(), fetchAdminCurriculum().t
   .import-users-panel { order: 2; }
   .bulk-assignment-bar { grid-template-columns: 1fr 1fr; }
   .bulk-assignment-copy { grid-column: 1 / -1; }
-  .bulk-assignment-bar .ruas-select, .bulk-apply-button { width: 100%; }
+  .bulk-action-row { grid-column: 1 / -1; }.bulk-action-row .ruas-select, .bulk-action-row .bulk-apply-button { width: 100%; }
 }
 @media (max-width: 560px) { .user-fields-row { grid-template-columns: 1fr; } }
 </style>

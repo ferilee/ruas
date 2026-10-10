@@ -1,4 +1,5 @@
 import { int, mysqlEnum, mysqlTable, timestamp, varchar } from 'drizzle-orm/mysql-core';
+import { educationClasses } from './education-classes';
 import { subjects } from './subjects';
 
 export const users = mysqlTable('users', {
@@ -6,6 +7,7 @@ export const users = mysqlTable('users', {
   username: varchar('username', { length: 100 }).notNull().unique(),
   password_hash: varchar('password_hash', { length: 255 }).notNull(),
   display_name: varchar('display_name', { length: 150 }).notNull(),
+  class_id: int('class_id').references(() => educationClasses.id),
   subject_id: int('subject_id').references(() => subjects.id),
   role: mysqlEnum('role', ['admin', 'editor', 'participant']).notNull().default('participant'),
   active: int('active').notNull().default(1),

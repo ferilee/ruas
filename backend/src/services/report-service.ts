@@ -1,4 +1,5 @@
 import { asc, desc, eq } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/mysql-core';
 import { drizzle } from 'drizzle-orm/mysql2';
 import { assessmentTypes } from '@/db/schema/assessment-types';
 import { educationClasses } from '@/db/schema/education-classes';
@@ -9,6 +10,7 @@ import { participantProfiles } from '@/db/schema/participant-profiles';
 import { questions } from '@/db/schema/questions';
 import { subjects } from '@/db/schema/subjects';
 import { topics } from '@/db/schema/topics';
+import { users } from '@/db/schema/users';
 import type { Pool } from '@/db/connection';
 
 export type ReportStatus = 'all' | 'in_progress' | 'completed' | 'abandoned';
@@ -24,6 +26,8 @@ export interface ReportFilters {
 }
 
 type ReportDb = ReturnType<typeof drizzle>;
+const userClasses = alias(educationClasses, 'user_classes');
+const subjectClasses = alias(educationClasses, 'subject_classes');
 
 export function createReportDb(pool: Pool) {
   return drizzle(pool, {
@@ -37,6 +41,7 @@ export function createReportDb(pool: Pool) {
       questions,
       subjects,
       topics,
+      users,
     },
     mode: 'default',
   });
@@ -64,10 +69,12 @@ export async function listReportAttempts(db: ReportDb, filters: ReportFilters) {
       participant_code: participantProfiles.participant_code,
       participant_name: participantProfiles.name,
       username: participantProfiles.identity_key,
+      user_class_id: users.class_id,
+      user_class_label: userClasses.label,
       subject_id: subjects.id,
       subject_label: subjects.label,
-      class_id: educationClasses.id,
-      class_label: educationClasses.label,
+      subject_class_id: subjectClasses.id,
+      subject_class_label: subjectClasses.label,
       assessment_type_id: assessmentTypes.id,
       assessment_type_label: assessmentTypes.label,
       topic_id: topics.id,
@@ -87,14 +94,21 @@ export async function listReportAttempts(db: ReportDb, filters: ReportFilters) {
     })
     .from(examAttempts)
     .innerJoin(participantProfiles, eq(examAttempts.participant_id, participantProfiles.id))
+    .leftJoin(users, eq(users.username, participantProfiles.identity_key))
     .innerJoin(subjects, eq(examAttempts.subject_id, subjects.id))
     .leftJoin(topics, eq(examAttempts.topic_id, topics.id))
-    .leftJoin(educationClasses, eq(subjects.class_id, educationClasses.id))
+    .leftJoin(userClasses, eq(users.class_id, userClasses.id))
+    .leftJoin(subjectClasses, eq(subjects.class_id, subjectClasses.id))
     .leftJoin(assessmentTypes, eq(subjects.assessment_type_id, assessmentTypes.id))
     .orderBy(desc(examAttempts.started_at), desc(examAttempts.id));
 
+  const normalizedRows = rows.map(({ user_class_id, user_class_label, subject_class_id, subject_class_label, ...row }) => ({
+    ...row,
+    class_id: user_class_id ?? subject_class_id,
+    class_label: user_class_label ?? subject_class_label,
+  }));
   const search = filters.search?.trim().toLowerCase();
-  return rows
+  return normalizedRows
     .filter((row) => filters.status === 'all' || row.status === filters.status)
     .filter((row) => !filters.subject_id || row.subject_id === filters.subject_id)
     .filter((row) => !filters.class_id || row.class_id === filters.class_id)
@@ -102,7 +116,7 @@ export async function listReportAttempts(db: ReportDb, filters: ReportFilters) {
     .filter((row) => inDateRange(row.started_at, filters.from, filters.to))
     .filter((row) => {
       if (!search) return true;
-      return [row.participant_code, row.participant_name, row.username, row.subject_label, row.topic_label ?? '']
+      return [row.participant_code, row.participant_name, row.username, row.class_label ?? '', row.subject_label, row.topic_label ?? '']
         .some((value) => value.toLowerCase().includes(search));
     })
     .map((row) => ({ ...row, started_at: toIso(row.started_at), completed_at: toIso(row.completed_at) }));
@@ -156,4 +170,45 @@ export function summarizeReport(rows: Awaited<ReturnType<typeof listReportAttemp
     average_time_seconds: Math.round(average(completed.map((row) => row.total_time_seconds))),
     total_violations: completed.reduce((total, row) => total + row.violation_count, 0),
   };
+}
+
+export function summarizeReportByClass(rows: Awaited<ReturnType<typeof listReportAttempts>>) {
+  const groups = new Map<string, {
+    class_id: number | null;
+    class_label: string;
+    rows: typeof rows;
+  }>();
+
+  for (const row of rows) {
+    const key = row.class_id === null ? 'none' : String(row.class_id);
+    const group = groups.get(key) ?? {
+      class_id: row.class_id,
+      class_label: row.class_label ?? 'Tanpa kelas',
+      rows: [],
+    };
+    group.rows.push(row);
+    groups.set(key, group);
+  }
+
+  const average = (values: number[]) => values.length
+    ? Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 10) / 10
+    : 0;
+
+  return [...groups.values()]
+    .sort((first, second) => first.class_label.localeCompare(second.class_label, 'id'))
+    .map(({ class_id, class_label, rows: classRows }) => {
+      const completed = classRows.filter((row) => row.status === 'completed');
+      const participants = new Set(classRows.map((row) => row.participant_id));
+      return {
+        class_id,
+        class_label,
+        participant_count: participants.size,
+        total_attempts: classRows.length,
+        completed_attempts: completed.length,
+        average_score: average(completed.map((row) => row.final_score)),
+        average_accuracy: average(completed.map((row) => row.accuracy)),
+        average_time_seconds: Math.round(average(completed.map((row) => row.total_time_seconds))),
+        total_violations: completed.reduce((total, row) => total + row.violation_count, 0),
+      };
+    });
 }

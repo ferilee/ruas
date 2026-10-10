@@ -59,6 +59,30 @@ describe('adminUserRoutes bulk subject assignment', () => {
     expect(db.update).toHaveBeenCalledTimes(1);
   });
 
+  it('updates the class for selected users', async () => {
+    const limit = vi.fn().mockResolvedValue([{ id: 3 }]);
+    const whereSelect = vi.fn(() => ({ limit }));
+    const updateWhere = vi.fn().mockResolvedValue([{ affectedRows: 3 }]);
+    const set = vi.fn(() => ({ where: updateWhere }));
+    const db = {
+      select: vi.fn(() => ({ from: vi.fn(() => ({ where: whereSelect })) })),
+      update: vi.fn(() => ({ set })),
+    };
+    drizzleMock.mockReturnValue(db);
+
+    const { adminUserRoutes } = await import('@/routes/admin-users');
+    const app = adminUserRoutes({} as never);
+    const response = await app.request('http://localhost/bulk-class', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_ids: [11, 12, 13], class_id: 3 }),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ updated: 3 });
+    expect(set).toHaveBeenCalledWith(expect.objectContaining({ class_id: 3 }));
+  });
+
   it('rejects an empty selection before touching the database', async () => {
     const db = { select: vi.fn(), update: vi.fn() };
     drizzleMock.mockReturnValue(db);

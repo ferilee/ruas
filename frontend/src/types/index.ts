@@ -141,6 +141,8 @@ export interface AdminUser {
   id: number;
   username: string;
   display_name: string;
+  class_id: number | null;
+  class_label: string | null;
   subject_id: number | null;
   role: UserRole;
   active: boolean;
@@ -152,6 +154,7 @@ export interface AdminUserInput {
   username: string;
   password?: string;
   display_name: string;
+  class_id: number | null;
   subject_id: number | null;
   role: UserRole;
   active: boolean;
@@ -244,6 +247,18 @@ export interface AdminReportSummary {
   total_violations: number;
 }
 
+export interface AdminReportClassStatistic {
+  class_id: number | null;
+  class_label: string;
+  participant_count: number;
+  total_attempts: number;
+  completed_attempts: number;
+  average_score: number;
+  average_accuracy: number;
+  average_time_seconds: number;
+  total_violations: number;
+}
+
 export interface AdminReportRow {
   attempt_id: number;
   participant_id: number;
@@ -298,5 +313,6 @@ export interface AdminReportDetail extends AdminReportRow {
 export interface AdminReportData {
   filters: AdminReportFilters;
   summary: AdminReportSummary;
+  class_statistics: AdminReportClassStatistic[];
   rows: AdminReportRow[];
 }
