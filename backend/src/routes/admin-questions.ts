@@ -64,8 +64,14 @@ export function adminQuestionRoutes(pool: Pool) {
     const id = parseQuestionIdParam(c.req.param('id'));
     if (id === null) return c.json({ error: 'invalid_param', message: 'ID soal tidak valid.' }, 400);
 
-    const deleted = await deleteAdminQuestion(db, id);
-    if (!deleted) return c.json({ error: 'not_found', message: 'Soal tidak ditemukan.' }, 404);
+    const result = await deleteAdminQuestion(db, id);
+    if (result === 'not_found') return c.json({ error: 'not_found', message: 'Soal tidak ditemukan.' }, 404);
+    if (result === 'in_use') {
+      return c.json({
+        error: 'question_in_use',
+        message: 'Soal tidak dapat dihapus karena sudah digunakan dalam riwayat asesmen. Hapus soal akan merusak laporan peserta.',
+      }, 409);
+    }
     return c.json({ deleted: true });
   });
 

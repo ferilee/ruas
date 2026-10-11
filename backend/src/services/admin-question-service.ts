@@ -1,5 +1,6 @@
-import { and, desc, eq, like, or } from 'drizzle-orm';
+import { and, count, desc, eq, like, or } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/mysql2';
+import { examAnswers } from '@/db/schema/exam-answers';
 import { questions } from '@/db/schema/questions';
 import { questionOptions } from '@/db/schema/question-options';
 import { topics } from '@/db/schema/topics';
@@ -158,16 +159,25 @@ export async function updateAdminQuestion(
   return true;
 }
 
-export async function deleteAdminQuestion(db: AdminDb, questionId: number): Promise<boolean> {
+export type DeleteAdminQuestionResult = 'deleted' | 'not_found' | 'in_use';
+
+export async function deleteAdminQuestion(db: AdminDb, questionId: number): Promise<DeleteAdminQuestionResult> {
   const existing = await findAdminQuestion(db, questionId);
-  if (!existing) return false;
+  if (!existing) return 'not_found';
+
+  const [answerCount] = await db
+    .select({ total: count(examAnswers.id) })
+    .from(examAnswers)
+    .where(eq(examAnswers.question_id, questionId));
+
+  if (Number(answerCount?.total ?? 0) > 0) return 'in_use';
 
   await db.transaction(async (tx) => {
     await tx.delete(questionOptions).where(eq(questionOptions.question_id, questionId));
     await tx.delete(questions).where(eq(questions.id, questionId));
   });
 
-  return true;
+  return 'deleted';
 }
 
 export async function listAdminTopics(db: AdminDb) {
