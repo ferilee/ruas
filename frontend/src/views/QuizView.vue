@@ -428,10 +428,10 @@ onMounted(() => { initializeSession(); });
 
 <style scoped>
 .timer-driver { display: none; }
-.exam-page { min-height: 100vh; background: #f4f7fb; color: #1c2b3a; font-size: 16px; }
+.exam-page { min-height: 100vh; overflow-x: hidden; background: #f4f7fb; color: #1c2b3a; font-size: 16px; }
 .exam-page.font-small { font-size: 14px; }
 .exam-page.font-large { font-size: 18px; }
-.exam-topbar { min-height: 76px; padding: 12px 32px; display: flex; align-items: center; gap: 28px; color: #fff; background: linear-gradient(115deg, #0d6fb8 0%, #176ca7 54%, #12588d 100%); box-shadow: 0 2px 8px rgba(16, 66, 104, .22); }
+.exam-topbar { position: sticky; z-index: 12; top: 0; min-height: 76px; padding: 12px 32px; display: flex; align-items: center; gap: 28px; color: #fff; background: linear-gradient(115deg, #0d6fb8 0%, #176ca7 54%, #12588d 100%); box-shadow: 0 2px 8px rgba(16, 66, 104, .22); }
 .exam-brand { display: flex; align-items: center; gap: 12px; color: #fff; text-decoration: none; }
 .brand-mark { width: 44px; height: 44px; display: grid; place-items: center; border: 2px solid rgba(255,255,255,.7); border-radius: 50%; font-size: .85rem; font-weight: 800; letter-spacing: .04em; }
 .brand-copy { display: flex; flex-direction: column; line-height: 1.2; }
@@ -511,7 +511,7 @@ onMounted(() => { initializeSession(); });
 .explanation-unavailable { margin-top: 14px; padding: 12px; border: 1px dashed #bdd2e8; border-radius: 10px; color: #66809e; background: #f7fbff; font-size: .8rem; }
 .error-card h2 { color: #b33d45; }
 .exam-modal-backdrop { position: fixed; inset: 0; z-index: 20; padding: 20px; display: grid; place-items: center; background: rgba(24, 45, 65, .42); }
-.exam-modal { position: relative; width: min(520px, 100%); padding: 30px; border-radius: 14px; background: #fff; box-shadow: 0 18px 50px rgba(24, 45, 65, .22); }
+.exam-modal { position: relative; width: min(520px, 100%); max-height: calc(100dvh - 40px); overflow-y: auto; padding: 30px; border-radius: 14px; background: #fff; box-shadow: 0 18px 50px rgba(24, 45, 65, .22); }
 .exam-modal h2 { margin: 5px 0 12px; color: #233b51; }
 .exam-modal p, .exam-modal li { color: #63798c; line-height: 1.7; }
 .exam-modal ul { margin: 14px 0 22px; padding-left: 20px; }
@@ -545,27 +545,29 @@ onMounted(() => { initializeSession(); });
   .security-badge { margin-left: auto; }
   .exam-main { padding: 20px; }
   .exam-workspace { grid-template-columns: 1fr; min-height: auto; }
-  .exam-pane { min-height: 360px; }
-  .pane-scroll { max-height: 460px; }
+  .exam-pane { min-height: 0; overflow: visible; }
+  .pane-scroll { flex: none; max-height: none; overflow: visible; }
 }
 @media (max-width: 600px) {
-  .exam-topbar { min-height: 68px; padding: 10px 14px; }
+  .exam-topbar { min-height: 68px; padding: 10px 14px; flex-wrap: wrap; gap: 10px; }
   .brand-mark { width: 36px; height: 36px; font-size: .7rem; }
   .brand-copy strong { font-size: .8rem; }
   .brand-copy small { font-size: .6rem; }
-  .exam-actions { margin-left: auto; }
-  .topbar-button { padding: 8px 10px; font-size: .72rem; }
-  .exam-clock { display: none; }
+  .exam-actions { width: 100%; margin-left: 0; justify-content: space-between; }
+  .topbar-button { min-height: 38px; padding: 8px 10px; font-size: .72rem; }
+  .exam-clock { display: flex; min-width: 82px; padding: 5px 9px; }
+  .exam-clock span { font-size: .58rem; }
+  .exam-clock strong { font-size: .78rem; }
   .question-list-button { font-size: 0; }
   .question-list-button .grid-icon { margin: 0; font-size: 1.2rem; }
-  .exam-main { padding: 16px 12px 22px; }
+  .exam-main { padding: 16px 12px calc(32px + env(safe-area-inset-bottom)); }
   .exam-heading { align-items: flex-start; flex-direction: column; gap: 12px; }
   .exam-heading h1 { font-size: 1.4rem; }
   .font-controls { align-self: flex-end; }
   .pane-heading { padding: 14px 16px; }
   .question-scroll { padding: 22px 18px; }
   .answer-scroll { padding: 16px 12px; }
-  .exam-navigation { flex-wrap: wrap; }
+  .exam-navigation { position: sticky; z-index: 10; bottom: max(8px, env(safe-area-inset-bottom)); flex-wrap: wrap; margin-right: -4px; margin-left: -4px; padding: 8px; border: 1px solid #d6e3ef; border-radius: 14px; background: rgba(255, 255, 255, .94); box-shadow: 0 10px 24px rgba(33, 73, 108, .16); backdrop-filter: blur(12px); }
   .nav-button { flex: 1 1 calc(50% - 7px); padding: 10px 12px; font-size: .82rem; }
   .nav-primary { order: 3; flex-basis: 100%; }
   .resume-stats { grid-template-columns: repeat(2, 1fr); }
