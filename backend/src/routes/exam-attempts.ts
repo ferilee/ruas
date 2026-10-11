@@ -7,7 +7,7 @@ import type { Pool } from '@/db/connection';
 import { getParticipantIdentity } from '@/lib/participant-identity';
 import { checkAnswer } from '@/lib/scoring';
 import { mapCheckAnswerResponse } from '@/mappers/question-response';
-import { createExamDb, abandonAttempt, completeAttempt, createAttempt, findActiveAttempt, findAttempt, findAttemptAnswers, getAttemptAvailability, getExamReview, getNextAttemptQuestion, getQuestionExplanationMode, getSubjectExamSettings, saveAnswer, saveIntegrityEvent } from '@/services/exam-service';
+import { createExamDb, abandonAttempt, completeAttempt, createAttempt, findActiveAttempt, findAttempt, findAttemptAnswers, getAttemptAvailability, getExamReview, getNextAttemptQuestion, getQuestionExplanationMode, getSubjectExamSettings, isAttemptExpired, saveAnswer, saveIntegrityEvent } from '@/services/exam-service';
 
 const attemptSchema = z.object({ subject_id: z.coerce.number().int().positive(), topic_id: z.coerce.number().int().positive(), total_questions: z.coerce.number().int().nonnegative(), topic_access_token: z.string().trim().max(100).optional() });
 const answerSchema = z.object({ question_id: z.coerce.number().int().positive(), selected_keys: z.array(z.string().min(1)).min(1), elapsed_seconds: z.coerce.number().int().nonnegative() });
@@ -36,7 +36,7 @@ export function examAttemptRoutes(pool: Pool) {
       return c.json({ error: 'topic_token_required', message: 'Masukkan token topik sebelum memulai asesmen.' }, 403);
     }
     if (created.limited) return c.json({ error: 'attempt_limit_reached', message: 'Batas percobaan untuk asesmen ini sudah habis.', availability: created.availability }, 409);
-    return c.json({ attempt: created.attempt }, 201);
+    return c.json({ attempt: created.attempt, server_now: new Date().toISOString() }, 201);
   });
 
   app.get('/availability', async (c) => {
@@ -50,9 +50,9 @@ export function examAttemptRoutes(pool: Pool) {
   app.get('/active', async (c) => {
     const identityKey = getParticipantIdentity(c);
     const topicId = parseId(c.req.query('topic_id') || '');
-    if (!identityKey || !topicId) return c.json({ attempt: null });
+    if (!identityKey || !topicId) return c.json({ attempt: null, answers: [], server_now: new Date().toISOString() });
     const attempt = await findActiveAttempt(db, topicId, identityKey);
-    return c.json({ attempt, answers: attempt ? await findAttemptAnswers(db, attempt.id, identityKey) : [] });
+    return c.json({ attempt, answers: attempt ? await findAttemptAnswers(db, attempt.id, identityKey) : [], server_now: new Date().toISOString() });
   });
 
   app.get('/:id/next-question', async (c) => {
@@ -71,6 +71,10 @@ export function examAttemptRoutes(pool: Pool) {
     if (!identityKey || !attemptId) return c.json({ error: 'invalid_param', message: 'Sesi ujian tidak valid.' }, 400);
     const attempt = await findAttempt(db, attemptId, identityKey);
     if (!attempt || attempt.status !== 'in_progress') return c.json({ error: 'attempt_closed', message: 'Sesi ujian sudah ditutup.' }, 409);
+    if (isAttemptExpired(attempt)) {
+      await completeAttempt(db, attemptId, identityKey);
+      return c.json({ error: 'time_expired', message: 'Waktu ujian sudah habis.' }, 409);
+    }
     const parsed = answerSchema.safeParse(await c.req.json());
     if (!parsed.success) return c.json({ error: 'invalid_body', message: 'Jawaban tidak valid.' }, 400);
     const [question] = await db.select().from(questions).where(eq(questions.id, parsed.data.question_id)).limit(1);
@@ -101,6 +105,10 @@ export function examAttemptRoutes(pool: Pool) {
     if (!identityKey || !attemptId) return c.json({ error: 'invalid_param', message: 'Sesi ujian tidak valid.' }, 400);
     const attempt = await findAttempt(db, attemptId, identityKey);
     if (!attempt || attempt.status !== 'in_progress') return c.json({ error: 'attempt_closed', message: 'Sesi ujian sudah ditutup.' }, 409);
+    if (isAttemptExpired(attempt)) {
+      await completeAttempt(db, attemptId, identityKey);
+      return c.json({ error: 'time_expired', message: 'Waktu ujian sudah habis.' }, 409);
+    }
     const parsed = eventSchema.safeParse(await c.req.json());
     if (!parsed.success) return c.json({ error: 'invalid_body', message: 'Aktivitas ujian tidak valid.' }, 400);
     await saveIntegrityEvent(db, attemptId, parsed.data.event_type, parsed.data.occurred_at ? new Date(parsed.data.occurred_at) : new Date());

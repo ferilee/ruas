@@ -72,14 +72,16 @@ describe('useQuizSession', () => {
     fetchTopic.mockReset();
     saveExamAnswer.mockReset();
     saveExamIntegrityEvent.mockReset();
-    fetchActiveExamAttempt.mockResolvedValue({ attempt: null, answers: [] });
-    createExamAttempt.mockResolvedValue({ id: 501 });
+    fetchActiveExamAttempt.mockResolvedValue({ attempt: null, answers: [], server_now: new Date().toISOString() });
+    createExamAttempt.mockResolvedValue({
+      attempt: { id: 501, deadline_at: null } as never,
+      server_now: new Date().toISOString(),
+    });
     fetchExamReview.mockResolvedValue({ mode: 'after_answer', items: [] });
   });
 
   it('initializes session from route query without extra topic lookup', async () => {
     fetchQuestionCount.mockResolvedValue(5);
-    fetchNextAttemptQuestion.mockResolvedValue(firstQuestion);
 
     const session = useQuizSession({
       getTopicId: () => 11,
@@ -91,12 +93,20 @@ describe('useQuizSession', () => {
 
     expect(fetchTopic).not.toHaveBeenCalled();
     expect(fetchQuestionCount).toHaveBeenCalledWith(11);
+    expect(createExamAttempt).not.toHaveBeenCalled();
+    expect(session.question.value).toBeNull();
+    expect(session.state.value).toBe('ready');
+
+    fetchNextAttemptQuestion.mockResolvedValue(firstQuestion);
+    await session.startQuiz();
+
+    expect(createExamAttempt).toHaveBeenCalledWith({ subject_id: 7, topic_id: 11, total_questions: 5 });
     expect(fetchNextAttemptQuestion).toHaveBeenCalledWith(501);
     expect(session.subjectId.value).toBe(7);
     expect(session.topicLabel.value).toBe('Aljabar');
     expect(session.questionCount.value).toBe(5);
     expect(session.question.value?.id).toBe(101);
-    expect(session.state.value).toBe('ready');
+    expect(session.state.value).toBe('answering');
   });
 
   it('submits an answer and moves into reviewing state with summary updated', async () => {
@@ -116,7 +126,7 @@ describe('useQuizSession', () => {
     });
 
     await session.initializeSession();
-    session.startQuiz();
+    await session.startQuiz();
     session.onSelectKeys(['B']);
     session.timerRunning.value = false;
     session.onTime(42);
@@ -160,7 +170,7 @@ describe('useQuizSession', () => {
     });
 
     await session.initializeSession();
-    session.startQuiz();
+    await session.startQuiz();
     session.onSelectKeys(['A']);
     session.timerRunning.value = false;
     session.onTime(15);

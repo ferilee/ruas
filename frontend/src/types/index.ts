@@ -4,6 +4,7 @@ export interface Subject {
   label: string;
   display_order: number;
   max_attempts: number;
+  duration_minutes: number;
   explanation_mode: ExplanationMode;
   show_correct_answer_on_wrong: boolean;
   shuffle_questions: boolean;
@@ -218,6 +219,7 @@ export interface ExamAttempt {
   integrity_penalty: number;
   final_score: number;
   started_at: string;
+  deadline_at: string | null;
   completed_at: string | null;
 }
 

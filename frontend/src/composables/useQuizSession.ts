@@ -44,6 +44,7 @@ export function useQuizSession(options: UseQuizSessionOptions) {
   const showExitModal = ref(false);
   const attemptId = ref<number | null>(null);
   const persistedAttempt = ref<ExamAttempt | null>(null);
+  const serverClockOffsetMs = ref(0);
   const examReview = ref<ExamReviewItem[]>([]);
   const explanationMode = ref<ExplanationMode | null>(null);
 
@@ -96,14 +97,35 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     }
   }
 
-  function startQuiz() {
-    if (questionCount.value === 0 || !question.value) {
-      loadQuestion();
-      return;
-    }
+  function syncServerClock(serverNow?: string) {
+    if (!serverNow) return;
+    const timestamp = new Date(serverNow).getTime();
+    if (!Number.isNaN(timestamp)) serverClockOffsetMs.value = timestamp - Date.now();
+  }
 
-    timerRunning.value = true;
-    state.value = 'answering';
+  async function ensureAttempt() {
+    if (attemptId.value) return;
+    const created = await createExamAttempt({ subject_id: subjectId.value, topic_id: options.getTopicId(), total_questions: questionCount.value });
+    attemptId.value = created.attempt.id;
+    persistedAttempt.value = created.attempt;
+    syncServerClock(created.server_now);
+  }
+
+  async function startQuiz() {
+    try {
+      await ensureAttempt();
+      if (questionCount.value === 0 || !question.value) {
+        autoStart.value = true;
+        await loadQuestion();
+        return;
+      }
+
+      timerRunning.value = true;
+      state.value = 'answering';
+    } catch (error) {
+      errorMessage.value = error instanceof Error ? error.message : 'Sesi ujian gagal disimpan.';
+      state.value = 'error';
+    }
   }
 
   function nextQuestion() {
@@ -189,6 +211,7 @@ export function useQuizSession(options: UseQuizSessionOptions) {
   }
 
   async function finishSession() {
+    timerRunning.value = false;
     if (attemptId.value) {
       try {
         persistedAttempt.value = await completeExamAttempt(attemptId.value);
@@ -214,6 +237,7 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     autoStart.value = false;
     attemptId.value = null;
     persistedAttempt.value = null;
+    serverClockOffsetMs.value = 0;
     examReview.value = [];
     explanationMode.value = null;
   }
@@ -241,22 +265,22 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     await Promise.all([loadTopicInfo(), loadQuestionCount()]);
     try {
       const active = await fetchActiveExamAttempt(options.getTopicId());
+      syncServerClock(active.server_now);
       if (active.attempt) {
         attemptId.value = active.attempt.id;
         persistedAttempt.value = active.attempt;
         answeredIds.value = new Set(active.answers.map((answer) => answer.question_id));
         sessionResults.value = active.answers.map((answer) => ({ correct: answer.is_correct, elapsed: answer.elapsed_seconds }));
+        await loadQuestion();
       } else {
-        const attempt = await createExamAttempt({ subject_id: subjectId.value, topic_id: options.getTopicId(), total_questions: questionCount.value });
-        attemptId.value = attempt.id;
-        persistedAttempt.value = attempt;
+        question.value = null;
+        state.value = 'ready';
       }
     } catch (error) {
       errorMessage.value = error instanceof Error ? error.message : 'Sesi ujian gagal disimpan.';
       state.value = 'error';
       return;
     }
-    await loadQuestion();
   }
 
   return {
@@ -296,6 +320,8 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     subjectId,
     submitAnswer,
     timerRunning,
+    deadlineAt: computed(() => persistedAttempt.value?.deadline_at ?? null),
+    serverClockOffsetMs,
     topicLabel,
     totalTime,
   };

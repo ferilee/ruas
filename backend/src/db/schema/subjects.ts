@@ -8,6 +8,7 @@ export const subjects = mysqlTable('subjects', {
   label: varchar('label', { length: 100 }).notNull(),
   display_order: int('display_order').notNull(),
   max_attempts: int('max_attempts').notNull().default(1),
+  duration_minutes: int('duration_minutes').notNull().default(0),
   explanation_mode: mysqlEnum('explanation_mode', ['after_answer', 'after_exam', 'hidden']).notNull().default('hidden'),
   show_correct_answer_on_wrong: boolean('show_correct_answer_on_wrong').notNull().default(false),
   shuffle_questions: boolean('shuffle_questions').notNull().default(false),

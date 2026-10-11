@@ -54,4 +54,17 @@ describe('TimerBar', () => {
 
     expect(wrapper.vm.formatted).toBe('00:00');
   });
+
+  it('marks the countdown as critical during the final minute', () => {
+    const wrapper = mount(TimerBar, {
+      props: {
+        running: true,
+        deadlineAt: new Date(Date.now() + 60_000).toISOString(),
+      },
+    });
+
+    expect(wrapper.find('.timer-label').text()).toBe('Sisa waktu');
+    expect(wrapper.classes()).toContain('countdown-critical');
+    wrapper.unmount();
+  });
 });

@@ -4,10 +4,12 @@ const {
   createExamDbMock,
   findAttemptMock,
   getNextAttemptQuestionMock,
+  isAttemptExpiredMock,
 } = vi.hoisted(() => ({
   createExamDbMock: vi.fn(),
   findAttemptMock: vi.fn(),
   getNextAttemptQuestionMock: vi.fn(),
+  isAttemptExpiredMock: vi.fn(),
 }));
 
 vi.mock('@/services/exam-service', () => ({
@@ -23,6 +25,7 @@ vi.mock('@/services/exam-service', () => ({
   getNextAttemptQuestion: getNextAttemptQuestionMock,
   getQuestionExplanationMode: vi.fn(),
   getSubjectExamSettings: vi.fn(),
+  isAttemptExpired: isAttemptExpiredMock,
   saveAnswer: vi.fn(),
   saveIntegrityEvent: vi.fn(),
 }));

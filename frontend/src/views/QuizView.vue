@@ -18,10 +18,6 @@
 
       <div class="exam-actions">
         <button class="topbar-button" type="button" @click="showInfoModal = true">Informasi Ujian</button>
-        <div v-if="state === 'answering' || state === 'reviewing'" class="exam-clock" aria-label="Waktu berjalan">
-          <span>Waktu berjalan</span>
-          <strong>{{ formattedElapsed }}</strong>
-        </div>
         <button class="topbar-button question-list-button" type="button" @click="showQuestionList = true">
           Daftar Soal <span class="grid-icon">▦</span>
         </button>
@@ -32,7 +28,10 @@
       v-if="state === 'answering' || state === 'reviewing'"
       class="timer-driver"
       :running="timerRunning"
+      :deadline-at="deadlineAt"
+      :server-offset-ms="serverClockOffsetMs"
       @time="onTime"
+      @expired="handleTimeExpired"
     />
 
     <main class="exam-main">
@@ -56,7 +55,7 @@
       <div v-else-if="state === 'ready'" class="exam-state-card ready-card">
         <span class="state-kicker">PERSIAPAN UJIAN</span>
         <h2>Siap mengerjakan?</h2>
-        <p>{{ questionCount }} soal tersedia. Timer dimulai saat kamu menekan tombol mulai.</p>
+        <p>{{ questionCount }} soal tersedia. Countdown dimulai setelah kamu menekan tombol mulai.</p>
         <button class="primary-exam-button" type="button" @click="beginExam">Mulai Ujian</button>
       </div>
 
@@ -182,7 +181,7 @@
         <p>Kerjakan soal dengan teliti. Kamu dapat menandai soal yang masih diragukan untuk membantumu memantau pengerjaan.</p>
         <ul>
           <li>Soal bertanda ragu-ragu tetap dapat dijawab dan dikoreksi.</li>
-          <li>Timer menunjukkan waktu berjalan pada sesi ini.</li>
+          <li>Timer menampilkan sisa waktu. Jika tidak ada batas waktu, timer menampilkan waktu berjalan.</li>
           <li>Jawaban diperiksa setelah tombol simpan jawaban ditekan.</li>
           <li>Perpindahan tab, keluar layar penuh, dan shortcut terlarang akan menjeda ujian.</li>
         </ul>
@@ -267,10 +266,11 @@ function getTopicId(): number { return Number(route.params.id); }
 
 const {
   accuracy, cancelExit: dismissExitModal, confirmExitState, correctCount,
-  currentQuestionNumber, elapsedTime, errorMessage, examReview, explanationMode, finalTime, finishSession, hasActiveSession,
+  currentQuestionNumber, errorMessage, examReview, explanationMode, finalTime, finishSession, hasActiveSession,
   incorrectCount, initializeSession, isLastQuestion, nextQuestion, onSelectKeys, question,
   questionCount, recordIntegrityEvent, resetSession, result, retryCurrentState, selectedKeys, showExitModal,
   startQuiz, state, subjectId, submitAnswer, topicLabel, totalTime, timerRunning, onTime,
+  deadlineAt, serverClockOffsetMs,
 } = useQuizSession({
   getTopicId,
   getQuerySubjectId: () => Number(route.query.subject_id),
@@ -294,19 +294,12 @@ const violationSummary = computed(() => {
 });
 
 const fontSizeClass = computed(() => `font-${fontSize.value}`);
-const formattedElapsed = computed(() => formatDuration(elapsedTime.value));
 const questionNumbers = computed(() => Array.from({ length: questionCount.value }, (_, index) => index + 1));
 const questionTypeLabel = computed(() => {
   if (question.value?.type === 'multiple_response') return 'Pilihan ganda kompleks';
   if (question.value?.type === 'true_false') return 'Benar atau salah';
   return 'Pilihan ganda';
 });
-
-function formatDuration(seconds: number): string {
-  const minutes = Math.floor(seconds / 60);
-  const remainder = seconds % 60;
-  return `${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
-}
 
 function setFontSize(size: 'small' | 'normal' | 'large') { fontSize.value = size; }
 
@@ -339,7 +332,7 @@ async function beginExam() {
     return;
   }
 
-  startQuiz();
+  await startQuiz();
 }
 
 async function resumeExam() {
@@ -351,8 +344,14 @@ async function resumeExam() {
   }
 
   showSecurityWarning.value = false;
-  if (state.value === 'ready') startQuiz();
+  if (state.value === 'ready') await startQuiz();
   else if (state.value === 'answering') timerRunning.value = true;
+}
+
+function handleTimeExpired() {
+  if (state.value !== 'answering' && state.value !== 'reviewing') return;
+  timerRunning.value = false;
+  void finishSession();
 }
 
 function handleViolation(violation: ExamViolation) {
@@ -427,7 +426,7 @@ onMounted(() => { initializeSession(); });
 </script>
 
 <style scoped>
-.timer-driver { display: none; }
+.timer-driver { display: flex; margin: 0; border-radius: 0; padding: 8px 16px; font-size: 1rem; }
 .exam-page { width: 100%; height: 100dvh; min-height: 100vh; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; background: #f4f7fb; color: #1c2b3a; font-size: 16px; }
 .exam-page.font-small { font-size: 14px; }
 .exam-page.font-large { font-size: 18px; }
@@ -445,9 +444,6 @@ onMounted(() => { initializeSession(); });
 .topbar-button:hover { background: rgba(255,255,255,.18); }
 .question-list-button { background: #fff; color: #1266a5; border-color: #fff; }
 .grid-icon { margin-left: 5px; font-size: 1.05rem; }
-.exam-clock { min-width: 132px; padding: 6px 14px; display: flex; flex-direction: column; align-items: center; border: 1px solid rgba(255,255,255,.55); border-radius: 22px; background: rgba(0, 35, 68, .18); }
-.exam-clock span { font-size: .68rem; opacity: .8; }
-.exam-clock strong { font-size: .93rem; letter-spacing: .08em; }
 .exam-main { width: min(1280px, 100%); margin: 0 auto; padding: 24px 32px 32px; }
 .exam-heading { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; margin-bottom: 18px; }
 .exam-back { padding: 0; border: 0; color: #587087; background: transparent; font: inherit; font-size: .86rem; cursor: pointer; }
@@ -555,9 +551,6 @@ onMounted(() => { initializeSession(); });
   .brand-copy small { font-size: .6rem; }
   .exam-actions { width: 100%; margin-left: 0; justify-content: space-between; }
   .topbar-button { min-height: 38px; padding: 8px 10px; font-size: .72rem; }
-  .exam-clock { display: flex; min-width: 82px; padding: 5px 9px; }
-  .exam-clock span { font-size: .58rem; }
-  .exam-clock strong { font-size: .78rem; }
   .question-list-button { font-size: 0; }
   .question-list-button .grid-icon { margin: 0; font-size: 1.2rem; }
   .exam-main { padding: 16px 12px calc(32px + env(safe-area-inset-bottom)); }

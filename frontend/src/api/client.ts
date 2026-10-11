@@ -141,17 +141,17 @@ export async function checkAnswer(questionId: number, selectedKeys: string[]): P
   });
 }
 
-export async function createExamAttempt(input: { subject_id: number; topic_id: number; total_questions: number }): Promise<ExamAttempt> {
+export async function createExamAttempt(input: { subject_id: number; topic_id: number; total_questions: number }): Promise<{ attempt: ExamAttempt; server_now: string }> {
   const topic_access_token = getTopicAccessToken(input.topic_id);
-  const data = await request<{ attempt: ExamAttempt }>('/exam/attempts', {
+  const data = await request<{ attempt: ExamAttempt; server_now: string }>('/exam/attempts', {
     method: 'POST',
     body: JSON.stringify({ ...input, topic_access_token: topic_access_token ?? undefined }),
   });
-  return data.attempt;
+  return data;
 }
 
-export async function fetchActiveExamAttempt(topicId: number): Promise<{ attempt: ExamAttempt | null; answers: ExamAnswerRecord[] }> {
-  return request<{ attempt: ExamAttempt | null; answers: ExamAnswerRecord[] }>(`/exam/attempts/active?topic_id=${topicId}`);
+export async function fetchActiveExamAttempt(topicId: number): Promise<{ attempt: ExamAttempt | null; answers: ExamAnswerRecord[]; server_now: string }> {
+  return request<{ attempt: ExamAttempt | null; answers: ExamAnswerRecord[]; server_now: string }>(`/exam/attempts/active?topic_id=${topicId}`);
 }
 
 export async function fetchNextAttemptQuestion(attemptId: number): Promise<Question | null> {
@@ -313,7 +313,7 @@ export async function importAdminUsers(data: unknown, mode: 'insert' | 'upsert',
 
 export type CurriculumItemInput = { slug: string; label: string; display_order: number };
 export type CurriculumClassInput = CurriculumItemInput & { academic_year: string; grade: number; program: string; section: string | null };
-export type CurriculumSubjectInput = CurriculumItemInput & { class_id: number | null; assessment_type_id: number | null; max_attempts: number; explanation_mode: Subject['explanation_mode']; show_correct_answer_on_wrong: boolean; shuffle_questions: boolean; shuffle_options: boolean };
+export type CurriculumSubjectInput = CurriculumItemInput & { class_id: number | null; assessment_type_id: number | null; max_attempts: number; duration_minutes: number; explanation_mode: Subject['explanation_mode']; show_correct_answer_on_wrong: boolean; shuffle_questions: boolean; shuffle_options: boolean };
 
 export async function fetchAdminCurriculum(): Promise<CurriculumData> {
   return adminRequest<CurriculumData>('/admin/curriculum');

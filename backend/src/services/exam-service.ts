@@ -23,6 +23,7 @@ export interface ExamSettings {
   show_correct_answer_on_wrong: boolean;
   shuffle_questions: boolean;
   shuffle_options: boolean;
+  duration_minutes: number;
 }
 
 interface AttemptOrder {
@@ -45,6 +46,7 @@ export async function getSubjectExamSettings(db: ExamDb, subjectId: number): Pro
       show_correct_answer_on_wrong: subjects.show_correct_answer_on_wrong,
       shuffle_questions: subjects.shuffle_questions,
       shuffle_options: subjects.shuffle_options,
+      duration_minutes: subjects.duration_minutes,
     })
     .from(subjects)
     .where(eq(subjects.id, subjectId))
@@ -54,7 +56,12 @@ export async function getSubjectExamSettings(db: ExamDb, subjectId: number): Pro
     show_correct_answer_on_wrong: Boolean(row?.show_correct_answer_on_wrong),
     shuffle_questions: Boolean(row?.shuffle_questions),
     shuffle_options: Boolean(row?.shuffle_options),
+    duration_minutes: Number(row?.duration_minutes ?? 0),
   };
+}
+
+export function isAttemptExpired(attempt: typeof examAttempts.$inferSelect, now = new Date()) {
+  return Boolean(attempt.deadline_at && new Date(attempt.deadline_at).getTime() <= now.getTime());
 }
 
 async function buildAttemptOrder(db: ExamDb, topicId: number, settings: ExamSettings): Promise<AttemptOrder> {
@@ -108,6 +115,10 @@ export async function getQuestionExplanationMode(db: ExamDb, questionId: number)
 export async function getNextAttemptQuestion(db: ExamDb, attemptId: number, identityKey: string) {
   const attempt = await findAttempt(db, attemptId, identityKey);
   if (!attempt) return null;
+  if (isAttemptExpired(attempt)) {
+    await completeAttempt(db, attemptId, identityKey);
+    return { question: null };
+  }
 
   const order = await ensureAttemptOrder(db, attempt);
   const answers = await db.select({ question_id: examAnswers.question_id }).from(examAnswers).where(eq(examAnswers.attempt_id, attemptId));
@@ -270,6 +281,10 @@ export async function createAttempt(
 
   const subjectSettings = await getSubjectExamSettings(db, input.subject_id);
   const order = await buildAttemptOrder(db, input.topic_id, subjectSettings);
+  const startedAt = new Date();
+  const deadlineAt = subjectSettings.duration_minutes > 0
+    ? new Date(startedAt.getTime() + subjectSettings.duration_minutes * 60_000)
+    : null;
   const [result] = await db.insert(examAttempts).values({
     participant_id: participant.id,
     subject_id: input.subject_id,
@@ -277,6 +292,8 @@ export async function createAttempt(
     total_questions: input.total_questions,
     question_order: order.question_order,
     option_order: order.option_order,
+    started_at: startedAt,
+    deadline_at: deadlineAt,
   });
   return { limited: false as const, attempt: await findAttempt(db, Number(result.insertId), identityKey) };
 }
@@ -302,10 +319,12 @@ export async function saveIntegrityEvent(db: ExamDb, attemptId: number, eventTyp
 export async function completeAttempt(db: ExamDb, attemptId: number, identityKey: string) {
   const attempt = await findAttempt(db, attemptId, identityKey);
   if (!attempt) return null;
+  if (attempt.status !== 'in_progress') return attempt;
   const answers = await db.select().from(examAnswers).where(eq(examAnswers.attempt_id, attemptId));
   const events = await db.select({ total: count() }).from(examIntegrityEvents).where(eq(examIntegrityEvents.attempt_id, attemptId));
   const correctCount = answers.filter((answer) => answer.is_correct).length;
-  const totalTime = answers.reduce((total, answer) => total + answer.elapsed_seconds, 0);
+  const completedAt = new Date();
+  const totalTime = Math.max(0, Math.floor((completedAt.getTime() - new Date(attempt.started_at).getTime()) / 1000));
   const accuracy = answers.length ? Math.round((correctCount / answers.length) * 100) : 0;
   const violationCount = Number(events[0]?.total ?? 0);
   await db.update(examAttempts).set({
@@ -317,7 +336,7 @@ export async function completeAttempt(db: ExamDb, attemptId: number, identityKey
     accuracy,
     violation_count: violationCount,
     final_score: accuracy,
-    completed_at: new Date(),
+    completed_at: completedAt,
   }).where(eq(examAttempts.id, attemptId));
   return findAttempt(db, attemptId, identityKey);
 }
