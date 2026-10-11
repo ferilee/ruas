@@ -122,6 +122,13 @@ export interface AdminTopic {
   token_configured: boolean;
 }
 
+export interface AdminTopicInput {
+  subject_id: number;
+  slug: string;
+  label: string;
+  display_order: number;
+}
+
 export interface AdminQuestionInput {
   topic_id: number;
   type: Question['type'];

@@ -1,4 +1,4 @@
-import { and, count, desc, eq, like, or } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, like, or } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/mysql2';
 import { examAnswers } from '@/db/schema/exam-answers';
 import { questions } from '@/db/schema/questions';
@@ -197,6 +197,58 @@ export async function listAdminTopics(db: AdminDb) {
     .orderBy(schema.subjects.display_order, topics.display_order);
 
   return rows.map(({ token_hash, ...topic }) => ({ ...topic, token_configured: Boolean(token_hash) }));
+}
+
+export interface AdminTopicInput {
+  subject_id: number;
+  slug: string;
+  label: string;
+  display_order: number;
+}
+
+async function subjectExists(db: AdminDb, subjectId: number) {
+  const [subject] = await db.select({ id: schema.subjects.id }).from(schema.subjects).where(eq(schema.subjects.id, subjectId)).limit(1);
+  return Boolean(subject);
+}
+
+export async function createAdminTopic(db: AdminDb, input: AdminTopicInput): Promise<number | null> {
+  if (!(await subjectExists(db, input.subject_id))) return null;
+  const [result] = await db.insert(topics).values(input);
+  return Number(result.insertId);
+}
+
+export type UpdateAdminTopicResult = 'updated' | 'not_found' | 'invalid_subject';
+
+export async function updateAdminTopic(db: AdminDb, topicId: number, input: AdminTopicInput): Promise<UpdateAdminTopicResult> {
+  const [topic] = await db.select({ id: topics.id }).from(topics).where(eq(topics.id, topicId)).limit(1);
+  if (!topic) return 'not_found';
+  if (!(await subjectExists(db, input.subject_id))) return 'invalid_subject';
+  await db.update(topics).set(input).where(eq(topics.id, topicId));
+  return 'updated';
+}
+
+export type DeleteAdminTopicResult = 'deleted' | 'not_found' | 'in_use';
+
+export async function deleteAdminTopic(db: AdminDb, topicId: number): Promise<DeleteAdminTopicResult> {
+  const [topic] = await db.select({ id: topics.id }).from(topics).where(eq(topics.id, topicId)).limit(1);
+  if (!topic) return 'not_found';
+
+  const [attemptCount] = await db
+    .select({ total: count(schema.examAttempts.id) })
+    .from(schema.examAttempts)
+    .where(eq(schema.examAttempts.topic_id, topicId));
+  if (Number(attemptCount?.total ?? 0) > 0) return 'in_use';
+
+  const questionRows = await db.select({ id: questions.id }).from(questions).where(eq(questions.topic_id, topicId));
+  const questionIds = questionRows.map((row) => row.id);
+
+  await db.transaction(async (tx) => {
+    if (questionIds.length > 0) await tx.delete(questionOptions).where(inArray(questionOptions.question_id, questionIds));
+    if (questionIds.length > 0) await tx.delete(questions).where(inArray(questions.id, questionIds));
+    await tx.delete(topics).where(eq(topics.id, topicId));
+  });
+
+  return 'deleted';
 }
 
 export async function updateAdminTopicAccess(

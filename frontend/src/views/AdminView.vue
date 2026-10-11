@@ -103,7 +103,7 @@
             </section>
           </section>
 
-          <CurriculumPanel v-else-if="activeSection === 'curriculum'" />
+          <CurriculumPanel v-else-if="activeSection === 'curriculum'" @topics-updated="loadData" />
 
           <ReportsPanel v-else-if="activeSection === 'reports'" />
 

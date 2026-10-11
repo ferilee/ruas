@@ -3,6 +3,7 @@ import type {
   AdminQuestionInput,
   AdminQuestionListItem,
   AdminTopic,
+  AdminTopicInput,
   AdminUser,
   AdminUserInput,
   AdminReportData,
@@ -238,6 +239,19 @@ export async function fetchAdminQuestion(id: number): Promise<AdminQuestion> {
 export async function fetchAdminTopics(): Promise<AdminTopic[]> {
   const data = await adminRequest<{ topics: AdminTopic[] }>('/admin/topics');
   return data.topics;
+}
+
+export async function createAdminTopic(input: AdminTopicInput): Promise<number> {
+  const data = await adminRequest<{ id: number }>('/admin/topics', { method: 'POST', body: JSON.stringify(input) });
+  return data.id;
+}
+
+export async function updateAdminTopic(id: number, input: AdminTopicInput): Promise<void> {
+  await adminRequest(`/admin/topics/${id}`, { method: 'PUT', body: JSON.stringify(input) });
+}
+
+export async function deleteAdminTopic(id: number): Promise<void> {
+  await adminRequest(`/admin/topics/${id}`, { method: 'DELETE' });
 }
 
 export async function updateAdminTopicAccess(id: number, input: { requires_token: boolean; token?: string }): Promise<AdminTopic> {
