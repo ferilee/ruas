@@ -428,7 +428,7 @@ onMounted(() => { initializeSession(); });
 
 <style scoped>
 .timer-driver { display: none; }
-.exam-page { min-height: 100vh; overflow-x: hidden; background: #f4f7fb; color: #1c2b3a; font-size: 16px; }
+.exam-page { width: 100%; height: 100dvh; min-height: 100vh; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; background: #f4f7fb; color: #1c2b3a; font-size: 16px; }
 .exam-page.font-small { font-size: 14px; }
 .exam-page.font-large { font-size: 18px; }
 .exam-topbar { position: sticky; z-index: 12; top: 0; min-height: 76px; padding: 12px 32px; display: flex; align-items: center; gap: 28px; color: #fff; background: linear-gradient(115deg, #0d6fb8 0%, #176ca7 54%, #12588d 100%); box-shadow: 0 2px 8px rgba(16, 66, 104, .22); }
