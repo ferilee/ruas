@@ -10,7 +10,7 @@
         </svg>
       </div>
 
-      <h1 id="selection-title">Simulasi Asesmen</h1>
+      <h1 id="selection-title">Asesmen SMKN Pasirian</h1>
       <p class="selection-subtitle">
         {{ assignmentLocked ? 'Penugasan asesmen Anda telah diatur langsung oleh admin.' : 'Pilih kelas, jenis asesmen, dan mata pelajaran untuk memulai asesmen' }}
       </p>
@@ -192,6 +192,8 @@ onUnmounted(() => {
   position: relative;
   display: flex;
   min-height: calc(100vh - 100px);
+  min-height: calc(100svh - 100px);
+  min-height: calc(100dvh - 100px);
   flex-direction: column;
   align-items: center;
   padding: 46px 20px 30px;
@@ -394,6 +396,8 @@ onUnmounted(() => {
 
   .home-view {
     min-height: calc(100vh - 86px);
+    min-height: calc(100svh - 86px);
+    min-height: calc(100dvh - 86px);
     padding-top: 30px;
   }
 }
@@ -402,6 +406,8 @@ onUnmounted(() => {
 <style scoped>
 .home-view {
   min-height: calc(100vh - 100px);
+  min-height: calc(100svh - 100px);
+  min-height: calc(100dvh - 100px);
   padding: 34px 20px 52px;
   background:
     radial-gradient(circle at 50% 34%, rgba(255, 255, 255, 0.94), transparent 34%),
@@ -630,6 +636,8 @@ onUnmounted(() => {
 @media (max-width: 520px) {
   .home-view {
     min-height: calc(100vh - 86px);
+    min-height: calc(100svh - 86px);
+    min-height: calc(100dvh - 86px);
     padding: 24px 16px 40px;
   }
 

@@ -345,6 +345,8 @@ onUnmounted(() => {
 .topic-view {
   position: relative;
   min-height: calc(100vh - 100px);
+  min-height: calc(100svh - 100px);
+  min-height: calc(100dvh - 100px);
   padding: 42px 24px 72px;
   overflow: hidden;
   background:
@@ -546,6 +548,8 @@ onUnmounted(() => {
 @media (max-width: 560px) {
   .topic-view {
     min-height: calc(100vh - 86px);
+    min-height: calc(100svh - 86px);
+    min-height: calc(100dvh - 86px);
     padding: 28px 16px 48px;
   }
 

@@ -18,8 +18,23 @@ export function useExamGuard(options: ExamGuardOptions) {
   const violations = ref<ExamViolation[]>([]);
   let lastViolationAt = 0;
 
+  function isAppleMobileDevice() {
+    if (typeof navigator === 'undefined') return false;
+    return /iPhone|iPad|iPod/i.test(navigator.userAgent)
+      || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  }
+
+  function isStandaloneApp() {
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+    const appleStandalone = (navigator as Navigator & { standalone?: boolean }).standalone === true;
+    return appleStandalone || window.matchMedia?.('(display-mode: standalone)').matches === true;
+  }
+
+  const supportsFullscreenFallback = computed(() => isAppleMobileDevice() || isStandaloneApp());
+
   const violationCount = computed(() => violations.value.length);
-  const isSupported = computed(() => typeof document !== 'undefined' && typeof document.documentElement.requestFullscreen === 'function');
+  const isSupported = computed(() => typeof document !== 'undefined'
+    && (typeof document.documentElement.requestFullscreen === 'function' || supportsFullscreenFallback.value));
 
   function recordViolation(type: ExamViolationType) {
     if (!active.value) return;
@@ -104,7 +119,7 @@ export function useExamGuard(options: ExamGuardOptions) {
   }
 
   async function enterFullscreen(element: HTMLElement | null) {
-    if (!element?.requestFullscreen) return false;
+    if (!element?.requestFullscreen) return supportsFullscreenFallback.value;
     try {
       await element.requestFullscreen();
       return Boolean(document.fullscreenElement);

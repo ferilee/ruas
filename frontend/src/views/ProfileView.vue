@@ -178,6 +178,8 @@ onMounted(() => { void loadProfile(); });
 <style scoped>
 .profile-page {
   min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
   background: #f7f9fb;
   color: #203449;
 }

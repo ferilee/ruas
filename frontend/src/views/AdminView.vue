@@ -737,7 +737,7 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.admin-view { min-height: 100vh; padding: 32px clamp(18px, 4vw, 56px) 48px; color: #1d3557; }
+.admin-view { min-height: 100vh; min-height: 100svh; min-height: 100dvh; padding: 32px clamp(18px, 4vw, 56px) 48px; color: #1d3557; }
 .admin-layout { display: grid; grid-template-columns: 238px minmax(0, 1fr); gap: 28px; max-width: 1280px; margin: 0 auto; align-items: start; }
 .admin-sidebar { position: sticky; top: 24px; display: flex; min-height: calc(100vh - 80px); flex-direction: column; padding: 20px 14px; border: 1px solid #dce7f4; border-radius: 18px; background: linear-gradient(180deg, #fff 0%, #f7faff 100%); box-shadow: 0 14px 34px rgba(31, 74, 126, .08); }
 .sidebar-brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 24px; }

@@ -55,12 +55,19 @@ const wrapperClasses = computed(() => {
   padding: 0;
 }
 
+html,
+#app {
+  min-height: 100%;
+}
+
 body {
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
   background: #f0f4f8;
   color: #1a2b3c;
   line-height: 1.6;
   min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
 }
 
 .app-wrapper {
@@ -71,26 +78,36 @@ body {
 
 .home-shell {
   min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
   background: linear-gradient(145deg, #f3f7ff 0%, #e7efff 52%, #d6e4fc 100%);
 }
 
 .topic-shell {
   min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
   background: linear-gradient(145deg, #f3f7ff 0%, #e7efff 52%, #d6e4fc 100%);
 }
 
 .auth-shell {
   min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
   width: 100%;
 }
 
 .profile-shell {
   min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
   width: 100%;
 }
 
 .admin-shell {
   min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
   width: 100%;
   background: #f4f7fb;
 }

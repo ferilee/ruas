@@ -1,7 +1,7 @@
 {
-  "name": "Ruang Asesmen",
+  "name": "Asesmen SMKN Pasirian",
   "short_name": "RUAS",
-  "description": "Ruang belajar dan asesmen sekolah.",
+  "description": "Asesmen SMKN Pasirian untuk latihan dan evaluasi siswa.",
   "lang": "id-ID",
   "start_url": "/",
   "scope": "/",

@@ -427,7 +427,7 @@ onMounted(() => { initializeSession(); });
 
 <style scoped>
 .timer-driver { display: flex; margin: 0; border-radius: 0; padding: 8px 16px; font-size: 1rem; }
-.exam-page { width: 100%; height: 100dvh; min-height: 100vh; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; background: #f4f7fb; color: #1c2b3a; font-size: 16px; }
+.exam-page { width: 100%; height: 100dvh; min-height: 100vh; min-height: 100svh; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; background: #f4f7fb; color: #1c2b3a; font-size: 16px; }
 .exam-page.font-small { font-size: 14px; }
 .exam-page.font-large { font-size: 18px; }
 .exam-topbar { position: sticky; z-index: 12; top: 0; min-height: 76px; padding: 12px 32px; display: flex; align-items: center; gap: 28px; color: #fff; background: linear-gradient(115deg, #0d6fb8 0%, #176ca7 54%, #12588d 100%); box-shadow: 0 2px 8px rgba(16, 66, 104, .22); }
@@ -506,7 +506,7 @@ onMounted(() => { initializeSession(); });
 .review-explanation strong { display: block; margin-bottom: 4px; color: #245da5; font-size: .75rem; }
 .explanation-unavailable { margin-top: 14px; padding: 12px; border: 1px dashed #bdd2e8; border-radius: 10px; color: #66809e; background: #f7fbff; font-size: .8rem; }
 .error-card h2 { color: #b33d45; }
-.exam-modal-backdrop { position: fixed; inset: 0; z-index: 20; padding: 20px; display: grid; place-items: center; background: rgba(24, 45, 65, .42); }
+.exam-modal-backdrop { position: fixed; inset: 0; z-index: 20; padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); display: grid; place-items: center; background: rgba(24, 45, 65, .42); }
 .exam-modal { position: relative; width: min(520px, 100%); max-height: calc(100dvh - 40px); overflow-y: auto; padding: 30px; border-radius: 14px; background: #fff; box-shadow: 0 18px 50px rgba(24, 45, 65, .22); }
 .exam-modal h2 { margin: 5px 0 12px; color: #233b51; }
 .exam-modal p, .exam-modal li { color: #63798c; line-height: 1.7; }

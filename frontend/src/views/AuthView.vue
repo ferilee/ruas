@@ -258,9 +258,11 @@ async function login() {
   position: relative;
   display: grid;
   min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
   place-items: center;
   overflow: hidden;
-  padding: 48px 20px 70px;
+  padding: calc(48px + env(safe-area-inset-top)) 20px calc(70px + env(safe-area-inset-bottom));
   background:
     radial-gradient(circle at 50% 36%, rgba(255, 255, 255, 0.92), transparent 34%),
     linear-gradient(145deg, #f3f7ff 0%, #e6efff 52%, #d6e4fc 100%);
