@@ -85,6 +85,13 @@
       "when": 1791604054801,
       "tag": "0011_sloppy_dorian_gray",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "5",
+      "when": 1791733253979,
+      "tag": "0012_oval_vampiro",
+      "breakpoints": true
     }
   ]
 }

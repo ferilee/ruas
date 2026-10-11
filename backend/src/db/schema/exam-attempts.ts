@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, timestamp } from 'drizzle-orm/mysql-core';
+import { int, json, mysqlEnum, mysqlTable, timestamp } from 'drizzle-orm/mysql-core';
 import { participantProfiles } from './participant-profiles';
 import { subjects } from './subjects';
 import { topics } from './topics';
@@ -18,6 +18,8 @@ export const examAttempts = mysqlTable('exam_attempts', {
   violation_count: int('violation_count').notNull().default(0),
   integrity_penalty: int('integrity_penalty').notNull().default(0),
   final_score: int('final_score').notNull().default(0),
+  question_order: json('question_order').$type<number[]>(),
+  option_order: json('option_order').$type<Record<string, string[]>>(),
   started_at: timestamp('started_at').defaultNow().notNull(),
   completed_at: timestamp('completed_at'),
 });

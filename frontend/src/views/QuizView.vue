@@ -153,7 +153,7 @@
                 :show-actions="false"
               />
               <div v-else-if="state === 'reviewing' && result" class="explanation-unavailable">
-                {{ result.explanation_mode === 'after_exam' ? 'Pembahasan akan ditampilkan setelah asesmen selesai.' : 'Pembahasan disembunyikan oleh admin.' }}
+                {{ result.correct_answer_hidden ? 'Jawaban benar disembunyikan oleh admin untuk jawaban yang salah.' : result.explanation_mode === 'after_exam' ? 'Pembahasan akan ditampilkan setelah asesmen selesai.' : 'Pembahasan disembunyikan oleh admin.' }}
               </div>
             </div>
           </section>

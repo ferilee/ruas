@@ -7,7 +7,7 @@ import type { Pool } from '@/db/connection';
 import { getParticipantIdentity } from '@/lib/participant-identity';
 import { checkAnswer } from '@/lib/scoring';
 import { mapCheckAnswerResponse } from '@/mappers/question-response';
-import { createExamDb, abandonAttempt, completeAttempt, createAttempt, findActiveAttempt, findAttempt, findAttemptAnswers, getAttemptAvailability, getExamReview, getQuestionExplanationMode, saveAnswer, saveIntegrityEvent } from '@/services/exam-service';
+import { createExamDb, abandonAttempt, completeAttempt, createAttempt, findActiveAttempt, findAttempt, findAttemptAnswers, getAttemptAvailability, getExamReview, getNextAttemptQuestion, getQuestionExplanationMode, getSubjectExamSettings, saveAnswer, saveIntegrityEvent } from '@/services/exam-service';
 
 const attemptSchema = z.object({ subject_id: z.coerce.number().int().positive(), topic_id: z.coerce.number().int().positive(), total_questions: z.coerce.number().int().nonnegative(), topic_access_token: z.string().trim().max(100).optional() });
 const answerSchema = z.object({ question_id: z.coerce.number().int().positive(), selected_keys: z.array(z.string().min(1)).min(1), elapsed_seconds: z.coerce.number().int().nonnegative() });
@@ -55,6 +55,16 @@ export function examAttemptRoutes(pool: Pool) {
     return c.json({ attempt, answers: attempt ? await findAttemptAnswers(db, attempt.id, identityKey) : [] });
   });
 
+  app.get('/:id/next-question', async (c) => {
+    const identityKey = getParticipantIdentity(c);
+    const attemptId = parseId(c.req.param('id'));
+    if (!identityKey || !attemptId) return c.json({ error: 'invalid_param', message: 'Sesi ujian tidak valid.' }, 400);
+    const attempt = await findAttempt(db, attemptId, identityKey);
+    if (!attempt) return c.json({ error: 'not_found', message: 'Sesi ujian tidak ditemukan.' }, 404);
+    if (attempt.status !== 'in_progress') return c.json({ error: 'attempt_closed', message: 'Sesi ujian sudah ditutup.' }, 409);
+    return c.json(await getNextAttemptQuestion(db, attemptId, identityKey));
+  });
+
   app.post('/:id/answers', async (c) => {
     const identityKey = getParticipantIdentity(c);
     const attemptId = parseId(c.req.param('id'));
@@ -65,12 +75,15 @@ export function examAttemptRoutes(pool: Pool) {
     if (!parsed.success) return c.json({ error: 'invalid_body', message: 'Jawaban tidak valid.' }, 400);
     const [question] = await db.select().from(questions).where(eq(questions.id, parsed.data.question_id)).limit(1);
     if (!question) return c.json({ error: 'not_found', message: 'Soal tidak ditemukan.' }, 404);
+    if (question.topic_id !== attempt.topic_id) return c.json({ error: 'invalid_question', message: 'Soal tidak termasuk dalam sesi ujian ini.' }, 400);
     const storedOptions = await db.select().from(questionOptions).where(eq(questionOptions.question_id, question.id));
     const options = storedOptions.map((option) => ({ key: option.option_key, text: option.option_text, is_correct: option.is_correct }));
     const result = checkAnswer(question.type, parsed.data.selected_keys, options);
     await saveAnswer(db, attemptId, { ...parsed.data, is_correct: result.correct });
+    const settings = await getSubjectExamSettings(db, attempt.subject_id);
     const explanationMode = await getQuestionExplanationMode(db, question.id);
-    return c.json(mapCheckAnswerResponse(question, result, explanationMode === 'after_answer' ? question.explanation_text : null, explanationMode));
+    const revealCorrectAnswer = result.correct || settings.show_correct_answer_on_wrong;
+    return c.json(mapCheckAnswerResponse(question, result, revealCorrectAnswer && explanationMode === 'after_answer' ? question.explanation_text : null, explanationMode, revealCorrectAnswer));
   });
 
   app.get('/:id/review', async (c) => {

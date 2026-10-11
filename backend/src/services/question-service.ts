@@ -100,6 +100,24 @@ export async function findQuestionExplanationMode(db: QuestionsDb, questionId: n
   return row?.explanation_mode ?? 'hidden';
 }
 
+export async function findQuestionFeedbackSettings(db: QuestionsDb, questionId: number) {
+  const [row] = await db
+    .select({
+      explanation_mode: schema.subjects.explanation_mode,
+      show_correct_answer_on_wrong: schema.subjects.show_correct_answer_on_wrong,
+    })
+    .from(questions)
+    .innerJoin(schema.topics, eq(questions.topic_id, schema.topics.id))
+    .innerJoin(schema.subjects, eq(schema.topics.subject_id, schema.subjects.id))
+    .where(eq(questions.id, questionId))
+    .limit(1);
+
+  return {
+    explanation_mode: row?.explanation_mode ?? 'hidden',
+    show_correct_answer_on_wrong: Boolean(row?.show_correct_answer_on_wrong),
+  } as const;
+}
+
 export async function findQuestionAnswerKey(
   db: QuestionsDb,
   questionId: number,

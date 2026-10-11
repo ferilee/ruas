@@ -7,8 +7,8 @@ const {
   createExamAttempt,
   fetchActiveExamAttempt,
   fetchExamReview,
+  fetchNextAttemptQuestion,
   fetchQuestionCount,
-  fetchRandomQuestion,
   fetchTopic,
   saveExamAnswer,
   saveExamIntegrityEvent,
@@ -18,8 +18,8 @@ const {
   createExamAttempt: vi.fn(),
   fetchActiveExamAttempt: vi.fn(),
   fetchExamReview: vi.fn(),
+  fetchNextAttemptQuestion: vi.fn(),
   fetchQuestionCount: vi.fn(),
-  fetchRandomQuestion: vi.fn(),
   fetchTopic: vi.fn(),
   saveExamAnswer: vi.fn(),
   saveExamIntegrityEvent: vi.fn(),
@@ -31,8 +31,8 @@ vi.mock('@/api/client', () => ({
   createExamAttempt,
   fetchActiveExamAttempt,
   fetchExamReview,
+  fetchNextAttemptQuestion,
   fetchQuestionCount,
-  fetchRandomQuestion,
   fetchTopic,
   saveExamAnswer,
   saveExamIntegrityEvent,
@@ -67,8 +67,8 @@ describe('useQuizSession', () => {
     createExamAttempt.mockReset();
     fetchActiveExamAttempt.mockReset();
     fetchExamReview.mockReset();
+    fetchNextAttemptQuestion.mockReset();
     fetchQuestionCount.mockReset();
-    fetchRandomQuestion.mockReset();
     fetchTopic.mockReset();
     saveExamAnswer.mockReset();
     saveExamIntegrityEvent.mockReset();
@@ -79,7 +79,7 @@ describe('useQuizSession', () => {
 
   it('initializes session from route query without extra topic lookup', async () => {
     fetchQuestionCount.mockResolvedValue(5);
-    fetchRandomQuestion.mockResolvedValue(firstQuestion);
+    fetchNextAttemptQuestion.mockResolvedValue(firstQuestion);
 
     const session = useQuizSession({
       getTopicId: () => 11,
@@ -91,7 +91,7 @@ describe('useQuizSession', () => {
 
     expect(fetchTopic).not.toHaveBeenCalled();
     expect(fetchQuestionCount).toHaveBeenCalledWith(11);
-    expect(fetchRandomQuestion).toHaveBeenCalledWith(11, []);
+    expect(fetchNextAttemptQuestion).toHaveBeenCalledWith(501);
     expect(session.subjectId.value).toBe(7);
     expect(session.topicLabel.value).toBe('Aljabar');
     expect(session.questionCount.value).toBe(5);
@@ -101,7 +101,7 @@ describe('useQuizSession', () => {
 
   it('submits an answer and moves into reviewing state with summary updated', async () => {
     fetchQuestionCount.mockResolvedValue(1);
-    fetchRandomQuestion.mockResolvedValue(firstQuestion);
+    fetchNextAttemptQuestion.mockResolvedValue(firstQuestion);
     saveExamAnswer.mockResolvedValue({
       correct: true,
       correct_keys: ['B'],
@@ -141,9 +141,9 @@ describe('useQuizSession', () => {
     expect(session.isLastQuestion.value).toBe(true);
   });
 
-  it('loads the next question with auto-start and excludes answered ids', async () => {
+  it('loads the next question from the persisted attempt order', async () => {
     fetchQuestionCount.mockResolvedValue(2);
-    fetchRandomQuestion
+    fetchNextAttemptQuestion
       .mockResolvedValueOnce(firstQuestion)
       .mockResolvedValueOnce(secondQuestion);
     saveExamAnswer.mockResolvedValue({
@@ -167,8 +167,8 @@ describe('useQuizSession', () => {
     await session.submitAnswer();
     await session.nextQuestion();
 
-    expect(fetchRandomQuestion).toHaveBeenNthCalledWith(1, 11, []);
-    expect(fetchRandomQuestion).toHaveBeenNthCalledWith(2, 11, [101]);
+    expect(fetchNextAttemptQuestion).toHaveBeenNthCalledWith(1, 501);
+    expect(fetchNextAttemptQuestion).toHaveBeenNthCalledWith(2, 501);
     expect(session.question.value?.id).toBe(202);
     expect(session.state.value).toBe('answering');
     expect(session.currentQuestionNumber.value).toBe(2);

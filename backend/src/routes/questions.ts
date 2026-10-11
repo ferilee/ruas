@@ -13,7 +13,7 @@ import {
   createQuestionsDb,
   findQuestionAnswerKey,
   findQuestionById,
-  findQuestionExplanationMode,
+  findQuestionFeedbackSettings,
   findQuestionOptions,
   findRandomQuestion,
 } from '../services/question-service';
@@ -139,8 +139,10 @@ export function questionsRoutes(pool: Pool) {
     }
 
     const result = checkAnswer(question.type as QuestionType, parsed.data.selected_keys, options);
-    const explanationMode = await findQuestionExplanationMode(db, id);
-    return c.json(mapCheckAnswerResponse(question, result, explanationMode === 'after_answer' ? question.explanation_text : null, explanationMode));
+    const settings = await findQuestionFeedbackSettings(db, id);
+    const explanationMode = settings.explanation_mode;
+    const revealCorrectAnswer = result.correct || settings.show_correct_answer_on_wrong;
+    return c.json(mapCheckAnswerResponse(question, result, revealCorrectAnswer && explanationMode === 'after_answer' ? question.explanation_text : null, explanationMode, revealCorrectAnswer));
   });
 
   return app;

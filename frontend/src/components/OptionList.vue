@@ -7,7 +7,7 @@
       :class="{
         'option-selected': isSelected(option.key),
         'option-correct': showResult && isCorrectKey(option.key),
-        'option-wrong': showResult && isSelected(option.key) && !isCorrectKey(option.key),
+        'option-wrong': showResult && hasVisibleCorrectKeys && isSelected(option.key) && !isCorrectKey(option.key),
         'option-disabled': disabled,
       }"
       @click="toggle(option.key)"
@@ -45,6 +45,7 @@ const emit = defineEmits<{
 }>();
 
 const isMulti = computed(() => props.type === 'multiple_response');
+const hasVisibleCorrectKeys = computed(() => Boolean(props.correctKeys?.length));
 
 function isSelected(key: string): boolean {
   return props.selectedKeys.includes(key);

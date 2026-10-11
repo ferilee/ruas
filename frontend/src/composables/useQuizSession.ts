@@ -5,8 +5,8 @@ import {
   createExamAttempt,
   fetchActiveExamAttempt,
   fetchExamReview,
+  fetchNextAttemptQuestion,
   fetchQuestionCount,
-  fetchRandomQuestion,
   fetchTopic,
   saveExamAnswer,
   saveExamIntegrityEvent,
@@ -74,8 +74,8 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     finalTime.value = 0;
 
     try {
-      const excludeArr = Array.from(answeredIds.value);
-      const nextQuestion = await fetchRandomQuestion(options.getTopicId(), excludeArr);
+      if (!attemptId.value) throw new Error('Sesi ujian belum tersimpan. Silakan muat ulang halaman.');
+      const nextQuestion = await fetchNextAttemptQuestion(attemptId.value);
 
       if (!nextQuestion) {
         await finishSession();

@@ -35,6 +35,9 @@ const classSchema = itemSchema.extend({
 const subjectSchema = itemSchema.extend({
   max_attempts: z.coerce.number().int().min(0).max(100).default(1),
   explanation_mode: z.enum(['after_answer', 'after_exam', 'hidden']).default('hidden'),
+  show_correct_answer_on_wrong: z.coerce.boolean().default(false),
+  shuffle_questions: z.coerce.boolean().default(false),
+  shuffle_options: z.coerce.boolean().default(false),
   class_id: z.coerce.number().int().positive().nullable(),
   assessment_type_id: z.coerce.number().int().positive().nullable(),
 });

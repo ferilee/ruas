@@ -48,11 +48,14 @@ export function mapCheckAnswerResponse(
   result: CheckAnswerResult,
   explanation: string | null = question.explanation_text,
   explanationMode: 'after_answer' | 'after_exam' | 'hidden' = 'after_answer',
+  revealCorrectAnswer = true,
 ) {
+  const correctAnswerHidden = !result.correct && !revealCorrectAnswer;
   return {
     correct: result.correct,
-    correct_keys: result.correct_keys,
-    explanation,
+    correct_keys: correctAnswerHidden ? [] : result.correct_keys,
+    explanation: correctAnswerHidden ? null : explanation,
     explanation_mode: explanationMode,
+    correct_answer_hidden: correctAnswerHidden,
   };
 }

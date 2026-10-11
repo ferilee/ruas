@@ -5,6 +5,9 @@ export interface Subject {
   display_order: number;
   max_attempts: number;
   explanation_mode: ExplanationMode;
+  show_correct_answer_on_wrong: boolean;
+  shuffle_questions: boolean;
+  shuffle_options: boolean;
   class_id?: number | null;
   assessment_type_id?: number | null;
 }
@@ -183,6 +186,7 @@ export interface CheckResult {
   correct_keys: string[];
   explanation: string | null;
   explanation_mode: ExplanationMode;
+  correct_answer_hidden?: boolean;
 }
 
 export interface ExamReviewItem {
