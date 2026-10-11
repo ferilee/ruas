@@ -1,6 +1,14 @@
 <template>
   <section class="curriculum-panel panel">
     <ConfirmDialog :open="confirmOpen" :title="confirmTitle" :message="confirmMessage" confirm-label="Hapus" @confirm="runConfirmation" @cancel="closeConfirmation" />
+    <Transition name="toast-slide">
+      <div v-if="toastMessage" :key="toastId" class="ruas-toast" role="alert" aria-live="assertive">
+        <span class="toast-icon" aria-hidden="true">!</span>
+        <span class="toast-copy">{{ toastMessage }}</span>
+        <button type="button" class="toast-close" aria-label="Tutup notifikasi" @click="dismissToast">×</button>
+        <span class="toast-progress" aria-hidden="true"></span>
+      </div>
+    </Transition>
     <div class="curriculum-heading">
       <div>
         <h2>Kurikulum</h2>
@@ -114,7 +122,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import RuasSelect from '@/components/RuasSelect.vue';
 import {
@@ -130,6 +138,9 @@ const curriculum = ref<CurriculumData>({ classes: [], assessment_types: [], subj
 const loading = ref(true);
 const errorMessage = ref('');
 const successMessage = ref('');
+const toastMessage = ref('');
+const toastId = ref(0);
+let toastTimer: ReturnType<typeof setTimeout> | null = null;
 const editingClassId = ref<number | null>(null);
 const editingTypeId = ref<number | null>(null);
 const editingSubjectId = ref<number | null>(null);
@@ -165,6 +176,19 @@ const emit = defineEmits<{ topicsUpdated: [] }>();
 
 function showError(error: unknown) { errorMessage.value = error instanceof Error ? error.message : 'Gagal memproses kurikulum.'; successMessage.value = ''; }
 function showSuccess(message: string) { successMessage.value = message; errorMessage.value = ''; }
+function dismissToast() {
+  toastMessage.value = '';
+  if (toastTimer) {
+    clearTimeout(toastTimer);
+    toastTimer = null;
+  }
+}
+function showToast(message: string) {
+  dismissToast();
+  toastId.value += 1;
+  toastMessage.value = message;
+  toastTimer = setTimeout(dismissToast, 4000);
+}
 function clearForm(form: CurriculumItemInput) { form.slug = ''; form.label = ''; form.display_order = 1; }
 function resetClass() { editingClassId.value = null; classForm.slug = ''; classForm.label = ''; classForm.academic_year = '2026/2027'; classForm.grade = 10; classForm.program = ''; classForm.section = null; classForm.display_order = 1; mobileFormOpen.value = false; }
 function resetType() { editingTypeId.value = null; clearForm(typeForm); mobileFormOpen.value = false; }
@@ -226,7 +250,7 @@ async function saveTopic() {
 function removeClass(id: number) { askConfirmation('Hapus kelas?', 'Kelas ini akan dihapus dari struktur asesmen.', async () => { try { await deleteAdminClass(id); await loadData(); showSuccess('Kelas berhasil dihapus.'); } catch (error) { showError(error); } }); }
 function removeType(id: number) { askConfirmation('Hapus jenis asesmen?', 'Jenis asesmen ini akan dihapus dari struktur asesmen.', async () => { try { await deleteAdminAssessmentType(id); await loadData(); showSuccess('Jenis asesmen berhasil dihapus.'); } catch (error) { showError(error); } }); }
 function removeSubject(id: number) { askConfirmation('Hapus mata pelajaran?', 'Mata pelajaran beserta topik dan soal yang terkait akan dihapus. Tindakan ini tidak dapat dibatalkan.', async () => { try { await deleteAdminSubject(id); await loadData(); showSuccess('Mata pelajaran beserta topik dan soal terkait berhasil dihapus.'); } catch (error) { showError(error); } }); }
-function removeTopic(id: number) { askConfirmation('Hapus topik?', 'Topik beserta soal yang terkait akan dihapus jika belum pernah dipakai dalam asesmen.', async () => { try { await deleteAdminTopic(id); await loadData(); emit('topicsUpdated'); showSuccess('Topik dan soal terkait berhasil dihapus.'); } catch (error) { showError(error); } }); }
+function removeTopic(id: number) { askConfirmation('Hapus topik?', 'Topik beserta soal yang terkait akan dihapus jika belum pernah dipakai dalam asesmen.', async () => { try { await deleteAdminTopic(id); await loadData(); emit('topicsUpdated'); showSuccess('Topik dan soal terkait berhasil dihapus.'); } catch (error) { showToast(error instanceof Error ? error.message : 'Topik gagal dihapus.'); } }); }
 function scopeLabel(subject: Subject) { const classLabel = curriculum.value.classes.find((item) => item.id === subject.class_id)?.label ?? 'Semua kelas'; const typeLabel = curriculum.value.assessment_types.find((item) => item.id === subject.assessment_type_id)?.label ?? 'Semua jenis'; return `${classLabel} · ${typeLabel}`; }
 function attemptsLabel(value: number) { return value === 0 ? 'Attempts tak terbatas' : `${value} attempt${value === 1 ? '' : 's'}`; }
 function explanationModeLabel(value: Subject['explanation_mode']) { return { after_answer: 'Pembahasan setelah menjawab', after_exam: 'Pembahasan setelah asesmen', hidden: 'Pembahasan disembunyikan' }[value] ?? 'Pembahasan disembunyikan'; }
@@ -239,6 +263,7 @@ async function loadData() {
   } catch (error) { showError(error); } finally { loading.value = false; }
 }
 onMounted(loadData);
+onUnmounted(dismissToast);
 </script>
 
 <style scoped>
@@ -277,6 +302,14 @@ onMounted(loadData);
 .item-actions button { border: 0; color: #1e5ec8; background: transparent; font: inherit; font-size: .74rem; font-weight: 700; cursor: pointer; }
 .item-actions .delete-action { color: #c53030; }
 .curriculum-loading { color: #778899; }
+.ruas-toast { position: fixed; z-index: 100; top: 22px; right: 22px; display: flex; max-width: min(440px, calc(100vw - 32px)); align-items: center; gap: 11px; overflow: hidden; padding: 14px 42px 14px 14px; border: 1px solid #ffc7cf; border-radius: 15px; color: #7f1d2d; background: rgba(255, 248, 250, .97); box-shadow: 0 16px 34px rgba(41, 46, 84, .2); font-size: .84rem; font-weight: 700; backdrop-filter: blur(12px); }
+.toast-icon { display: grid; width: 24px; height: 24px; flex: 0 0 24px; place-items: center; border-radius: 50%; color: #fff; background: #e34f67; font-weight: 800; }
+.toast-copy { line-height: 1.4; }
+.toast-close { position: absolute; top: 8px; right: 10px; width: 24px; height: 24px; border: 0; color: #a13a4a; background: transparent; font-size: 1.15rem; line-height: 1; cursor: pointer; }
+.toast-progress { position: absolute; right: 0; bottom: 0; left: 0; height: 4px; transform-origin: left; background: #e34f67; animation: toast-progress 4s linear forwards; }
+@keyframes toast-progress { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+.toast-slide-enter-active, .toast-slide-leave-active { transition: opacity .2s ease, transform .2s ease; }
+.toast-slide-enter-from, .toast-slide-leave-to { opacity: 0; transform: translateY(-10px); }
 @media (max-width: 900px) { .curriculum-grid { grid-template-columns: 1fr; } .subject-group, .topic-group { grid-column: auto; } .subject-group .curriculum-form, .topic-group .curriculum-form, .curriculum-form { grid-template-columns: 1fr 1fr; } .subject-group .form-actions, .topic-group .form-actions, .curriculum-form .form-actions, .class-form .form-actions { grid-column: 1 / -1; } }
 @media (max-width: 520px) { .curriculum-heading { flex-direction: column; } .subject-group .curriculum-form, .topic-group .curriculum-form, .curriculum-form { grid-template-columns: 1fr; } .subject-group .form-actions, .topic-group .form-actions, .curriculum-form .form-actions { grid-column: auto; } .curriculum-item { align-items: flex-start; flex-direction: column; } }
 @media (max-width: 720px) {
@@ -295,5 +328,6 @@ onMounted(loadData);
   .mobile-form-heading { display: flex; grid-column: 1 / -1; align-items: center; justify-content: space-between; padding-bottom: 14px; border-bottom: 1px solid #dce8f4; color: #1e40af; font-size: 1.05rem; }
   .mobile-form-heading button { width: 30px; height: 30px; border: 0; border-radius: 50%; color: #59708d; background: #e8f0f8; font-size: 1.3rem; line-height: 1; cursor: pointer; }
   .curriculum-group.mobile-form-open .form-actions { align-self: auto; grid-column: auto; }
+  .ruas-toast { top: 14px; right: 14px; left: 14px; max-width: none; }
 }
 </style>
