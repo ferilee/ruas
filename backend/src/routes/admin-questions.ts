@@ -80,7 +80,10 @@ export function adminQuestionRoutes(pool: Pool) {
     const summary = await importAdminQuestions(db, questions, request.data.mode, request.data.dry_run);
 
     if (summary.errors.length > 0) {
-      return c.json({ error: 'import_validation_failed', message: 'Import berisi data yang tidak valid.', summary }, 400);
+      const details = summary.errors.slice(0, 3).join(' ');
+      const remaining = summary.errors.length - Math.min(summary.errors.length, 3);
+      const suffix = remaining > 0 ? ` Dan ${remaining} error lainnya.` : '';
+      return c.json({ error: 'import_validation_failed', message: `Import gagal. ${details}${suffix}`, summary }, 400);
     }
 
     return c.json({ summary });
