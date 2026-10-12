@@ -9,6 +9,51 @@
         <span class="toast-progress" aria-hidden="true"></span>
       </div>
     </Transition>
+    <div v-if="mobileFormOpen" class="curriculum-modal-backdrop" role="presentation" @click.self="closeMobileForm">
+      <section class="curriculum-modal" role="dialog" aria-modal="true" :aria-labelledby="`${formModal}-form-title`">
+        <div class="curriculum-modal-heading">
+          <div><span class="modal-eyebrow">STRUKTUR ASESMEN</span><h2 :id="`${formModal}-form-title`">{{ formModalTitle }}</h2><p>{{ formModalDescription }}</p></div>
+          <button type="button" class="modal-close-btn" aria-label="Tutup form" @click="closeMobileForm">×</button>
+        </div>
+        <form v-if="formModal === 'class'" class="curriculum-form class-form modal-form" @submit.prevent="saveClass">
+          <label><span>Kode kelas</span><input v-model.trim="classForm.slug" placeholder="Contoh: 11-tkj-a" required /></label>
+          <label><span>Nama kelas</span><input v-model.trim="classForm.label" placeholder="Contoh: Kelas 11 TKJ A" required /></label>
+          <label><span>Tingkat</span><input v-model.number="classForm.grade" type="number" min="1" max="12" placeholder="11" required /></label>
+          <label><span>Program keahlian</span><input v-model.trim="classForm.program" placeholder="Contoh: TKJ" required /></label>
+          <label><span>Rombel</span><input v-model.trim="classForm.section" placeholder="Contoh: A (opsional)" /></label>
+          <label><span>Tahun ajaran</span><input v-model.trim="classForm.academic_year" placeholder="Contoh: 2026/2027" required /></label>
+          <label><span>Urutan tampil</span><input v-model.number="classForm.display_order" type="number" min="1" placeholder="1" required /></label>
+          <div class="form-actions"><button class="primary-btn" type="submit">{{ editingClassId ? 'Perbarui' : 'Tambah' }}</button><button class="secondary-btn" type="button" @click="closeMobileForm">Batal</button></div>
+        </form>
+        <form v-else-if="formModal === 'type'" class="curriculum-form type-form modal-form" @submit.prevent="saveAssessmentType">
+          <label><span>Slug</span><input v-model.trim="typeForm.slug" placeholder="Contoh: asesmen-ruas" required /></label>
+          <label><span>Nama jenis asesmen</span><input v-model.trim="typeForm.label" placeholder="Contoh: Asesmen RUAS" required /></label>
+          <label><span>Urutan tampil</span><input v-model.number="typeForm.display_order" type="number" min="1" placeholder="1" required /></label>
+          <div class="form-actions"><button class="primary-btn" type="submit">{{ editingTypeId ? 'Perbarui' : 'Tambah' }}</button><button class="secondary-btn" type="button" @click="closeMobileForm">Batal</button></div>
+        </form>
+        <form v-else-if="formModal === 'subject'" class="curriculum-form subject-form modal-form" @submit.prevent="saveSubject">
+          <label><span>Slug</span><input v-model.trim="subjectForm.slug" placeholder="Contoh: matematika" required /></label>
+          <label><span>Nama mata pelajaran</span><input v-model.trim="subjectForm.label" placeholder="Contoh: Penalaran Matematika" required /></label>
+          <label><span>Urutan tampil</span><input v-model.number="subjectForm.display_order" type="number" min="1" placeholder="1" required /></label>
+          <label><span>Jumlah attempts</span><input v-model.number="subjectForm.max_attempts" type="number" min="0" max="100" placeholder="1" title="Jumlah percobaan siswa. Isi 0 untuk tak terbatas." required /><small>0 = tanpa batas</small></label>
+          <label><span>Durasi ujian (menit)</span><input v-model.number="subjectForm.duration_minutes" type="number" min="0" max="1440" placeholder="0" title="Batas waktu pengerjaan. Isi 0 untuk tanpa batas." required /><small>0 = tanpa batas</small></label>
+          <label><span>Pembahasan siswa</span><RuasSelect v-model="subjectForm.explanation_mode" :options="explanationModeOptions" aria-label="Waktu tampil pembahasan" /></label>
+          <label class="checkbox-field"><input v-model="subjectForm.show_correct_answer_on_wrong" type="checkbox" /><span>Tampilkan jawaban benar saat siswa salah</span></label>
+          <label class="checkbox-field"><input v-model="subjectForm.shuffle_questions" type="checkbox" /><span>Acak urutan soal</span></label>
+          <label class="checkbox-field"><input v-model="subjectForm.shuffle_options" type="checkbox" /><span>Acak pilihan jawaban</span></label>
+          <label><span>Kelas</span><RuasSelect v-model="subjectForm.class_id" :options="classOptions" aria-label="Kelas mata pelajaran" /></label>
+          <label><span>Jenis asesmen</span><RuasSelect v-model="subjectForm.assessment_type_id" :options="assessmentTypeOptions" aria-label="Jenis asesmen mata pelajaran" /></label>
+          <div class="form-actions"><button class="primary-btn" type="submit">{{ editingSubjectId ? 'Perbarui' : 'Tambah' }}</button><button class="secondary-btn" type="button" @click="closeMobileForm">Batal</button></div>
+        </form>
+        <form v-else class="curriculum-form topic-form modal-form" @submit.prevent="saveTopic">
+          <label><span>Mata pelajaran</span><RuasSelect v-model="topicForm.subject_id" :options="subjectOptions" placeholder="Pilih mata pelajaran" aria-label="Mata pelajaran topik" /></label>
+          <label><span>Nama topik</span><input v-model.trim="topicForm.label" placeholder="Contoh: Barisan dan Deret" required /></label>
+          <label><span>Slug import</span><input v-model.trim="topicForm.slug" placeholder="Contoh: barisan-dan-deret" required /><small>Gunakan slug ini pada field topic_slug JSON.</small></label>
+          <label><span>Urutan tampil</span><input v-model.number="topicForm.display_order" type="number" min="1" placeholder="1" required /></label>
+          <div class="form-actions"><button class="primary-btn" type="submit">{{ editingTopicId ? 'Perbarui' : 'Tambah' }}</button><button class="secondary-btn" type="button" @click="closeMobileForm">Batal</button></div>
+        </form>
+      </section>
+    </div>
     <div class="curriculum-heading">
       <div>
         <h2>Kurikulum</h2>
@@ -41,21 +86,7 @@
 
       <div class="curriculum-grid">
       <section :class="['curriculum-group', 'class-group', { 'mobile-active': mobileTab === 'classes', 'mobile-form-open': mobileFormOpen && mobileTab === 'classes' }]">
-        <div class="curriculum-group-heading"><h3>Kelas</h3><button class="mobile-add-btn" type="button" @click="openClassForm">＋ Tambah</button></div>
-        <form class="curriculum-form class-form" @submit.prevent="saveClass">
-          <div class="mobile-form-heading"><strong>{{ editingClassId ? 'Edit kelas' : 'Tambah kelas' }}</strong><button type="button" aria-label="Tutup form kelas" @click="closeMobileForm">×</button></div>
-          <label><span>Kode kelas</span><input v-model.trim="classForm.slug" placeholder="Contoh: 11-tkj-a" required /></label>
-          <label><span>Nama kelas</span><input v-model.trim="classForm.label" placeholder="Contoh: Kelas 11 TKJ A" required /></label>
-          <label><span>Tingkat</span><input v-model.number="classForm.grade" type="number" min="1" max="12" placeholder="11" required /></label>
-          <label><span>Program keahlian</span><input v-model.trim="classForm.program" placeholder="Contoh: TKJ" required /></label>
-          <label><span>Rombel</span><input v-model.trim="classForm.section" placeholder="Contoh: A (opsional)" /></label>
-          <label><span>Tahun ajaran</span><input v-model.trim="classForm.academic_year" placeholder="Contoh: 2026/2027" required /></label>
-          <label><span>Urutan tampil</span><input v-model.number="classForm.display_order" type="number" min="1" placeholder="1" required /></label>
-          <div class="form-actions">
-            <button class="primary-btn" type="submit">{{ editingClassId ? 'Perbarui' : 'Tambah' }}</button>
-            <button v-if="editingClassId" class="secondary-btn" type="button" @click="resetClass">Batal</button>
-          </div>
-        </form>
+        <div class="curriculum-group-heading"><h3>Kelas</h3><button class="curriculum-add-btn" type="button" @click="openClassForm">＋ Tambah</button></div>
         <div class="curriculum-items">
           <div v-for="item in visibleClasses" :key="item.id" class="curriculum-item">
             <div><strong>{{ item.label }}</strong><small>{{ item.slug }} · Tingkat {{ item.grade }} · {{ item.program }}{{ item.section ? ` ${item.section}` : '' }} · {{ item.academic_year }}</small></div>
@@ -65,17 +96,7 @@
       </section>
 
       <section :class="['curriculum-group', { 'mobile-active': mobileTab === 'types', 'mobile-form-open': mobileFormOpen && mobileTab === 'types' }]">
-        <div class="curriculum-group-heading"><h3>Jenis Asesmen</h3><button class="mobile-add-btn" type="button" @click="openTypeForm">＋ Tambah</button></div>
-        <form class="curriculum-form" @submit.prevent="saveAssessmentType">
-          <div class="mobile-form-heading"><strong>{{ editingTypeId ? 'Edit jenis asesmen' : 'Tambah jenis asesmen' }}</strong><button type="button" aria-label="Tutup form jenis asesmen" @click="closeMobileForm">×</button></div>
-          <label><span>Slug</span><input v-model.trim="typeForm.slug" placeholder="Contoh: asesmen-ruas" required /></label>
-          <label><span>Nama jenis asesmen</span><input v-model.trim="typeForm.label" placeholder="Contoh: Asesmen RUAS" required /></label>
-          <label><span>Urutan tampil</span><input v-model.number="typeForm.display_order" type="number" min="1" placeholder="1" required /></label>
-          <div class="form-actions">
-            <button class="primary-btn" type="submit">{{ editingTypeId ? 'Perbarui' : 'Tambah' }}</button>
-            <button v-if="editingTypeId" class="secondary-btn" type="button" @click="resetType">Batal</button>
-          </div>
-        </form>
+        <div class="curriculum-group-heading"><h3>Jenis Asesmen</h3><button class="curriculum-add-btn" type="button" @click="openTypeForm">＋ Tambah</button></div>
         <div class="curriculum-items">
           <div v-for="item in visibleAssessmentTypes" :key="item.id" class="curriculum-item">
             <div><strong>{{ item.label }}</strong><small>{{ item.slug }}</small></div>
@@ -85,25 +106,7 @@
       </section>
 
       <section :class="['curriculum-group', 'subject-group', { 'mobile-active': mobileTab === 'subjects', 'mobile-form-open': mobileFormOpen && mobileTab === 'subjects' }]">
-        <div class="curriculum-group-heading"><h3>Mata Pelajaran</h3><button class="mobile-add-btn" type="button" @click="openSubjectForm">＋ Tambah</button></div>
-        <form class="curriculum-form" @submit.prevent="saveSubject">
-          <div class="mobile-form-heading"><strong>{{ editingSubjectId ? 'Edit mata pelajaran' : 'Tambah mata pelajaran' }}</strong><button type="button" aria-label="Tutup form mata pelajaran" @click="closeMobileForm">×</button></div>
-          <label><span>Slug</span><input v-model.trim="subjectForm.slug" placeholder="Contoh: matematika" required /></label>
-          <label><span>Nama mata pelajaran</span><input v-model.trim="subjectForm.label" placeholder="Contoh: Penalaran Matematika" required /></label>
-          <label><span>Urutan tampil</span><input v-model.number="subjectForm.display_order" type="number" min="1" placeholder="1" required /></label>
-          <label><span>Jumlah attempts</span><input v-model.number="subjectForm.max_attempts" type="number" min="0" max="100" placeholder="1" title="Jumlah percobaan siswa. Isi 0 untuk tak terbatas." required /><small>0 = tanpa batas</small></label>
-          <label><span>Durasi ujian (menit)</span><input v-model.number="subjectForm.duration_minutes" type="number" min="0" max="1440" placeholder="0" title="Batas waktu pengerjaan. Isi 0 untuk tanpa batas." required /><small>0 = tanpa batas</small></label>
-          <label><span>Pembahasan siswa</span><RuasSelect v-model="subjectForm.explanation_mode" :options="explanationModeOptions" aria-label="Waktu tampil pembahasan" /></label>
-          <label class="checkbox-field"><input v-model="subjectForm.show_correct_answer_on_wrong" type="checkbox" /><span>Tampilkan jawaban benar saat siswa salah</span></label>
-          <label class="checkbox-field"><input v-model="subjectForm.shuffle_questions" type="checkbox" /><span>Acak urutan soal</span></label>
-          <label class="checkbox-field"><input v-model="subjectForm.shuffle_options" type="checkbox" /><span>Acak pilihan jawaban</span></label>
-          <label><span>Kelas</span><RuasSelect v-model="subjectForm.class_id" :options="classOptions" aria-label="Kelas mata pelajaran" /></label>
-          <label><span>Jenis asesmen</span><RuasSelect v-model="subjectForm.assessment_type_id" :options="assessmentTypeOptions" aria-label="Jenis asesmen mata pelajaran" /></label>
-          <div class="form-actions">
-            <button class="primary-btn" type="submit">{{ editingSubjectId ? 'Perbarui' : 'Tambah' }}</button>
-            <button v-if="editingSubjectId" class="secondary-btn" type="button" @click="resetSubject">Batal</button>
-          </div>
-        </form>
+        <div class="curriculum-group-heading"><h3>Mata Pelajaran</h3><button class="curriculum-add-btn" type="button" @click="openSubjectForm">＋ Tambah</button></div>
         <div class="curriculum-items">
           <div v-for="item in visibleSubjects" :key="item.id" class="curriculum-item">
             <div><strong>{{ item.label }}</strong><small>{{ item.slug }} · {{ scopeLabel(item) }} · {{ attemptsLabel(item.max_attempts) }} · {{ durationLabel(item.duration_minutes) }} · {{ explanationModeLabel(item.explanation_mode) }} · {{ shuffleLabel(item) }}</small></div>
@@ -113,18 +116,7 @@
       </section>
 
       <section :class="['curriculum-group', 'topic-group', { 'mobile-active': mobileTab === 'topics', 'mobile-form-open': mobileFormOpen && mobileTab === 'topics' }]">
-        <div class="curriculum-group-heading"><h3>Topik</h3><button class="mobile-add-btn" type="button" @click="openTopicForm">＋ Tambah</button></div>
-        <form class="curriculum-form topic-form" @submit.prevent="saveTopic">
-          <div class="mobile-form-heading"><strong>{{ editingTopicId ? 'Edit topik' : 'Tambah topik' }}</strong><button type="button" aria-label="Tutup form topik" @click="closeMobileForm">×</button></div>
-          <label><span>Mata pelajaran</span><RuasSelect v-model="topicForm.subject_id" :options="subjectOptions" placeholder="Pilih mata pelajaran" aria-label="Mata pelajaran topik" /></label>
-          <label><span>Nama topik</span><input v-model.trim="topicForm.label" placeholder="Contoh: Barisan dan Deret" required /></label>
-          <label><span>Slug import</span><input v-model.trim="topicForm.slug" placeholder="Contoh: barisan-dan-deret" required /><small>Gunakan slug ini pada field topic_slug JSON.</small></label>
-          <label><span>Urutan tampil</span><input v-model.number="topicForm.display_order" type="number" min="1" placeholder="1" required /></label>
-          <div class="form-actions">
-            <button class="primary-btn" type="submit">{{ editingTopicId ? 'Perbarui' : 'Tambah' }}</button>
-            <button v-if="editingTopicId" class="secondary-btn" type="button" @click="resetTopic">Batal</button>
-          </div>
-        </form>
+        <div class="curriculum-group-heading"><h3>Topik</h3><button class="curriculum-add-btn" type="button" @click="openTopicForm">＋ Tambah</button></div>
         <div class="curriculum-items">
           <div v-for="item in visibleTopics" :key="item.id" class="curriculum-item">
             <div><strong>{{ item.label }}</strong><small>{{ item.slug }} · {{ item.subject_label }} · {{ item.token_configured ? 'Token aktif' : 'Tanpa token' }}</small></div>
@@ -164,8 +156,10 @@ const editingSubjectId = ref<number | null>(null);
 const editingTopicId = ref<number | null>(null);
 const topics = ref<AdminTopic[]>([]);
 type MobileCurriculumTab = 'classes' | 'types' | 'subjects' | 'topics';
+type CurriculumFormModal = 'class' | 'type' | 'subject' | 'topic';
 const mobileTab = ref<MobileCurriculumTab>('subjects');
 const mobileFormOpen = ref(false);
+const formModal = ref<CurriculumFormModal>('subject');
 const confirmOpen = ref(false);
 const confirmTitle = ref('Konfirmasi tindakan');
 const confirmMessage = ref('Apakah kamu yakin ingin melanjutkan?');
@@ -207,6 +201,18 @@ const visibleTopics = computed(() => {
   return topics.value.filter((item) => subjectIds.has(item.subject_id));
 });
 const hasCurriculumFilter = computed(() => selectedClassId.value !== null || selectedAssessmentTypeId.value !== null || selectedSubjectId.value !== null);
+const formModalTitle = computed(() => ({
+  class: editingClassId.value ? 'Edit kelas' : 'Tambah kelas',
+  type: editingTypeId.value ? 'Edit jenis asesmen' : 'Tambah jenis asesmen',
+  subject: editingSubjectId.value ? 'Edit mata pelajaran' : 'Tambah mata pelajaran',
+  topic: editingTopicId.value ? 'Edit topik' : 'Tambah topik',
+}[formModal.value]));
+const formModalDescription = computed(() => ({
+  class: 'Lengkapi identitas kelas untuk digunakan dalam penugasan peserta.',
+  type: 'Buat jenis asesmen yang akan menjadi dasar jadwal dan mata pelajaran.',
+  subject: 'Atur mata pelajaran, penugasan, dan perilaku pengerjaan siswa.',
+  topic: 'Tambahkan topik yang akan berisi kumpulan soal.',
+}[formModal.value]));
 
 const emit = defineEmits<{ topicsUpdated: [] }>();
 
@@ -239,18 +245,18 @@ function resetClass() { editingClassId.value = null; classForm.slug = ''; classF
 function resetType() { editingTypeId.value = null; clearForm(typeForm); mobileFormOpen.value = false; }
 function resetSubject() { editingSubjectId.value = null; subjectForm.slug = ''; subjectForm.label = ''; subjectForm.display_order = 1; subjectForm.max_attempts = 1; subjectForm.duration_minutes = 0; subjectForm.explanation_mode = 'hidden'; subjectForm.show_correct_answer_on_wrong = false; subjectForm.shuffle_questions = false; subjectForm.shuffle_options = false; subjectForm.class_id = null; subjectForm.assessment_type_id = null; mobileFormOpen.value = false; }
 function resetTopic() { editingTopicId.value = null; topicForm.subject_id = 0; topicForm.slug = ''; topicForm.label = ''; topicForm.display_order = 1; mobileFormOpen.value = false; }
-function openClassForm() { resetClass(); mobileTab.value = 'classes'; mobileFormOpen.value = true; }
-function openTypeForm() { resetType(); mobileTab.value = 'types'; mobileFormOpen.value = true; }
-function openSubjectForm() { resetSubject(); mobileTab.value = 'subjects'; mobileFormOpen.value = true; }
-function openTopicForm() { resetTopic(); mobileTab.value = 'topics'; mobileFormOpen.value = true; }
+function openClassForm() { resetClass(); mobileTab.value = 'classes'; formModal.value = 'class'; mobileFormOpen.value = true; }
+function openTypeForm() { resetType(); mobileTab.value = 'types'; formModal.value = 'type'; mobileFormOpen.value = true; }
+function openSubjectForm() { resetSubject(); mobileTab.value = 'subjects'; formModal.value = 'subject'; mobileFormOpen.value = true; }
+function openTopicForm() { resetTopic(); mobileTab.value = 'topics'; formModal.value = 'topic'; mobileFormOpen.value = true; }
 function closeMobileForm() { mobileFormOpen.value = false; }
 function askConfirmation(title: string, message: string, action: () => Promise<void>) { confirmTitle.value = title; confirmMessage.value = message; pendingConfirmation.value = action; confirmOpen.value = true; }
 function closeConfirmation() { confirmOpen.value = false; pendingConfirmation.value = null; }
 async function runConfirmation() { const action = pendingConfirmation.value; closeConfirmation(); if (action) await action(); }
-function editClass(item: CurriculumClass) { editingClassId.value = item.id; Object.assign(classForm, item); mobileTab.value = 'classes'; mobileFormOpen.value = true; }
-function editType(item: AssessmentType) { editingTypeId.value = item.id; Object.assign(typeForm, item); mobileTab.value = 'types'; mobileFormOpen.value = true; }
-function editSubject(item: Subject) { editingSubjectId.value = item.id; Object.assign(subjectForm, { slug: item.slug, label: item.label, display_order: item.display_order, max_attempts: item.max_attempts ?? 1, duration_minutes: item.duration_minutes ?? 0, explanation_mode: item.explanation_mode ?? 'hidden', show_correct_answer_on_wrong: item.show_correct_answer_on_wrong ?? false, shuffle_questions: item.shuffle_questions ?? false, shuffle_options: item.shuffle_options ?? false, class_id: item.class_id ?? null, assessment_type_id: item.assessment_type_id ?? null }); mobileTab.value = 'subjects'; mobileFormOpen.value = true; }
-function editTopic(item: AdminTopic) { editingTopicId.value = item.id; Object.assign(topicForm, { subject_id: item.subject_id, slug: item.slug, label: item.label, display_order: item.display_order }); mobileTab.value = 'topics'; mobileFormOpen.value = true; }
+function editClass(item: CurriculumClass) { editingClassId.value = item.id; Object.assign(classForm, item); mobileTab.value = 'classes'; formModal.value = 'class'; mobileFormOpen.value = true; }
+function editType(item: AssessmentType) { editingTypeId.value = item.id; Object.assign(typeForm, item); mobileTab.value = 'types'; formModal.value = 'type'; mobileFormOpen.value = true; }
+function editSubject(item: Subject) { editingSubjectId.value = item.id; Object.assign(subjectForm, { slug: item.slug, label: item.label, display_order: item.display_order, max_attempts: item.max_attempts ?? 1, duration_minutes: item.duration_minutes ?? 0, explanation_mode: item.explanation_mode ?? 'hidden', show_correct_answer_on_wrong: item.show_correct_answer_on_wrong ?? false, shuffle_questions: item.shuffle_questions ?? false, shuffle_options: item.shuffle_options ?? false, class_id: item.class_id ?? null, assessment_type_id: item.assessment_type_id ?? null }); mobileTab.value = 'subjects'; formModal.value = 'subject'; mobileFormOpen.value = true; }
+function editTopic(item: AdminTopic) { editingTopicId.value = item.id; Object.assign(topicForm, { subject_id: item.subject_id, slug: item.slug, label: item.label, display_order: item.display_order }); mobileTab.value = 'topics'; formModal.value = 'topic'; mobileFormOpen.value = true; }
 
 async function saveClass() {
   try {
@@ -333,6 +339,8 @@ onUnmounted(dismissToast);
 .subject-group, .topic-group { grid-column: 1 / -1; }
 .curriculum-group-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
 .curriculum-group h3 { color: #233d61; font-size: 1rem; }
+.curriculum-add-btn { display: inline-flex; align-items: center; padding: 8px 11px; border: 0; border-radius: 9px; color: #fff; background: linear-gradient(110deg, #287bd7, #2251b5); box-shadow: 0 6px 13px rgba(35, 101, 199, .16); font: inherit; font-size: .72rem; font-weight: 800; cursor: pointer; }
+.curriculum-add-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 16px rgba(35, 101, 199, .22); }
 .mobile-curriculum-tabs, .mobile-add-btn, .mobile-form-heading { display: none; }
 .curriculum-form { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.5fr) 80px; gap: 8px; }
 .class-form { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -347,6 +355,19 @@ onUnmounted(dismissToast);
 .curriculum-form input, .curriculum-form select { min-width: 0; width: 100%; padding: 9px 10px; border: 1px solid #d4dde6; border-radius: 8px; background: #fff; color: #334b68; font: inherit; font-size: .82rem; font-weight: 400; }
 .form-actions { display: flex; align-self: end; gap: 6px; }
 .form-actions .primary-btn, .form-actions .secondary-btn { padding: 9px 12px; font-size: .78rem; }
+.curriculum-modal-backdrop { position: fixed; z-index: 100; inset: 0; display: grid; overflow-y: auto; place-items: center; padding: 22px; background: rgba(21, 43, 77, .38); backdrop-filter: blur(5px); }
+.curriculum-modal { width: min(100%, 760px); max-height: min(90vh, 820px); overflow-y: auto; padding: 22px; border: 1px solid rgba(255, 255, 255, .85); border-radius: 22px; background: linear-gradient(145deg, #fff, #f3f8ff); box-shadow: 0 24px 60px rgba(18, 45, 88, .3); }
+.curriculum-modal-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 18px; padding-bottom: 15px; border-bottom: 1px solid #dce8f4; }
+.curriculum-modal-heading h2 { margin-top: 3px; color: #173d80; font-size: 1.25rem; }
+.curriculum-modal-heading p { margin-top: 4px; color: #7188a5; font-size: .78rem; line-height: 1.45; }
+.modal-eyebrow { color: #287bd7; font-size: .64rem; font-weight: 800; letter-spacing: .14em; }
+.modal-close-btn { display: grid; width: 34px; height: 34px; flex: 0 0 34px; place-items: center; border: 0; border-radius: 50%; color: #55708f; background: #e8f1fb; font-size: 1.35rem; line-height: 1; cursor: pointer; }
+.modal-close-btn:hover { color: #174e9e; background: #d8e9fb; }
+.curriculum-modal .curriculum-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.curriculum-modal .curriculum-form > label { gap: 6px; font-size: .75rem; }
+.curriculum-modal .curriculum-form > label.checkbox-field { min-height: 48px; }
+.curriculum-modal .form-actions { grid-column: 1 / -1; justify-content: flex-end; align-self: auto; padding-top: 5px; }
+.curriculum-modal .subject-form .form-actions, .curriculum-modal .topic-form .form-actions { grid-column: 1 / -1; }
 .curriculum-items { display: flex; flex-direction: column; gap: 7px; margin-top: 14px; }
 .curriculum-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 1px solid #e1e8f0; border-radius: 8px; background: #fff; }
 .curriculum-item strong, .curriculum-item small { display: block; }
@@ -366,6 +387,15 @@ onUnmounted(dismissToast);
 .toast-slide-enter-from, .toast-slide-leave-to { opacity: 0; transform: translateY(-10px); }
 @media (max-width: 900px) { .curriculum-grid { grid-template-columns: 1fr; } .subject-group, .topic-group { grid-column: auto; } .subject-group .curriculum-form, .topic-group .curriculum-form, .curriculum-form { grid-template-columns: 1fr 1fr; } .subject-group .form-actions, .topic-group .form-actions, .curriculum-form .form-actions, .class-form .form-actions { grid-column: 1 / -1; } }
 @media (max-width: 520px) { .curriculum-heading { flex-direction: column; } .curriculum-filter-grid { grid-template-columns: 1fr; }.curriculum-filter-heading { align-items: flex-start; }.subject-group .curriculum-form, .topic-group .curriculum-form, .curriculum-form { grid-template-columns: 1fr; } .subject-group .form-actions, .topic-group .form-actions, .curriculum-form .form-actions { grid-column: auto; } .curriculum-item { align-items: flex-start; flex-direction: column; } }
+@media (max-width: 600px) {
+  .curriculum-modal-backdrop { place-items: end center; padding: 10px; }
+  .curriculum-modal { max-height: calc(100dvh - 20px); padding: 18px 16px 20px; border-radius: 20px; }
+  .curriculum-modal-heading { margin-bottom: 15px; }
+  .curriculum-modal-heading h2 { font-size: 1.1rem; }
+  .curriculum-modal .curriculum-form { grid-template-columns: 1fr; gap: 13px; }
+  .curriculum-modal .form-actions { grid-column: auto; flex-direction: column; }
+  .curriculum-modal .form-actions button { width: 100%; }
+}
 @media (max-width: 720px) {
   .mobile-curriculum-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; margin: 0 0 14px; padding: 5px; border: 1px solid #dce8f4; border-radius: 12px; background: #edf4fb; }
   .mobile-curriculum-tab { padding: 9px 5px; border: 0; border-radius: 8px; color: #6b809d; background: transparent; font: inherit; font-size: .68rem; font-weight: 700; cursor: pointer; }
