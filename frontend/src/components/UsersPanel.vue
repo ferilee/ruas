@@ -60,7 +60,7 @@
       <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
       <div v-if="loading" class="panel-empty">Memuat pengguna...</div>
       <div v-else-if="users.length === 0" class="panel-empty">Belum ada pengguna.</div>
-      <div v-else class="user-table-wrap"><table class="user-table"><thead><tr><th class="selection-column"><input type="checkbox" :checked="allUsersSelected" aria-label="Pilih semua pengguna" @change="toggleAllUsers" /></th><th>Pengguna</th><th>Peran / penetapan</th><th>Status</th><th>Aksi</th></tr></thead><tbody><tr v-for="user in users" :key="user.id"><td class="selection-column"><input type="checkbox" :checked="isUserSelected(user.id)" :aria-label="`Pilih ${user.display_name}`" @change="toggleUser(user.id)" /></td><td><strong>{{ user.display_name }}</strong><small>{{ user.username }}</small></td><td><span class="role-badge">{{ roleLabel(user.role) }}</span><small>Kelas: {{ user.class_label || 'Belum ditetapkan' }}</small><small>Mapel: {{ subjectLabel(user.subject_id) }}</small></td><td><span :class="['status-badge', { inactive: !user.active }]">{{ user.active ? 'Aktif' : 'Nonaktif' }}</span></td><td class="user-actions"><button class="text-button" type="button" @click="editUser(user)">Edit</button><button class="danger-link" type="button" @click="removeUser(user)">Hapus</button></td></tr></tbody></table></div>
+      <div v-else class="user-table-wrap"><table class="user-table"><thead><tr><th class="selection-column"><input type="checkbox" :checked="allUsersSelected" aria-label="Pilih semua pengguna" @change="toggleAllUsers" /></th><th>Pengguna</th><th>Peran / penetapan</th><th>Status</th><th>Aksi</th></tr></thead><tbody><tr v-for="user in users" :key="user.id"><td class="selection-column"><input type="checkbox" :checked="isUserSelected(user.id)" :aria-label="`Pilih ${user.display_name}`" @change="toggleUser(user.id)" /></td><td class="user-identity"><strong>{{ user.display_name }}</strong><small>{{ user.username }}</small></td><td class="user-assignment"><span class="role-badge">{{ roleLabel(user.role) }}</span><small>Kelas: {{ user.class_label || 'Belum ditetapkan' }}</small><small>Mapel: {{ subjectLabel(user.subject_id) }}</small></td><td class="user-status"><span :class="['status-badge', { inactive: !user.active }]">{{ user.active ? 'Aktif' : 'Nonaktif' }}</span></td><td class="user-actions"><button class="text-button" type="button" @click="editUser(user)">Edit</button><button class="danger-link" type="button" @click="removeUser(user)">Hapus</button></td></tr></tbody></table></div>
     </div>
   </section>
 </template>
@@ -267,13 +267,16 @@ onMounted(async () => { await Promise.all([loadUsers(), loadParticipantCount(), 
   .user-table-wrap { overflow: visible; }
   .user-table, .user-table tbody, .user-table tr, .user-table td { display: block; }
   .user-table thead { display: none; }
-  .user-table tr { margin-bottom: 9px; padding: 13px; border: 1px solid #e1eaf4; border-radius: 12px; background: #fbfdff; }
-  .user-table td { padding: 4px 0; border: 0; white-space: normal; }
-  .user-table td:first-child { padding-bottom: 8px; }
-  .user-table td.selection-column { display: inline-block; width: 28px; padding: 0 8px 0 0; vertical-align: top; }
-  .user-table td.selection-column + td { display: inline-block; width: calc(100% - 34px); vertical-align: top; }
-  .user-table td:last-child { padding-top: 9px; }
-  .user-actions { justify-content: flex-end; }
+  .user-table tr { display: grid; grid-template-columns: 25px minmax(0, 1fr) auto; grid-template-areas: 'select identity status' 'select assignment assignment' 'select actions actions'; column-gap: 8px; row-gap: 8px; margin-bottom: 9px; padding: 13px; border: 1px solid #e1eaf4; border-radius: 14px; background: #fbfdff; }
+  .user-table td { display: block; padding: 0; border: 0; white-space: normal; }
+  .user-table td.selection-column { grid-area: select; width: auto; padding-top: 2px; }
+  .user-table td.user-identity { grid-area: identity; min-width: 0; }
+  .user-table td.user-assignment { display: flex; flex-wrap: wrap; grid-area: assignment; align-items: center; gap: 5px 10px; padding-left: 0; }
+  .user-table td.user-assignment small { margin: 0; color: #7890ac; }
+  .user-table td.user-status { grid-area: status; padding-top: 1px; }
+  .user-table td.user-actions { display: flex; grid-area: actions; justify-content: flex-start; gap: 14px; padding-top: 9px; border-top: 1px solid #e8eff6; }
+  .user-table td.user-identity strong { overflow: hidden; color: #234d87; text-overflow: ellipsis; white-space: nowrap; }
+  .user-table td.user-identity small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .import-users-panel { order: 2; }
   .bulk-assignment-bar { grid-template-columns: 1fr 1fr; }
   .danger-zone { align-items: stretch; flex-direction: column; }

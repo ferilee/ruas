@@ -12,11 +12,12 @@
       </div>
     </div>
 
-    <section class="panel filters-panel no-print">
+    <section :class="['panel', 'filters-panel', 'no-print', { collapsed: !filtersOpen }]">
       <div class="panel-heading">
-        <div><h3>Filter laporan</h3><p>Secara default hanya asesmen yang sudah selesai yang ditampilkan.</p></div>
+        <div><h3>Filter laporan</h3><p>Secara default hanya asesmen yang sudah selesai yang ditampilkan.</p><div v-if="activeFilterLabels.length" class="active-filter-summary"><span v-for="filter in activeFilterLabels" :key="filter">{{ filter }}</span></div></div>
+        <button class="filter-toggle" type="button" :aria-expanded="filtersOpen" @click="filtersOpen = !filtersOpen">{{ filtersOpen ? 'Sembunyikan filter' : 'Tampilkan filter' }} <span aria-hidden="true">{{ filtersOpen ? '⌃' : '⌄' }}</span></button>
       </div>
-      <div class="filter-grid">
+      <div v-show="filtersOpen" class="filter-grid">
         <label>Status<RuasSelect v-model="filters.status" :options="statusOptions" aria-label="Status laporan" @change="loadReport" /></label>
         <label>Kelas<RuasSelect v-model="filters.class_id" :options="classOptions" aria-label="Filter kelas" @change="loadReport" /></label>
         <label>Jenis asesmen<RuasSelect v-model="filters.assessment_type_id" :options="assessmentTypeOptions" aria-label="Filter jenis asesmen" @change="loadReport" /></label>
@@ -124,6 +125,7 @@ const classStatistics = ref<AdminReportClassStatistic[]>([]);
 const detail = ref<AdminReportDetail | null>(null);
 const loading = ref(false);
 const errorMessage = ref('');
+const filtersOpen = ref(false);
 const statusOptions = [
   { value: 'completed', label: 'Selesai' },
   { value: 'all', label: 'Semua status' },
@@ -139,6 +141,17 @@ const filteredSubjects = computed(() => curriculum.subjects.filter((subject) => 
   return true;
 }));
 const subjectOptions = computed(() => [{ value: undefined, label: 'Semua mata pelajaran' }, ...filteredSubjects.value.map((item) => ({ value: item.id, label: item.label }))]);
+const activeFilterLabels = computed(() => {
+  const labels: string[] = [];
+  if (filters.status && filters.status !== 'completed') labels.push(statusOptions.find((option) => option.value === filters.status)?.label ?? 'Status');
+  if (filters.class_id) labels.push(`Kelas: ${curriculum.classes.find((item) => item.id === filters.class_id)?.label ?? filters.class_id}`);
+  if (filters.assessment_type_id) labels.push(`Jenis: ${curriculum.assessment_types.find((item) => item.id === filters.assessment_type_id)?.label ?? filters.assessment_type_id}`);
+  if (filters.subject_id) labels.push(`Mapel: ${curriculum.subjects.find((item) => item.id === filters.subject_id)?.label ?? filters.subject_id}`);
+  if (filters.from) labels.push(`Dari: ${filters.from}`);
+  if (filters.to) labels.push(`Sampai: ${filters.to}`);
+  if (filters.search) labels.push(`Cari: ${filters.search}`);
+  return labels;
+});
 
 async function loadReport() {
   loading.value = true;
@@ -148,6 +161,7 @@ async function loadReport() {
     rows.value = data.rows;
     summary.value = data.summary;
     classStatistics.value = data.class_statistics;
+    filtersOpen.value = false;
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Gagal memuat laporan.';
   } finally {
@@ -165,6 +179,7 @@ async function openDetail(attemptId: number) {
 
 function resetFilters() {
   Object.assign(filters, { status: 'completed', subject_id: undefined, class_id: undefined, assessment_type_id: undefined, from: undefined, to: undefined, search: '' });
+  filtersOpen.value = false;
   void loadReport();
 }
 
@@ -220,6 +235,8 @@ button:disabled { opacity: .55; cursor: default; }
 .panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .panel-heading h3 { color: #1e40af; font-size: 1.04rem; }
 .panel-heading p { margin-top: 4px; color: #71849b; font-size: .8rem; }
+.filters-panel { transition: box-shadow .2s ease, background .2s ease; }.filters-panel.collapsed { padding-bottom: 15px; background: #fbfdff; box-shadow: 0 5px 14px rgba(31, 74, 126, .04); }.filter-toggle { flex: 0 0 auto; padding: 8px 11px; border: 1px solid #c5d9ef; border-radius: 9px; color: #246bc5; background: #fff; font: inherit; font-size: .74rem; font-weight: 800; cursor: pointer; }.filter-toggle:hover { background: #edf6ff; }.filter-toggle span { margin-left: 4px; font-size: .95rem; }
+.active-filter-summary { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }.active-filter-summary span { padding: 4px 8px; border-radius: 999px; color: #2b63a3; background: #eaf3ff; font-size: .67rem; font-weight: 700; }
 .filter-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-top: 18px; }
 label { display: flex; flex-direction: column; gap: 6px; color: #435d7d; font-size: .78rem; font-weight: 700; }
 input, select { min-width: 0; width: 100%; padding: 10px 11px; border: 1px solid #d4e0ee; border-radius: 8px; color: #294c7a; background: #f9fbfe; font: inherit; font-weight: 400; }
@@ -254,7 +271,7 @@ td strong, td small { display: block; }.report-row { cursor: pointer; }.report-r
 .detail-header { display: flex; justify-content: space-between; gap: 14px; }.detail-header h3 { margin: 6px 0 3px; color: #173e7f; font-size: 1.35rem; }.detail-header p, .muted { color: #8294aa; font-size: .82rem; }.close-btn { width: 32px; height: 32px; border: 0; border-radius: 50%; color: #55718f; background: #eef4fb; font-size: 1.5rem; cursor: pointer; }
 .detail-meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 14px; }.detail-meta span { padding: 6px 9px; border-radius: 7px; color: #38649a; background: #edf5ff; font-size: .73rem; }.detail-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }.detail-stats div { padding: 13px; border-radius: 10px; background: #f2f7fc; text-align: center; }.detail-stats strong, .detail-stats small { display: block; }.detail-stats strong { color: #166bc0; font-size: 1.15rem; }.detail-stats small { margin-top: 3px; color: #7c90aa; font-size: .7rem; }.detail-columns { display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; margin-top: 22px; }.detail-columns h4 { margin-bottom: 9px; color: #315987; font-size: .85rem; }.event-list { display: flex; flex-direction: column; gap: 7px; padding: 0; list-style: none; }.event-list li { display: flex; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: 7px; background: #fff4e2; color: #946321; font-size: .75rem; }.event-list small { color: #b1844c; font-size: .68rem; }
 @media (max-width: 900px) { .filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 620px) { .report-toolbar { align-items: flex-start; flex-direction: column; }.toolbar-actions { width: 100%; }.toolbar-actions button { flex: 1; }.filter-grid { grid-template-columns: 1fr; }.search-field { grid-column: auto; }.filter-reset { width: 100%; }.summary-grid { grid-template-columns: 1fr 1fr; }.summary-card { min-height: 98px; padding: 13px; }.summary-card strong { font-size: 1.3rem; }.detail-columns { grid-template-columns: 1fr; } }
+@media (max-width: 620px) { .report-toolbar { align-items: flex-start; flex-direction: column; }.toolbar-actions { width: 100%; }.toolbar-actions button { flex: 1; }.filters-panel .panel-heading { align-items: flex-start; }.filter-toggle { width: 100%; }.filters-panel .panel-heading { flex-direction: column; }.filter-grid { grid-template-columns: 1fr; }.search-field { grid-column: auto; }.filter-reset { width: 100%; }.summary-grid { grid-template-columns: 1fr 1fr; }.summary-card { min-height: 98px; padding: 13px; }.summary-card strong { font-size: 1.3rem; }.detail-columns { grid-template-columns: 1fr; } }
 @media print {
   :global(body) { background: #fff !important; }
   :global(.admin-view) { padding: 0 !important; }

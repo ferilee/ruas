@@ -22,6 +22,19 @@
     <div v-if="loading" class="curriculum-loading">Memuat kurikulum...</div>
 
     <div v-else>
+      <section class="curriculum-filter-panel" aria-label="Filter struktur asesmen">
+        <div class="curriculum-filter-heading">
+          <div><strong>Filter struktur asesmen</strong><small>Pilih kombinasi untuk melihat bagian kurikulum yang relevan.</small></div>
+          <button v-if="hasCurriculumFilter" class="filter-reset-button" type="button" @click="resetCurriculumFilters">Reset</button>
+        </div>
+        <div class="curriculum-filter-grid">
+          <label>Kelas<RuasSelect v-model="selectedClassId" :options="filterClassOptions" aria-label="Filter kelas kurikulum" /></label>
+          <label>Jenis asesmen<RuasSelect v-model="selectedAssessmentTypeId" :options="filterAssessmentTypeOptions" aria-label="Filter jenis asesmen kurikulum" /></label>
+          <label>Mata pelajaran<RuasSelect v-model="selectedSubjectId" :options="filterSubjectOptions" aria-label="Filter mata pelajaran kurikulum" /></label>
+        </div>
+        <p class="curriculum-filter-result">Menampilkan {{ visibleClasses.length }} kelas · {{ visibleAssessmentTypes.length }} jenis · {{ visibleSubjects.length }} mata pelajaran</p>
+      </section>
+
       <div class="mobile-curriculum-tabs" role="tablist" aria-label="Kategori kurikulum">
         <button v-for="tab in mobileTabs" :key="tab.value" type="button" role="tab" :aria-selected="mobileTab === tab.value" :class="['mobile-curriculum-tab', { active: mobileTab === tab.value }]" @click="mobileTab = tab.value">{{ tab.label }}</button>
       </div>
@@ -44,7 +57,7 @@
           </div>
         </form>
         <div class="curriculum-items">
-          <div v-for="item in curriculum.classes" :key="item.id" class="curriculum-item">
+          <div v-for="item in visibleClasses" :key="item.id" class="curriculum-item">
             <div><strong>{{ item.label }}</strong><small>{{ item.slug }} · Tingkat {{ item.grade }} · {{ item.program }}{{ item.section ? ` ${item.section}` : '' }} · {{ item.academic_year }}</small></div>
             <div class="item-actions"><button type="button" @click="editClass(item)">Edit</button><button type="button" class="delete-action" @click="removeClass(item.id)">Hapus</button></div>
           </div>
@@ -64,7 +77,7 @@
           </div>
         </form>
         <div class="curriculum-items">
-          <div v-for="item in curriculum.assessment_types" :key="item.id" class="curriculum-item">
+          <div v-for="item in visibleAssessmentTypes" :key="item.id" class="curriculum-item">
             <div><strong>{{ item.label }}</strong><small>{{ item.slug }}</small></div>
             <div class="item-actions"><button type="button" @click="editType(item)">Edit</button><button type="button" class="delete-action" @click="removeType(item.id)">Hapus</button></div>
           </div>
@@ -92,7 +105,7 @@
           </div>
         </form>
         <div class="curriculum-items">
-          <div v-for="item in curriculum.subjects" :key="item.id" class="curriculum-item">
+          <div v-for="item in visibleSubjects" :key="item.id" class="curriculum-item">
             <div><strong>{{ item.label }}</strong><small>{{ item.slug }} · {{ scopeLabel(item) }} · {{ attemptsLabel(item.max_attempts) }} · {{ durationLabel(item.duration_minutes) }} · {{ explanationModeLabel(item.explanation_mode) }} · {{ shuffleLabel(item) }}</small></div>
             <div class="item-actions"><button type="button" @click="editSubject(item)">Edit</button><button type="button" class="delete-action" @click="removeSubject(item.id)">Hapus</button></div>
           </div>
@@ -113,11 +126,11 @@
           </div>
         </form>
         <div class="curriculum-items">
-          <div v-for="item in topics" :key="item.id" class="curriculum-item">
+          <div v-for="item in visibleTopics" :key="item.id" class="curriculum-item">
             <div><strong>{{ item.label }}</strong><small>{{ item.slug }} · {{ item.subject_label }} · {{ item.token_configured ? 'Token aktif' : 'Tanpa token' }}</small></div>
             <div class="item-actions"><button type="button" @click="editTopic(item)">Edit</button><button type="button" class="delete-action" @click="removeTopic(item.id)">Hapus</button></div>
           </div>
-          <p v-if="topics.length === 0" class="curriculum-empty">Belum ada topik.</p>
+          <p v-if="visibleTopics.length === 0" class="curriculum-empty">Belum ada topik yang sesuai filter.</p>
         </div>
       </section>
     </div>
@@ -126,7 +139,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import RuasSelect from '@/components/RuasSelect.vue';
 import {
@@ -175,8 +188,36 @@ const explanationModeOptions = [
 const classOptions = computed(() => [{ value: null, label: 'Semua kelas' }, ...curriculum.value.classes.map((item) => ({ value: item.id, label: `${item.label} · ${item.academic_year}` }))]);
 const assessmentTypeOptions = computed(() => [{ value: null, label: 'Semua jenis asesmen' }, ...curriculum.value.assessment_types.map((item) => ({ value: item.id, label: item.label }))]);
 const subjectOptions = computed(() => curriculum.value.subjects.map((item) => ({ value: item.id, label: `${item.label} · ${item.slug}` })));
+const selectedClassId = ref<number | null>(null);
+const selectedAssessmentTypeId = ref<number | null>(null);
+const selectedSubjectId = ref<number | null>(null);
+const filterClassOptions = computed(() => [{ value: null, label: 'Semua kelas' }, ...curriculum.value.classes.map((item) => ({ value: item.id, label: item.label }))]);
+const filterAssessmentTypeOptions = computed(() => [{ value: null, label: 'Semua jenis asesmen' }, ...curriculum.value.assessment_types.map((item) => ({ value: item.id, label: item.label }))]);
+const filteredSubjects = computed(() => curriculum.value.subjects.filter((item) => {
+  if (selectedClassId.value !== null && item.class_id !== null && item.class_id !== selectedClassId.value) return false;
+  if (selectedAssessmentTypeId.value !== null && item.assessment_type_id !== null && item.assessment_type_id !== selectedAssessmentTypeId.value) return false;
+  return true;
+}));
+const filterSubjectOptions = computed(() => [{ value: null, label: 'Semua mata pelajaran' }, ...filteredSubjects.value.map((item) => ({ value: item.id, label: item.label }))]);
+const visibleClasses = computed(() => selectedClassId.value === null ? curriculum.value.classes : curriculum.value.classes.filter((item) => item.id === selectedClassId.value));
+const visibleAssessmentTypes = computed(() => selectedAssessmentTypeId.value === null ? curriculum.value.assessment_types : curriculum.value.assessment_types.filter((item) => item.id === selectedAssessmentTypeId.value));
+const visibleSubjects = computed(() => selectedSubjectId.value === null ? filteredSubjects.value : filteredSubjects.value.filter((item) => item.id === selectedSubjectId.value));
+const visibleTopics = computed(() => {
+  const subjectIds = new Set(visibleSubjects.value.map((item) => item.id));
+  return topics.value.filter((item) => subjectIds.has(item.subject_id));
+});
+const hasCurriculumFilter = computed(() => selectedClassId.value !== null || selectedAssessmentTypeId.value !== null || selectedSubjectId.value !== null);
 
 const emit = defineEmits<{ topicsUpdated: [] }>();
+
+watch([selectedClassId, selectedAssessmentTypeId], () => {
+  if (selectedSubjectId.value !== null && !filteredSubjects.value.some((item) => item.id === selectedSubjectId.value)) selectedSubjectId.value = null;
+});
+function resetCurriculumFilters() {
+  selectedClassId.value = null;
+  selectedAssessmentTypeId.value = null;
+  selectedSubjectId.value = null;
+}
 
 function showError(error: unknown) { errorMessage.value = error instanceof Error ? error.message : 'Gagal memproses kurikulum.'; successMessage.value = ''; }
 function showSuccess(message: string) { successMessage.value = message; errorMessage.value = ''; }
@@ -283,6 +324,10 @@ onUnmounted(dismissToast);
 .curriculum-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .curriculum-heading h2 { color: #1e40af; font-size: 1.15rem; }
 .curriculum-heading p { margin-top: 4px; color: #667788; font-size: .85rem; }
+.curriculum-filter-panel { padding: 14px 16px; border: 1px solid #d6e5f4; border-radius: 13px; background: linear-gradient(115deg, #f7fbff, #eef6ff); }
+.curriculum-filter-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }.curriculum-filter-heading strong, .curriculum-filter-heading small { display: block; }.curriculum-filter-heading strong { color: #24558f; font-size: .82rem; }.curriculum-filter-heading small { margin-top: 3px; color: #7890ac; font-size: .7rem; font-weight: 400; }
+.curriculum-filter-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }.curriculum-filter-grid label { display: flex; min-width: 0; flex-direction: column; gap: 5px; color: #42628c; font-size: .7rem; font-weight: 700; }.curriculum-filter-grid .ruas-select { width: 100%; }
+.filter-reset-button { padding: 6px 10px; border: 1px solid #bfd5ed; border-radius: 8px; color: #246bc5; background: #fff; font: inherit; font-size: .7rem; font-weight: 700; cursor: pointer; }.filter-reset-button:hover { background: #edf6ff; }.curriculum-filter-result { margin-top: 10px; color: #7890ac; font-size: .68rem; }
 .curriculum-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 .curriculum-group { min-width: 0; padding: 16px; border: 1px solid #e2e8f0; border-radius: 12px; background: #f9fbfd; }
 .subject-group, .topic-group { grid-column: 1 / -1; }
@@ -320,7 +365,7 @@ onUnmounted(dismissToast);
 .toast-slide-enter-active, .toast-slide-leave-active { transition: opacity .2s ease, transform .2s ease; }
 .toast-slide-enter-from, .toast-slide-leave-to { opacity: 0; transform: translateY(-10px); }
 @media (max-width: 900px) { .curriculum-grid { grid-template-columns: 1fr; } .subject-group, .topic-group { grid-column: auto; } .subject-group .curriculum-form, .topic-group .curriculum-form, .curriculum-form { grid-template-columns: 1fr 1fr; } .subject-group .form-actions, .topic-group .form-actions, .curriculum-form .form-actions, .class-form .form-actions { grid-column: 1 / -1; } }
-@media (max-width: 520px) { .curriculum-heading { flex-direction: column; } .subject-group .curriculum-form, .topic-group .curriculum-form, .curriculum-form { grid-template-columns: 1fr; } .subject-group .form-actions, .topic-group .form-actions, .curriculum-form .form-actions { grid-column: auto; } .curriculum-item { align-items: flex-start; flex-direction: column; } }
+@media (max-width: 520px) { .curriculum-heading { flex-direction: column; } .curriculum-filter-grid { grid-template-columns: 1fr; }.curriculum-filter-heading { align-items: flex-start; }.subject-group .curriculum-form, .topic-group .curriculum-form, .curriculum-form { grid-template-columns: 1fr; } .subject-group .form-actions, .topic-group .form-actions, .curriculum-form .form-actions { grid-column: auto; } .curriculum-item { align-items: flex-start; flex-direction: column; } }
 @media (max-width: 720px) {
   .mobile-curriculum-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; margin: 0 0 14px; padding: 5px; border: 1px solid #dce8f4; border-radius: 12px; background: #edf4fb; }
   .mobile-curriculum-tab { padding: 9px 5px; border: 0; border-radius: 8px; color: #6b809d; background: transparent; font: inherit; font-size: .68rem; font-weight: 700; cursor: pointer; }
