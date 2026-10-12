@@ -71,7 +71,7 @@
 
     <section class="panel table-panel report-print-area">
       <div class="panel-heading table-heading">
-        <div><h3>Hasil siswa</h3><p>{{ rows.length }} hasil sesuai filter</p></div>
+        <div><h3>Hasil siswa</h3><p>{{ rows.length }} hasil sesuai filter · klik baris untuk melihat analisis nomor soal</p></div>
         <span class="print-note no-print">Ekspor PDF menggunakan dialog cetak browser.</span>
       </div>
       <div v-if="loading" class="panel-empty">Memuat laporan...</div>
@@ -103,7 +103,23 @@
           <button class="close-btn" type="button" aria-label="Tutup detail" @click="detail = null">×</button>
         </div>
         <div class="detail-meta"><span>{{ detail.subject_label }}</span><span>{{ detail.topic_label || 'Semua topik' }}</span><span>Mulai: {{ formatDateTime(detail.started_at) }}</span><span>Selesai: {{ formatDateTime(detail.completed_at) }}</span><span>Durasi: {{ formatDuration(detail.total_time_seconds) }}</span></div>
-        <div class="detail-stats"><div><strong>{{ detail.final_score }}</strong><small>Skor akhir</small></div><div><strong>{{ detail.correct_count }}/{{ detail.total_questions }}</strong><small>Jawaban benar</small></div><div><strong>{{ detail.violation_count }}</strong><small>Aktivitas tercatat</small></div></div>
+        <div class="detail-stats"><div><strong>{{ detail.final_score }}</strong><small>Skor akhir</small></div><div><strong>{{ detail.correct_count }}/{{ detail.total_questions }}</strong><small>Jawaban benar</small></div><div><strong>{{ detail.unanswered_question_numbers.length }}</strong><small>Tidak dijawab</small></div><div><strong>{{ detail.violation_count }}</strong><small>Aktivitas tercatat</small></div></div>
+        <section class="analysis-summary">
+          <div class="analysis-summary-heading"><div><h4>Analisis per nomor soal</h4><p>Gunakan ringkasan ini untuk melihat bagian yang sudah dikuasai dan yang perlu diulang.</p></div><RuasSelect v-model="analysisFilter" :options="analysisFilterOptions" aria-label="Filter hasil analisis" /></div>
+          <div class="analysis-counts">
+            <div class="analysis-count correct"><strong>{{ detail.correct_question_numbers.length }}</strong><span>Benar</span><small>{{ questionNumbers(detail.correct_question_numbers) }}</small></div>
+            <div class="analysis-count incorrect"><strong>{{ detail.incorrect_question_numbers.length }}</strong><span>Salah</span><small>{{ questionNumbers(detail.incorrect_question_numbers) }}</small></div>
+            <div class="analysis-count unanswered"><strong>{{ detail.unanswered_question_numbers.length }}</strong><span>Tidak dijawab</span><small>{{ questionNumbers(detail.unanswered_question_numbers) }}</small></div>
+          </div>
+          <div v-if="filteredAnalysis.length" class="question-analysis-list">
+            <article v-for="question in filteredAnalysis" :key="question.question_id" :class="['question-analysis-item', `analysis-${question.status}`]">
+              <div class="question-analysis-title"><strong>Soal {{ question.question_number }}</strong><span>{{ question.topic_label }}</span><b>{{ analysisStatusLabel(question.status) }}</b></div>
+              <p>{{ question.question_text }}</p>
+              <div class="answer-comparison"><span><small>Jawaban siswa</small>{{ question.selected_texts.length ? question.selected_texts.join(', ') : 'Tidak dijawab' }}</span><span><small>Kunci jawaban</small>{{ question.correct_texts.join(', ') || question.correct_keys.join(', ') || '—' }}</span></div>
+            </article>
+          </div>
+          <p v-else class="muted">Tidak ada soal pada filter ini.</p>
+        </section>
         <div class="detail-columns">
           <div><h4>Aktivitas anti-cheat</h4><p v-if="detail.integrity_events.length === 0" class="muted">Tidak ada aktivitas yang tercatat.</p><ul v-else class="event-list"><li v-for="event in detail.integrity_events" :key="event.id"><span>{{ eventLabel(event.event_type) }}</span><small>{{ formatDateTime(event.occurred_at) }}</small></li></ul></div>
           <div><h4>Jawaban</h4><p>{{ detail.answers.length }} dari {{ detail.total_questions }} soal telah dijawab.</p><p class="muted">Waktu pengerjaan: {{ formatDuration(detail.total_time_seconds) }}</p></div>
@@ -118,7 +134,7 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import { fetchAdminCurriculum, fetchAdminReport, fetchAdminReportDetail, fetchAdminReportResetCount, resetAdminReportData } from '@/api/client';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import RuasSelect from '@/components/RuasSelect.vue';
-import type { AdminReportClassStatistic, AdminReportDetail, AdminReportFilters, AdminReportRow, AdminReportSummary, CurriculumData } from '@/types';
+import type { AdminReportClassStatistic, AdminReportDetail, AdminReportFilters, AdminReportQuestionStatus, AdminReportRow, AdminReportSummary, CurriculumData } from '@/types';
 
 const emptySummary: AdminReportSummary = { total_attempts: 0, completed_attempts: 0, in_progress_attempts: 0, abandoned_attempts: 0, average_score: 0, average_accuracy: 0, average_time_seconds: 0, total_violations: 0 };
 const curriculum = reactive<CurriculumData>({ classes: [], assessment_types: [], subjects: [] });
@@ -127,6 +143,7 @@ const rows = ref<AdminReportRow[]>([]);
 const summary = ref<AdminReportSummary>({ ...emptySummary });
 const classStatistics = ref<AdminReportClassStatistic[]>([]);
 const detail = ref<AdminReportDetail | null>(null);
+const analysisFilter = ref<'all' | AdminReportQuestionStatus>('all');
 const loading = ref(false);
 const errorMessage = ref('');
 const successMessage = ref('');
@@ -160,6 +177,13 @@ const activeFilterLabels = computed(() => {
   if (filters.search) labels.push(`Cari: ${filters.search}`);
   return labels;
 });
+const analysisFilterOptions = [
+  { value: 'all', label: 'Semua soal' },
+  { value: 'correct', label: 'Benar saja' },
+  { value: 'incorrect', label: 'Salah saja' },
+  { value: 'unanswered', label: 'Tidak dijawab' },
+];
+const filteredAnalysis = computed(() => detail.value?.question_analysis.filter((question) => analysisFilter.value === 'all' || question.status === analysisFilter.value) ?? []);
 
 async function loadReport() {
   loading.value = true;
@@ -217,10 +241,19 @@ async function resetReportData() {
 
 async function openDetail(attemptId: number) {
   try {
+    analysisFilter.value = 'all';
     detail.value = await fetchAdminReportDetail(attemptId);
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Gagal memuat detail hasil.';
   }
+}
+
+function questionNumbers(numbers: number[]) {
+  return numbers.length ? numbers.join(', ') : '—';
+}
+
+function analysisStatusLabel(status: AdminReportQuestionStatus) {
+  return { correct: 'Benar', incorrect: 'Salah', unanswered: 'Tidak dijawab' }[status];
 }
 
 function resetFilters() {
@@ -316,9 +349,10 @@ td strong, td small { display: block; }.report-row { cursor: pointer; }.report-r
 .detail-backdrop { position: fixed; z-index: 20; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(16, 39, 73, .42); }
 .detail-dialog { width: min(680px, 100%); max-height: min(720px, 90vh); overflow: auto; padding: 24px; border-radius: 18px; background: #fff; box-shadow: 0 24px 70px rgba(16,39,73,.25); }
 .detail-header { display: flex; justify-content: space-between; gap: 14px; }.detail-header h3 { margin: 6px 0 3px; color: #173e7f; font-size: 1.35rem; }.detail-header p, .muted { color: #8294aa; font-size: .82rem; }.close-btn { width: 32px; height: 32px; border: 0; border-radius: 50%; color: #55718f; background: #eef4fb; font-size: 1.5rem; cursor: pointer; }
-.detail-meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 14px; }.detail-meta span { padding: 6px 9px; border-radius: 7px; color: #38649a; background: #edf5ff; font-size: .73rem; }.detail-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }.detail-stats div { padding: 13px; border-radius: 10px; background: #f2f7fc; text-align: center; }.detail-stats strong, .detail-stats small { display: block; }.detail-stats strong { color: #166bc0; font-size: 1.15rem; }.detail-stats small { margin-top: 3px; color: #7c90aa; font-size: .7rem; }.detail-columns { display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; margin-top: 22px; }.detail-columns h4 { margin-bottom: 9px; color: #315987; font-size: .85rem; }.event-list { display: flex; flex-direction: column; gap: 7px; padding: 0; list-style: none; }.event-list li { display: flex; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: 7px; background: #fff4e2; color: #946321; font-size: .75rem; }.event-list small { color: #b1844c; font-size: .68rem; }
+.detail-meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 14px; }.detail-meta span { padding: 6px 9px; border-radius: 7px; color: #38649a; background: #edf5ff; font-size: .73rem; }.detail-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }.detail-stats div { padding: 13px; border-radius: 10px; background: #f2f7fc; text-align: center; }.detail-stats strong, .detail-stats small { display: block; }.detail-stats strong { color: #166bc0; font-size: 1.15rem; }.detail-stats small { margin-top: 3px; color: #7c90aa; font-size: .7rem; }.detail-columns { display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; margin-top: 22px; }.detail-columns h4 { margin-bottom: 9px; color: #315987; font-size: .85rem; }.event-list { display: flex; flex-direction: column; gap: 7px; padding: 0; list-style: none; }.event-list li { display: flex; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: 7px; background: #fff4e2; color: #946321; font-size: .75rem; }.event-list small { color: #b1844c; font-size: .68rem; }
+.analysis-summary { margin-top: 22px; padding-top: 18px; border-top: 1px solid #e6edf5; }.analysis-summary-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }.analysis-summary-heading h4 { color: #315987; font-size: .9rem; }.analysis-summary-heading p { margin-top: 4px; color: #8294aa; font-size: .75rem; }.analysis-summary-heading :deep(.ruas-select) { width: 145px; flex: 0 0 auto; }.analysis-counts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0; }.analysis-count { min-width: 0; padding: 10px; border-radius: 10px; background: #f4f8fc; }.analysis-count strong, .analysis-count span, .analysis-count small { display: block; }.analysis-count strong { font-size: 1.1rem; }.analysis-count span { margin-top: 2px; font-size: .72rem; font-weight: 800; }.analysis-count small { overflow: hidden; margin-top: 6px; color: #7c90aa; font-size: .68rem; text-overflow: ellipsis; white-space: nowrap; }.analysis-count.correct { border-left: 3px solid #2fa474; }.analysis-count.correct strong, .analysis-count.correct span { color: #21815e; }.analysis-count.incorrect { border-left: 3px solid #d56b6b; }.analysis-count.incorrect strong, .analysis-count.incorrect span { color: #b24b55; }.analysis-count.unanswered { border-left: 3px solid #d79a3b; }.analysis-count.unanswered strong, .analysis-count.unanswered span { color: #a86d1b; }.question-analysis-list { display: flex; flex-direction: column; gap: 8px; max-height: 330px; overflow: auto; padding-right: 3px; }.question-analysis-item { padding: 11px 12px; border: 1px solid #e2eaf3; border-left: 3px solid #b8c7d9; border-radius: 9px; background: #fbfdff; }.question-analysis-item.analysis-correct { border-left-color: #2fa474; }.question-analysis-item.analysis-incorrect { border-left-color: #d56b6b; }.question-analysis-item.analysis-unanswered { border-left-color: #d79a3b; }.question-analysis-title { display: flex; align-items: center; gap: 7px; }.question-analysis-title strong { color: #254d83; font-size: .77rem; }.question-analysis-title span { overflow: hidden; color: #8294aa; font-size: .68rem; text-overflow: ellipsis; white-space: nowrap; }.question-analysis-title b { margin-left: auto; padding: 3px 6px; border-radius: 999px; color: #55718f; background: #edf3f9; font-size: .62rem; white-space: nowrap; }.analysis-correct .question-analysis-title b { color: #21815e; background: #e2f7ed; }.analysis-incorrect .question-analysis-title b { color: #b24b55; background: #ffebeb; }.analysis-unanswered .question-analysis-title b { color: #a86d1b; background: #fff3d9; }.question-analysis-item p { margin: 8px 0; color: #405a76; font-size: .77rem; line-height: 1.45; }.answer-comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }.answer-comparison span { padding: 7px 8px; border-radius: 7px; color: #405a76; background: #f1f6fb; font-size: .7rem; }.answer-comparison small { display: block; margin-bottom: 3px; color: #8497ad; font-size: .63rem; font-weight: 700; }
 @media (max-width: 900px) { .filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 620px) { .report-toolbar { align-items: flex-start; flex-direction: column; }.toolbar-actions { width: 100%; }.toolbar-actions button { flex: 1; }.filters-panel .panel-heading { align-items: flex-start; }.filter-toggle { width: 100%; }.filters-panel .panel-heading { flex-direction: column; }.filter-grid { grid-template-columns: 1fr; }.search-field { grid-column: auto; }.filter-reset { width: 100%; }.summary-grid { grid-template-columns: 1fr 1fr; }.summary-card { min-height: 98px; padding: 13px; }.summary-card strong { font-size: 1.3rem; }.detail-columns { grid-template-columns: 1fr; } }
+@media (max-width: 620px) { .report-toolbar { align-items: flex-start; flex-direction: column; }.toolbar-actions { width: 100%; }.toolbar-actions button { flex: 1; }.filters-panel .panel-heading { align-items: flex-start; }.filter-toggle { width: 100%; }.filters-panel .panel-heading { flex-direction: column; }.filter-grid { grid-template-columns: 1fr; }.search-field { grid-column: auto; }.filter-reset { width: 100%; }.summary-grid { grid-template-columns: 1fr 1fr; }.summary-card { min-height: 98px; padding: 13px; }.summary-card strong { font-size: 1.3rem; }.detail-stats { grid-template-columns: 1fr 1fr; }.detail-columns { grid-template-columns: 1fr; }.analysis-summary-heading { flex-direction: column; }.analysis-summary-heading :deep(.ruas-select) { width: 100%; }.analysis-counts { grid-template-columns: 1fr; }.answer-comparison { grid-template-columns: 1fr; } }
 @media print {
   :global(body) { background: #fff !important; }
   :global(.admin-view) { padding: 0 !important; }

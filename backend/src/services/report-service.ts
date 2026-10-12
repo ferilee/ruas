@@ -8,6 +8,7 @@ import { examAttempts } from '@/db/schema/exam-attempts';
 import { examIntegrityEvents } from '@/db/schema/exam-integrity-events';
 import { participantProfiles } from '@/db/schema/participant-profiles';
 import { questions } from '@/db/schema/questions';
+import { questionOptions } from '@/db/schema/question-options';
 import { subjects } from '@/db/schema/subjects';
 import { topics } from '@/db/schema/topics';
 import { users } from '@/db/schema/users';
@@ -39,6 +40,7 @@ export function createReportDb(pool: Pool) {
       examIntegrityEvents,
       participantProfiles,
       questions,
+      questionOptions,
       subjects,
       topics,
       users,
@@ -107,6 +109,7 @@ export async function listReportAttempts(db: ReportDb, filters: ReportFilters) {
       violation_count: examAttempts.violation_count,
       integrity_penalty: examAttempts.integrity_penalty,
       final_score: examAttempts.final_score,
+      question_order: examAttempts.question_order,
       started_at: examAttempts.started_at,
       completed_at: examAttempts.completed_at,
     })
@@ -145,7 +148,8 @@ export async function getReportDetail(db: ReportDb, attemptId: number) {
   const attempt = rows.find((row) => row.attempt_id === attemptId);
   if (!attempt) return null;
 
-  const [answers, events] = await Promise.all([
+  const orderedQuestionIds = Array.isArray(attempt.question_order) ? attempt.question_order : [];
+  const [answers, events, questionRows] = await Promise.all([
     db
       .select({
         id: examAnswers.id,
@@ -166,12 +170,59 @@ export async function getReportDetail(db: ReportDb, attemptId: number) {
       .from(examIntegrityEvents)
       .where(eq(examIntegrityEvents.attempt_id, attemptId))
       .orderBy(asc(examIntegrityEvents.occurred_at), asc(examIntegrityEvents.id)),
+    orderedQuestionIds.length
+      ? db.select({ id: questions.id, topic_id: questions.topic_id, topic_label: topics.label, question_text: questions.question_text })
+        .from(questions)
+        .innerJoin(topics, eq(questions.topic_id, topics.id))
+        .where(inArray(questions.id, orderedQuestionIds))
+      : Promise.resolve([]),
   ]);
+
+  const questionIds = questionRows.map((question) => question.id);
+  const optionRows = questionIds.length
+    ? await db.select({ question_id: questionOptions.question_id, option_key: questionOptions.option_key, option_text: questionOptions.option_text, is_correct: questionOptions.is_correct })
+      .from(questionOptions)
+      .where(inArray(questionOptions.question_id, questionIds))
+    : [];
+  const questionById = new Map(questionRows.map((question) => [question.id, question]));
+  const optionsByQuestion = new Map<number, typeof optionRows>();
+  for (const option of optionRows) {
+    const options = optionsByQuestion.get(option.question_id) ?? [];
+    options.push(option);
+    optionsByQuestion.set(option.question_id, options);
+  }
+  const answerByQuestion = new Map(answers.map((answer) => [answer.question_id, answer]));
+  const questionAnalysis = orderedQuestionIds.map((questionId, index) => {
+    const question = questionById.get(questionId);
+    const answer = answerByQuestion.get(questionId);
+    const options = optionsByQuestion.get(questionId) ?? [];
+    const selectedKeys = Array.isArray(answer?.selected_keys) ? answer.selected_keys as string[] : [];
+    const correctKeys = options.filter((option) => option.is_correct).map((option) => option.option_key);
+    const status = answer ? (answer.is_correct ? 'correct' : 'incorrect') : 'unanswered';
+    return {
+      question_number: index + 1,
+      question_id: questionId,
+      topic_label: question?.topic_label ?? attempt.topic_label ?? 'Topik',
+      question_text: question?.question_text ?? answer?.question_text ?? 'Soal tidak tersedia',
+      selected_keys: selectedKeys,
+      selected_texts: options.filter((option) => selectedKeys.includes(option.option_key)).map((option) => option.option_text),
+      correct_keys: correctKeys,
+      correct_texts: options.filter((option) => option.is_correct).map((option) => option.option_text),
+      status,
+      is_correct: answer?.is_correct ?? false,
+      elapsed_seconds: answer?.elapsed_seconds ?? 0,
+      answered_at: answer ? toIso(answer.answered_at) : null,
+    };
+  });
 
   return {
     ...attempt,
     answers: answers.map((answer) => ({ ...answer, answered_at: toIso(answer.answered_at) })),
     integrity_events: events.map((event) => ({ ...event, occurred_at: toIso(event.occurred_at) })),
+    question_analysis: questionAnalysis,
+    correct_question_numbers: questionAnalysis.filter((question) => question.status === 'correct').map((question) => question.question_number),
+    incorrect_question_numbers: questionAnalysis.filter((question) => question.status === 'incorrect').map((question) => question.question_number),
+    unanswered_question_numbers: questionAnalysis.filter((question) => question.status === 'unanswered').map((question) => question.question_number),
   };
 }
 

@@ -331,6 +331,23 @@ export interface AdminReportAnswer {
   answered_at: string;
 }
 
+export type AdminReportQuestionStatus = 'correct' | 'incorrect' | 'unanswered';
+
+export interface AdminReportQuestionAnalysis {
+  question_number: number;
+  question_id: number;
+  topic_label: string;
+  question_text: string;
+  selected_keys: string[];
+  selected_texts: string[];
+  correct_keys: string[];
+  correct_texts: string[];
+  status: AdminReportQuestionStatus;
+  is_correct: boolean;
+  elapsed_seconds: number;
+  answered_at: string | null;
+}
+
 export interface AdminReportIntegrityEvent {
   id: number;
   attempt_id: number;
@@ -341,6 +358,10 @@ export interface AdminReportIntegrityEvent {
 export interface AdminReportDetail extends AdminReportRow {
   answers: AdminReportAnswer[];
   integrity_events: AdminReportIntegrityEvent[];
+  question_analysis: AdminReportQuestionAnalysis[];
+  correct_question_numbers: number[];
+  incorrect_question_numbers: number[];
+  unanswered_question_numbers: number[];
 }
 
 export interface AdminReportData {
