@@ -157,14 +157,17 @@
           <template v-else>
           <div class="question-toolbar">
             <div class="toolbar-search">
-              <input v-model="search" class="search-input" placeholder="Cari teks soal atau external_id..." @keyup.enter="loadQuestions" />
-              <button class="secondary-btn" type="button" :disabled="loading" @click="loadQuestions">Cari</button>
+              <input v-model="search" class="search-input" placeholder="Cari soal, topik, atau external ID..." />
+              <button class="secondary-btn" type="button" :disabled="loading" @click="runQuestionSearch">Cari</button>
             </div>
+            <button class="secondary-btn import-question-button" type="button" @click="openImportModal">Import JSON</button>
             <button class="primary-btn new-question-button" type="button" @click="startNew">＋ Soal Baru</button>
           </div>
 
-          <div class="question-filters" aria-label="Filter tingkat kesulitan">
+          <div class="question-filters" aria-label="Filter bank soal">
             <button v-for="filter in difficultyFilters" :key="filter.value" type="button" :class="['filter-chip', { active: difficultyFilter === filter.value }]" @click="difficultyFilter = filter.value">{{ filter.label }}</button>
+            <RuasSelect v-model="questionTypeFilter" :options="questionTypeFilterOptions" aria-label="Filter tipe soal" />
+            <RuasSelect v-model="questionTopicFilter" :options="questionTopicFilterOptions" aria-label="Filter topik soal" />
           </div>
 
           <section class="panel topic-access-panel">
@@ -191,23 +194,32 @@
         <div class="panel question-list-panel">
           <div class="panel-heading">
             <h2>Daftar Soal</h2>
-            <span>{{ filteredQuestions.length }} soal</span>
+            <span>{{ questionTotal }} soal</span>
           </div>
 
           <div v-if="loading" class="panel-empty">Memuat...</div>
-          <div v-else-if="filteredQuestions.length === 0" class="panel-empty">Belum ada soal yang cocok.</div>
+          <div v-else-if="questions.length === 0" class="panel-empty">Belum ada soal yang cocok.</div>
           <button
-            v-for="item in filteredQuestions"
+            v-for="item in questions"
             :key="item.id"
             class="question-row"
             :class="{ active: editingId === item.id }"
             type="button"
             @click="editQuestion(item.id)"
           >
-            <span class="question-row-top"><span class="question-number">#{{ item.id }}</span><span class="topic-badge">{{ item.topic_label }}</span><span class="question-menu" aria-hidden="true">⋮</span></span>
+            <span class="question-row-top"><span class="question-number">#{{ item.id }}</span><span class="topic-badge">{{ item.topic_label }}</span><span class="question-type-badge">{{ questionTypeLabel(item.type) }}</span><span class="question-menu" aria-hidden="true">⋮</span></span>
             <strong><MathText :text="item.question_text" /></strong>
             <span class="question-row-bottom"><span :class="['difficulty-badge', `difficulty-${item.difficulty}`]">{{ difficultyLabel(item.difficulty) }}</span><span v-if="item.external_id" class="row-id">{{ item.external_id }}</span></span>
           </button>
+          <div v-if="questionTotal > 0" class="question-pagination">
+            <span class="pagination-summary">Menampilkan {{ questionRangeStart }}–{{ questionRangeEnd }} dari {{ questionTotal }}</span>
+            <div class="pagination-controls">
+              <button type="button" class="pagination-btn" :disabled="questionPage <= 1 || loading" @click="goToQuestionPage(questionPage - 1)">‹</button>
+              <span>Halaman {{ questionPage }} / {{ questionTotalPages }}</span>
+              <button type="button" class="pagination-btn" :disabled="questionPage >= questionTotalPages || loading" @click="goToQuestionPage(questionPage + 1)">›</button>
+              <RuasSelect v-model="questionPageSize" :options="questionPageSizeOptions" aria-label="Jumlah soal per halaman" />
+            </div>
+          </div>
         </div>
 
         <div class="panel form-panel" :class="{ open: questionFormOpen }">
@@ -273,14 +285,15 @@
         </div>
           </section>
 
-          <section class="panel import-panel">
+          <section class="panel import-panel" :class="{ open: importFormOpen }">
         <div class="panel-heading">
           <div>
             <h2>Import JSON</h2>
             <p>Terima array soal atau object seed dengan properti <code>questions</code>.</p>
           </div>
-          <RuasSelect v-model="importMode" :options="importModeOptions" aria-label="Mode import soal" />
+          <div class="form-heading-actions"><RuasSelect v-model="importMode" :options="importModeOptions" aria-label="Mode import soal" /><button class="close-form-btn" type="button" aria-label="Tutup import JSON" @click="closeImportModal">×</button></div>
         </div>
+        <label class="import-file-picker"><span>Unggah file JSON</span><input type="file" accept=".json,application/json" @change="handleImportFile" /></label>
         <textarea v-model="importText" class="import-textarea" rows="12" placeholder='[{ "topic_slug": "aljabar", ... }]' spellcheck="false"></textarea>
         <div class="import-actions">
           <button class="secondary-btn" :disabled="importing || !importText.trim()" @click="previewImport">Preview</button>
@@ -324,7 +337,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import MathText from '@/components/MathText.vue';
@@ -384,7 +397,15 @@ const topicAccessMessage = ref('');
 const topicAccessMessageType = ref<'success' | 'error'>('success');
 const search = ref('');
 const difficultyFilter = ref<AdminQuestionListItem['difficulty'] | 'all'>('all');
+const questionTypeFilter = ref<AdminQuestionListItem['type'] | 'all'>('all');
+const questionTopicFilter = ref<number | null>(null);
+const questionPage = ref(1);
+const questionPageSize = ref(25);
+const questionTotal = ref(0);
+const questionTotalPages = ref(1);
 const questionFormOpen = ref(false);
+const importFormOpen = ref(false);
+let questionSearchTimer: ReturnType<typeof setTimeout> | null = null;
 const difficultyFilters: Array<{ value: AdminQuestionListItem['difficulty'] | 'all'; label: string }> = [
   { value: 'all', label: 'Semua' },
   { value: 'easy', label: 'Mudah' },
@@ -406,9 +427,11 @@ const importModeOptions = [
   { value: 'upsert', label: 'Tambah atau perbarui berdasarkan ID' },
 ];
 const topicOptions = computed(() => topics.value.map((topic) => ({ value: topic.id, label: `${topic.subject_label} — ${topic.label}` })));
-const filteredQuestions = computed(() => difficultyFilter.value === 'all'
-  ? questions.value
-  : questions.value.filter((question) => question.difficulty === difficultyFilter.value));
+const questionTypeFilterOptions = [{ value: 'all', label: 'Semua tipe soal' }, ...questionTypeOptions];
+const questionTopicFilterOptions = computed(() => [{ value: null, label: 'Semua topik' }, ...topics.value.map((topic) => ({ value: topic.id, label: `${topic.subject_label} · ${topic.label}` }))]);
+const questionPageSizeOptions = [25, 50, 100].map((value) => ({ value, label: `${value} soal` }));
+const questionRangeStart = computed(() => questionTotal.value === 0 ? 0 : (questionPage.value - 1) * questionPageSize.value + 1);
+const questionRangeEnd = computed(() => Math.min(questionTotal.value, questionPage.value * questionPageSize.value));
 const editingId = ref<number | null>(null);
 const importText = ref('');
 const parsedImport = ref<unknown>(null);
@@ -430,6 +453,18 @@ const scheduleSaving = ref(false);
 const scheduleMessage = ref('');
 const scheduleMessageType = ref<'success' | 'error'>('success');
 const scheduleTypeOptions = computed(() => scheduleTypes.value.map((item) => ({ value: item.id, label: item.label })));
+
+watch(search, () => {
+  if (questionSearchTimer) clearTimeout(questionSearchTimer);
+  questionSearchTimer = setTimeout(() => {
+    questionPage.value = 1;
+    void loadQuestions();
+  }, 350);
+});
+watch([difficultyFilter, questionTypeFilter, questionTopicFilter, questionPageSize], () => {
+  questionPage.value = 1;
+  void loadQuestions();
+});
 
 function selectSection(section: AdminSection) {
   activeSection.value = section;
@@ -505,11 +540,18 @@ function resetDraft() {
 function startNew() {
   resetDraft();
   questionFormOpen.value = true;
-  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function closeQuestionForm() {
   questionFormOpen.value = false;
+}
+
+function openImportModal() {
+  importFormOpen.value = true;
+}
+
+function closeImportModal() {
+  importFormOpen.value = false;
 }
 
 function askConfirmation(title: string, message: string, action: () => Promise<void>, label = 'OK') {
@@ -556,12 +598,36 @@ async function loadQuestions() {
   loading.value = true;
   errorMessage.value = '';
   try {
-    questions.value = await fetchAdminQuestions(search.value);
+    const result = await fetchAdminQuestions({
+      search: search.value.trim() || undefined,
+      topic_id: questionTopicFilter.value ?? undefined,
+      type: questionTypeFilter.value === 'all' ? undefined : questionTypeFilter.value,
+      difficulty: difficultyFilter.value === 'all' ? undefined : difficultyFilter.value,
+      page: questionPage.value,
+      page_size: questionPageSize.value,
+    });
+    questions.value = result.questions;
+    questionPage.value = result.page;
+    questionPageSize.value = result.page_size;
+    questionTotal.value = result.total;
+    questionTotalPages.value = result.total_pages;
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Gagal memuat soal.';
   } finally {
     loading.value = false;
   }
+}
+
+function runQuestionSearch() {
+  if (questionSearchTimer) clearTimeout(questionSearchTimer);
+  questionPage.value = 1;
+  void loadQuestions();
+}
+
+function goToQuestionPage(page: number) {
+  if (page < 1 || page > questionTotalPages.value || page === questionPage.value) return;
+  questionPage.value = page;
+  void loadQuestions();
 }
 
 async function loadData() {
@@ -572,7 +638,11 @@ async function loadData() {
       fetchAdminCurriculum(),
       fetchAdminSchedule(),
     ]);
-    questions.value = questionRows;
+    questions.value = questionRows.questions;
+    questionPage.value = questionRows.page;
+    questionPageSize.value = questionRows.page_size;
+    questionTotal.value = questionRows.total;
+    questionTotalPages.value = questionRows.total_pages;
     topics.value = topicRows;
     syncTopicAccessDrafts(topicRows);
     scheduleTypes.value = curriculumData.assessment_types;
@@ -694,7 +764,6 @@ async function editQuestion(id: number) {
     editingId.value = id;
     formMessage.value = '';
     questionFormOpen.value = true;
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Gagal memuat soal.';
   }
@@ -726,6 +795,7 @@ async function saveQuestion() {
       formMessage.value = 'Soal berhasil diperbarui.';
     }
     formMessageType.value = 'success';
+    questionPage.value = 1;
     await loadQuestions();
     questionFormOpen.value = false;
   } catch (error) {
@@ -744,6 +814,7 @@ function removeQuestion() {
       await deleteAdminQuestion(questionId);
       resetDraft();
       questionFormOpen.value = false;
+      questionPage.value = 1;
       await loadQuestions();
     } catch (error) {
       formMessageType.value = 'error';
@@ -756,12 +827,32 @@ function difficultyLabel(value: AdminQuestionListItem['difficulty']) {
   return { easy: 'Mudah', medium: 'Sedang', hard: 'Sulit' }[value];
 }
 
+function questionTypeLabel(value: AdminQuestionListItem['type']) {
+  return { single_choice: 'Pilihan ganda', multiple_response: 'Multi jawaban', true_false: 'Benar / Salah' }[value];
+}
+
 function parseImportText(): unknown | null {
   try {
     return JSON.parse(importText.value);
   } catch {
     errorMessage.value = 'JSON tidak valid. Periksa koma, kurung, dan tanda kutip.';
     return null;
+  }
+}
+
+async function handleImportFile(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+  try {
+    importText.value = await file.text();
+    parsedImport.value = null;
+    importSummary.value = null;
+    errorMessage.value = '';
+  } catch {
+    errorMessage.value = 'File JSON tidak dapat dibaca.';
+  } finally {
+    input.value = '';
   }
 }
 
@@ -787,7 +878,9 @@ function applyImport() {
     importing.value = true;
     try {
       importSummary.value = await importAdminQuestions(parsedImport.value, importMode.value, false);
+      questionPage.value = 1;
       await loadQuestions();
+      closeImportModal();
     } catch (error) {
       errorMessage.value = error instanceof Error ? error.message : 'Gagal menerapkan import.';
     } finally {
@@ -805,6 +898,10 @@ onMounted(async () => {
   } finally {
     authLoading.value = false;
   }
+});
+
+onUnmounted(() => {
+  if (questionSearchTimer) clearTimeout(questionSearchTimer);
 });
 </script>
 
@@ -867,10 +964,11 @@ onMounted(async () => {
 .primary-btn:disabled, .secondary-btn:disabled { opacity: .6; cursor: default; }
 .full-btn { width: 100%; }
 .toolbar { justify-content: flex-start; }
-.question-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.question-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .toolbar-search { display: flex; min-width: 0; flex: 1; gap: 8px; }
 .toolbar-search .search-input { max-width: 420px; }
 .question-filters { display: flex; flex-wrap: wrap; gap: 7px; margin: 14px 0 16px; }
+.question-filters > .ruas-select { width: min(210px, 100%); }
 .topic-access-panel { margin-bottom: 16px; padding: 18px; }
 .topic-access-panel .panel-heading { margin-bottom: 4px; }
 .topic-access-panel .panel-heading p { margin-top: 4px; color: #778899; font-size: .8rem; }
@@ -884,27 +982,33 @@ onMounted(async () => {
 .filter-chip { padding: 7px 12px; border: 1px solid #d7e2ef; border-radius: 999px; color: #617793; background: #fff; font: inherit; font-size: .75rem; font-weight: 700; cursor: pointer; }
 .filter-chip:hover, .filter-chip.active { border-color: #2b72ce; color: #fff; background: #2b72ce; }
 .search-input { max-width: 420px; }
-.editor-grid { display: grid; grid-template-columns: minmax(260px, .8fr) minmax(360px, 1.2fr); gap: 20px; align-items: start; }
+.editor-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-items: start; }
 .question-list-panel { padding: 0; overflow: hidden; }
 .question-list-panel .panel-heading, .form-panel .panel-heading, .import-panel .panel-heading { padding: 20px; border-bottom: 1px solid #e2e8f0; }
 .panel-heading span { color: #778899; font-size: .9rem; }
-.question-row { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; width: 100%; padding: 16px 20px; border: 0; border-bottom: 1px solid #edf1f5; background: #fff; color: #253f62; text-align: left; cursor: pointer; }
+.question-row { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; width: 100%; padding: 13px 20px; border: 0; border-bottom: 1px solid #edf1f5; background: #fff; color: #253f62; text-align: left; cursor: pointer; }
 .question-row:hover, .question-row.active { background: #f0f4ff; }
 .question-row-top, .question-row-bottom { display: flex; width: 100%; align-items: center; gap: 7px; }
 .question-row-top { min-width: 0; }
 .question-row-bottom { justify-content: space-between; }
 .question-number { color: #2564ba; font-size: .75rem; font-weight: 800; }
-.topic-badge, .difficulty-badge { display: inline-flex; max-width: 100%; overflow: hidden; align-items: center; padding: 4px 7px; border-radius: 999px; font-size: .67rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.topic-badge, .question-type-badge, .difficulty-badge { display: inline-flex; max-width: 100%; overflow: hidden; align-items: center; padding: 4px 7px; border-radius: 999px; font-size: .67rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .topic-badge { color: #41688f; background: #edf5ff; }
+.question-type-badge { color: #7650b6; background: #f1ebff; }
 .difficulty-badge { color: #687c96; background: #eef2f7; }
 .difficulty-easy { color: #287b59; background: #e2f7ed; }.difficulty-medium { color: #9a691a; background: #fff3d9; }.difficulty-hard { color: #ae4d55; background: #ffebeb; }
 .question-menu { margin-left: auto; color: #8ca0b8; font-size: 1.25rem; line-height: 1; }
 .question-row > strong { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; color: #294b76; font-size: .87rem; line-height: 1.45; }
 .row-id { overflow: hidden; color: #778899; font-size: .72rem; text-overflow: ellipsis; white-space: nowrap; }
 .panel-empty { padding: 24px 20px; color: #778899; }
+.question-pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 16px; border-top: 1px solid #e5edf6; color: #7389a3; font-size: .72rem; }
+.pagination-controls { display: flex; align-items: center; gap: 7px; }
+.pagination-btn { display: grid; width: 29px; height: 29px; place-items: center; border: 1px solid #d4e2f1; border-radius: 8px; color: #246bc5; background: #f4f8fd; font-size: 1.05rem; line-height: 1; cursor: pointer; }
+.pagination-btn:disabled { color: #aab9c9; background: #f1f4f8; cursor: default; }
+.pagination-controls .ruas-select { width: 104px; }
 .form-panel form { display: flex; flex-direction: column; gap: 14px; padding: 20px; }
 .form-heading-actions { display: flex; align-items: center; gap: 8px; }
-.close-form-btn { display: none; width: 30px; height: 30px; border: 0; border-radius: 50%; color: #58718e; background: #edf3fa; font-size: 1.3rem; line-height: 1; cursor: pointer; }
+.close-form-btn { display: grid; width: 30px; height: 30px; place-items: center; border: 0; border-radius: 50%; color: #58718e; background: #edf3fa; font-size: 1.3rem; line-height: 1; cursor: pointer; }
 label { display: flex; flex-direction: column; gap: 6px; color: #445566; font-weight: 600; }
 .field-hint { color: #778899; font-weight: 400; font-size: .8rem; }
 .math-preview { padding: 12px; border: 1px dashed #b8c5d5; border-radius: 8px; background: #f8fafc; color: #445566; }
@@ -919,9 +1023,17 @@ legend { padding: 0 6px; color: #445566; font-weight: 600; }
 .correct-toggle { flex-direction: row; align-items: center; white-space: nowrap; font-size: .85rem; }
 .remove-option, .danger-link { color: #c53030; border: 0; background: transparent; cursor: pointer; font-weight: 700; }
 .add-option { align-self: flex-start; color: #1e40af; border: 0; background: transparent; cursor: pointer; font-weight: 600; }
-.import-panel { display: flex; flex-direction: column; gap: 14px; }
+.import-panel { display: none; flex-direction: column; gap: 14px; }
+.form-panel { display: none; }
+.form-panel.open, .import-panel.open { position: fixed; z-index: 60; top: 50%; left: 50%; display: flex; width: min(800px, calc(100vw - 40px)); max-height: calc(100vh - 40px); overflow-y: auto; transform: translate(-50%, -50%); border: 1px solid #d8e6f5; border-radius: 18px; box-shadow: 0 0 0 100vmax rgba(18, 42, 76, .34), 0 22px 55px rgba(22, 55, 104, .28); }
+.form-panel.open { flex-direction: column; }
+.form-panel.open .panel-heading, .import-panel.open .panel-heading { position: sticky; z-index: 1; top: 0; background: #fff; }
+.form-panel.open .close-form-btn, .import-panel.open .close-form-btn { display: grid; }
 .import-panel .panel-heading { margin: -20px -20px 0; }
 .import-panel .panel-heading p { font-size: .85rem; margin-top: 4px; }
+.import-file-picker { display: flex; width: fit-content; align-items: center; padding: 9px 12px; border: 1px dashed #8eb9e8; border-radius: 9px; color: #246bc5; background: #f3f8ff; font-size: .78rem; font-weight: 700; cursor: pointer; }
+.import-file-picker:hover { border-color: #287bd7; background: #eaf4ff; }
+.import-file-picker input { display: none; }
 .import-textarea { width: 100%; padding: 12px; border: 2px solid #d4dde6; border-radius: 8px; font: 0.9rem monospace; }
 .import-actions { justify-content: flex-start; }
 .import-summary { background: #f0f4ff; padding: 12px; border-radius: 8px; }
@@ -1052,16 +1164,20 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
   .question-toolbar { align-items: stretch; flex-direction: column; }
   .toolbar-search { width: 100%; }
   .toolbar-search .search-input { max-width: none; }
-  .new-question-button { width: 100%; }
+  .import-question-button, .new-question-button { width: 100%; }
   .question-filters { margin-top: 12px; }
+  .question-filters > .ruas-select { width: 100%; }
   .topic-access-panel { padding: 16px; }
   .topic-access-row { align-items: stretch; flex-direction: column; }
   .topic-access-controls { min-width: 0; grid-template-columns: 1fr; }
   .topic-access-controls .primary-btn { width: 100%; }
   .question-list-panel { min-height: 220px; }
+  .question-pagination { align-items: flex-start; flex-direction: column; }
+  .pagination-controls { width: 100%; justify-content: space-between; }
   .form-panel { display: none; }
-  .form-panel.open { position: fixed; z-index: 40; inset: 0; display: flex; overflow-y: auto; flex-direction: column; padding: 0; border-radius: 0; }
+  .form-panel.open, .import-panel.open { position: fixed; z-index: 40; inset: 0; display: flex; width: 100%; max-height: none; overflow-y: auto; transform: none; flex-direction: column; padding: 0; border-radius: 0; box-shadow: none; }
   .form-panel.open .panel-heading { position: sticky; z-index: 1; top: 0; padding: 16px 18px; background: #fff; }
+  .import-panel.open .panel-heading { position: sticky; z-index: 1; top: 0; margin: -20px -20px 0; padding: 16px 18px; background: #fff; }
   .form-panel.open form { padding: 18px; padding-bottom: 34px; }
   .form-panel.open .close-form-btn { display: block; }
   .mobile-more-backdrop { position: fixed; z-index: 29; inset: 0; display: block; background: rgba(18, 42, 76, .2); }

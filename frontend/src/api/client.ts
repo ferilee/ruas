@@ -2,6 +2,7 @@ import type {
   AdminQuestion,
   AdminQuestionInput,
   AdminQuestionListItem,
+  AdminQuestionPage,
   AdminTopic,
   AdminTopicInput,
   AdminUser,
@@ -231,10 +232,13 @@ export async function adminLogin(password: string): Promise<void> {
   sessionStorage.setItem('admin_token', data.token);
 }
 
-export async function fetchAdminQuestions(search?: string): Promise<AdminQuestionListItem[]> {
-  const query = search ? `?search=${encodeURIComponent(search)}` : '';
-  const data = await adminRequest<{ questions: AdminQuestionListItem[] }>(`/admin/questions${query}`);
-  return data.questions;
+export async function fetchAdminQuestions(filters: { search?: string; topic_id?: number; type?: AdminQuestionListItem['type']; difficulty?: AdminQuestionListItem['difficulty']; page?: number; page_size?: number } = {}): Promise<AdminQuestionPage> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    if (value !== undefined && value !== null && value !== '') params.set(key, String(value));
+  }
+  const query = params.toString();
+  return adminRequest<AdminQuestionPage>(`/admin/questions${query ? `?${query}` : ''}`);
 }
 
 export async function fetchAdminQuestion(id: number): Promise<AdminQuestion> {

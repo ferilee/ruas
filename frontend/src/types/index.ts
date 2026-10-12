@@ -118,6 +118,14 @@ export interface AdminQuestionListItem {
   external_id: string | null;
 }
 
+export interface AdminQuestionPage {
+  questions: AdminQuestionListItem[];
+  page: number;
+  page_size: number;
+  total: number;
+  total_pages: number;
+}
+
 export interface AdminQuestion extends AdminQuestionListItem {
   explanation_text: string;
   options: AdminQuestionOption[];

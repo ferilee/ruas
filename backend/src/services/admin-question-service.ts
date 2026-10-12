@@ -29,14 +29,49 @@ export interface AdminQuestionDetail extends AdminQuestionListItem {
   options: Array<{ key: string; text: string; is_correct: boolean }>;
 }
 
+export interface AdminQuestionListFilters {
+  search?: string;
+  topic_id?: number;
+  type?: QuestionType;
+  difficulty?: 'easy' | 'medium' | 'hard';
+  page?: number;
+  page_size?: number;
+}
+
+export interface AdminQuestionPage {
+  questions: AdminQuestionListItem[];
+  page: number;
+  page_size: number;
+  total: number;
+  total_pages: number;
+}
+
 export function createAdminDb(pool: Pool) {
   return drizzle(pool, { schema, mode: 'default' });
 }
 
-export async function listAdminQuestions(db: AdminDb, search?: string): Promise<AdminQuestionListItem[]> {
-  const condition = search
-    ? or(like(questions.question_text, `%${search}%`), like(questions.external_id, `%${search}%`))
-    : undefined;
+export async function listAdminQuestions(db: AdminDb, filters: AdminQuestionListFilters = {}): Promise<AdminQuestionPage> {
+  const page = Math.max(1, filters.page ?? 1);
+  const pageSize = [25, 50, 100].includes(filters.page_size ?? 25) ? filters.page_size ?? 25 : 25;
+  const conditions = [];
+  if (filters.search) {
+    conditions.push(or(
+      like(questions.question_text, `%${filters.search}%`),
+      like(questions.external_id, `%${filters.search}%`),
+      like(topics.label, `%${filters.search}%`),
+      like(topics.slug, `%${filters.search}%`),
+    ));
+  }
+  if (filters.topic_id) conditions.push(eq(questions.topic_id, filters.topic_id));
+  if (filters.type) conditions.push(eq(questions.type, filters.type));
+  if (filters.difficulty) conditions.push(eq(questions.difficulty, filters.difficulty));
+  const condition = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const [totalRow] = await db
+    .select({ total: count(questions.id) })
+    .from(questions)
+    .innerJoin(topics, eq(questions.topic_id, topics.id))
+    .where(condition);
 
   const rows = await db
     .select({
@@ -52,9 +87,18 @@ export async function listAdminQuestions(db: AdminDb, search?: string): Promise<
     .from(questions)
     .innerJoin(topics, eq(questions.topic_id, topics.id))
     .where(condition)
-    .orderBy(desc(questions.id));
+    .orderBy(desc(questions.id))
+    .limit(pageSize)
+    .offset((page - 1) * pageSize);
 
-  return rows.map((row) => ({ ...row, type: row.type as QuestionType }));
+  const total = Number(totalRow?.total ?? 0);
+  return {
+    questions: rows.map((row) => ({ ...row, type: row.type as QuestionType })),
+    page,
+    page_size: pageSize,
+    total,
+    total_pages: Math.max(1, Math.ceil(total / pageSize)),
+  };
 }
 
 export async function findAdminQuestion(db: AdminDb, questionId: number): Promise<AdminQuestionDetail | null> {

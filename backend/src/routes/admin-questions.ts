@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { z } from 'zod';
 import type { Context } from 'hono';
 import type { Pool } from '@/db/connection';
 import { adminQuestionSchema, importPayloadSchema, importRequestSchema } from '@/validators/admin-question-validator';
@@ -13,6 +14,15 @@ import {
   updateAdminQuestion,
 } from '@/services/admin-question-service';
 
+const questionListQuerySchema = z.object({
+  search: z.string().trim().max(200).optional(),
+  topic_id: z.coerce.number().int().positive().optional(),
+  type: z.enum(['single_choice', 'multiple_response', 'true_false']).optional(),
+  difficulty: z.enum(['easy', 'medium', 'hard']).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  page_size: z.coerce.number().int().refine((value) => [25, 50, 100].includes(value), 'page_size harus 25, 50, atau 100.').default(25),
+});
+
 async function readJson(c: Context) {
   try {
     return await c.req.json();
@@ -26,8 +36,9 @@ export function adminQuestionRoutes(pool: Pool) {
   const app = new Hono();
 
   app.get('/', async (c) => {
-    const search = c.req.query('search');
-    return c.json({ questions: await listAdminQuestions(db, search) });
+    const parsed = questionListQuerySchema.safeParse(c.req.query());
+    if (!parsed.success) return c.json({ error: 'invalid_query', message: parsed.error.issues[0]?.message ?? 'Filter soal tidak valid.' }, 400);
+    return c.json(await listAdminQuestions(db, parsed.data));
   });
 
   app.get('/:id', async (c) => {
