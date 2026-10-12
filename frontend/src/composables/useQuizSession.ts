@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue';
+import { computed, getCurrentInstance, onBeforeUnmount, ref } from 'vue';
 import {
   abandonExamAttempt,
   completeExamAttempt,
@@ -47,6 +47,8 @@ export function useQuizSession(options: UseQuizSessionOptions) {
   const serverClockOffsetMs = ref(0);
   const examReview = ref<ExamReviewItem[]>([]);
   const explanationMode = ref<ExplanationMode | null>(null);
+  const clockTick = ref(Date.now());
+  let clockInterval: ReturnType<typeof setInterval> | null = null;
 
   const currentQuestionNumber = computed(() => {
     if (state.value === 'reviewing') return answeredIds.value.size;
@@ -66,6 +68,19 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     return Math.round((correctCount.value / sessionResults.value.length) * 100);
   });
   const isLastQuestion = computed(() => answeredIds.value.size >= questionCount.value);
+  const minimumDurationSeconds = computed(() => (persistedAttempt.value?.minimum_duration_minutes ?? 0) * 60);
+  const minimumTimeRemaining = computed(() => {
+    clockTick.value;
+    if (!persistedAttempt.value || minimumDurationSeconds.value === 0) return 0;
+    const startedAt = new Date(persistedAttempt.value.started_at).getTime();
+    const now = Date.now() + serverClockOffsetMs.value;
+    return Math.max(0, minimumDurationSeconds.value - Math.floor((now - startedAt) / 1000));
+  });
+  const canComplete = computed(() => isLastQuestion.value && minimumTimeRemaining.value === 0);
+
+  function startClock() {
+    if (!clockInterval) clockInterval = setInterval(() => { clockTick.value = Date.now(); }, 1000);
+  }
 
   async function loadQuestion() {
     state.value = 'loading';
@@ -109,6 +124,7 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     attemptId.value = created.attempt.id;
     persistedAttempt.value = created.attempt;
     syncServerClock(created.server_now);
+    startClock();
   }
 
   async function startQuiz() {
@@ -212,7 +228,7 @@ export function useQuizSession(options: UseQuizSessionOptions) {
 
   async function finishSession() {
     timerRunning.value = false;
-    if (attemptId.value) {
+      if (attemptId.value) {
       try {
         persistedAttempt.value = await completeExamAttempt(attemptId.value);
         try {
@@ -223,6 +239,11 @@ export function useQuizSession(options: UseQuizSessionOptions) {
           examReview.value = [];
         }
       } catch (error) {
+        if ((error as Error & { code?: string }).code === 'minimum_duration_not_reached') {
+          state.value = 'reviewing';
+          errorMessage.value = error instanceof Error ? error.message : 'Minimum waktu pengerjaan belum tercapai.';
+          return;
+        }
         errorMessage.value = error instanceof Error ? error.message : 'Hasil ujian gagal disimpan.';
         state.value = 'error';
         return;
@@ -240,6 +261,12 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     serverClockOffsetMs.value = 0;
     examReview.value = [];
     explanationMode.value = null;
+  }
+
+  if (getCurrentInstance()) {
+    onBeforeUnmount(() => {
+      if (clockInterval) clearInterval(clockInterval);
+    });
   }
 
   function cancelExit() {
@@ -269,6 +296,7 @@ export function useQuizSession(options: UseQuizSessionOptions) {
       if (active.attempt) {
         attemptId.value = active.attempt.id;
         persistedAttempt.value = active.attempt;
+        startClock();
         answeredIds.value = new Set(active.answers.map((answer) => answer.question_id));
         sessionResults.value = active.answers.map((answer) => ({ correct: answer.is_correct, elapsed: answer.elapsed_seconds }));
         await loadQuestion();
@@ -324,5 +352,8 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     serverClockOffsetMs,
     topicLabel,
     totalTime,
+    canComplete,
+    minimumDurationSeconds,
+    minimumTimeRemaining,
   };
 }

@@ -159,6 +159,7 @@
         </div>
 
         <nav class="exam-navigation" aria-label="Navigasi ujian">
+          <p v-if="state === 'reviewing' && errorMessage" class="minimum-time-note" role="status">{{ errorMessage }}</p>
           <button class="nav-button nav-secondary" type="button" @click="tryExit"><span>‹</span> Keluar dari ujian</button>
           <button class="nav-button nav-doubt" :class="{ active: isDoubtful }" type="button" @click="isDoubtful = !isDoubtful">
             <span>□</span> {{ isDoubtful ? 'Ragu-ragu ditandai' : 'Tandai ragu-ragu' }}
@@ -166,8 +167,8 @@
           <button v-if="state === 'answering'" class="nav-button nav-primary" type="button" :disabled="selectedKeys.length === 0" @click="submitAnswer">
             Simpan jawaban <span>›</span>
           </button>
-          <button v-else class="nav-button nav-primary" type="button" @click="goToNextStep">
-            {{ isLastQuestion ? 'Lihat hasil' : 'Soal berikutnya' }} <span>›</span>
+          <button v-else class="nav-button nav-primary" type="button" :disabled="isLastQuestion && !canComplete" @click="goToNextStep">
+            {{ isLastQuestion ? canComplete ? 'Lihat hasil' : `Tunggu ${formatDuration(minimumTimeRemaining)}` : 'Soal berikutnya' }} <span>›</span>
           </button>
         </nav>
       </template>
@@ -270,7 +271,7 @@ const {
   incorrectCount, initializeSession, isLastQuestion, nextQuestion, onSelectKeys, question,
   questionCount, recordIntegrityEvent, resetSession, result, retryCurrentState, selectedKeys, showExitModal,
   startQuiz, state, subjectId, submitAnswer, topicLabel, totalTime, timerRunning, onTime,
-  deadlineAt, serverClockOffsetMs,
+  deadlineAt, serverClockOffsetMs, canComplete, minimumTimeRemaining,
 } = useQuizSession({
   getTopicId,
   getQuerySubjectId: () => Number(route.query.subject_id),
@@ -308,12 +309,19 @@ function questionNumberClass(number: number) {
 }
 
 function goToNextStep() {
+  if (isLastQuestion.value && !canComplete.value) return;
   if (isLastQuestion.value) {
     examGuard.deactivate();
     void examGuard.exitFullscreen();
     finishSession();
   }
   else { isDoubtful.value = false; nextQuestion(); }
+}
+
+function formatDuration(seconds: number) {
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  return `${minutes}m ${String(remainder).padStart(2, '0')}d`;
 }
 
 async function beginExam() {
@@ -427,6 +435,7 @@ onMounted(() => { initializeSession(); });
 
 <style scoped>
 .timer-driver { display: flex; margin: 0; border-radius: 0; padding: 8px 16px; font-size: 1rem; }
+.minimum-time-note { flex: 1 1 100%; margin: 0; color: #a86d1b; font-size: .78rem; font-weight: 700; text-align: center; }
 .exam-page { width: 100%; height: 100dvh; min-height: 100vh; min-height: 100svh; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; background: #f4f7fb; color: #1c2b3a; font-size: 16px; }
 .exam-page.font-small { font-size: 14px; }
 .exam-page.font-large { font-size: 18px; }

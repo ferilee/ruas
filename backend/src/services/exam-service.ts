@@ -24,6 +24,7 @@ export interface ExamSettings {
   shuffle_questions: boolean;
   shuffle_options: boolean;
   duration_minutes: number;
+  minimum_duration_minutes: number;
 }
 
 interface AttemptOrder {
@@ -47,6 +48,7 @@ export async function getSubjectExamSettings(db: ExamDb, subjectId: number): Pro
       shuffle_questions: subjects.shuffle_questions,
       shuffle_options: subjects.shuffle_options,
       duration_minutes: subjects.duration_minutes,
+      minimum_duration_minutes: subjects.minimum_duration_minutes,
     })
     .from(subjects)
     .where(eq(subjects.id, subjectId))
@@ -57,6 +59,7 @@ export async function getSubjectExamSettings(db: ExamDb, subjectId: number): Pro
     shuffle_questions: Boolean(row?.shuffle_questions),
     shuffle_options: Boolean(row?.shuffle_options),
     duration_minutes: Number(row?.duration_minutes ?? 0),
+    minimum_duration_minutes: Number(row?.minimum_duration_minutes ?? 0),
   };
 }
 
@@ -294,6 +297,7 @@ export async function createAttempt(
     option_order: order.option_order,
     started_at: startedAt,
     deadline_at: deadlineAt,
+    minimum_duration_minutes: subjectSettings.minimum_duration_minutes,
   });
   return { limited: false as const, attempt: await findAttempt(db, Number(result.insertId), identityKey) };
 }
@@ -316,7 +320,7 @@ export async function saveIntegrityEvent(db: ExamDb, attemptId: number, eventTyp
   await db.insert(examIntegrityEvents).values({ attempt_id: attemptId, event_type: eventType, occurred_at: occurredAt });
 }
 
-export async function completeAttempt(db: ExamDb, attemptId: number, identityKey: string) {
+export async function completeAttempt(db: ExamDb, attemptId: number, identityKey: string, options: { force?: boolean } = {}) {
   const attempt = await findAttempt(db, attemptId, identityKey);
   if (!attempt) return null;
   if (attempt.status !== 'in_progress') return attempt;
@@ -325,6 +329,10 @@ export async function completeAttempt(db: ExamDb, attemptId: number, identityKey
   const correctCount = answers.filter((answer) => answer.is_correct).length;
   const completedAt = new Date();
   const totalTime = Math.max(0, Math.floor((completedAt.getTime() - new Date(attempt.started_at).getTime()) / 1000));
+  const minimumTime = Math.max(0, attempt.minimum_duration_minutes * 60);
+  if (!options.force && totalTime < minimumTime) {
+    return { blocked: true as const, minimum_duration_seconds: minimumTime, elapsed_seconds: totalTime };
+  }
   const accuracy = answers.length ? Math.round((correctCount / answers.length) * 100) : 0;
   const violationCount = Number(events[0]?.total ?? 0);
   await db.update(examAttempts).set({

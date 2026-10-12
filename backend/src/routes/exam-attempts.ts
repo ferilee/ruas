@@ -126,6 +126,7 @@ export function examAttemptRoutes(pool: Pool) {
     if (!identityKey || !attemptId) return c.json({ error: 'invalid_param', message: 'Sesi ujian tidak valid.' }, 400);
     const attempt = await completeAttempt(db, attemptId, identityKey);
     if (!attempt) return c.json({ error: 'not_found', message: 'Sesi ujian tidak ditemukan.' }, 404);
+    if ('blocked' in attempt && attempt.blocked) return c.json({ error: 'minimum_duration_not_reached', message: `Ujian belum dapat dikumpulkan. Tunggu hingga ${Math.ceil(attempt.minimum_duration_seconds / 60)} menit pengerjaan.`, minimum_duration_seconds: attempt.minimum_duration_seconds, elapsed_seconds: attempt.elapsed_seconds }, 409);
     return c.json({ attempt });
   });
 

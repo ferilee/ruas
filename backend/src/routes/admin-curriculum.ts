@@ -35,12 +35,17 @@ const classSchema = itemSchema.extend({
 const subjectSchema = itemSchema.extend({
   max_attempts: z.coerce.number().int().min(0).max(100).default(1),
   duration_minutes: z.coerce.number().int().min(0).max(1440).default(0),
+  minimum_duration_minutes: z.coerce.number().int().min(0).max(1440).default(0),
   explanation_mode: z.enum(['after_answer', 'after_exam', 'hidden']).default('hidden'),
   show_correct_answer_on_wrong: z.coerce.boolean().default(false),
   shuffle_questions: z.coerce.boolean().default(false),
   shuffle_options: z.coerce.boolean().default(false),
   class_id: z.coerce.number().int().positive().nullable(),
   assessment_type_id: z.coerce.number().int().positive().nullable(),
+}).superRefine((value, context) => {
+  if (value.duration_minutes > 0 && value.minimum_duration_minutes > value.duration_minutes) {
+    context.addIssue({ code: 'custom', path: ['minimum_duration_minutes'], message: 'Minimum waktu tidak boleh melebihi durasi ujian.' });
+  }
 });
 
 function parseId(value: string) {

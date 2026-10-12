@@ -22,5 +22,6 @@ export const examAttempts = mysqlTable('exam_attempts', {
   option_order: json('option_order').$type<Record<string, string[]>>(),
   started_at: timestamp('started_at').defaultNow().notNull(),
   deadline_at: timestamp('deadline_at'),
+  minimum_duration_minutes: int('minimum_duration_minutes').notNull().default(0),
   completed_at: timestamp('completed_at'),
 });

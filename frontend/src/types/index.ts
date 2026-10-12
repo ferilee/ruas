@@ -5,6 +5,7 @@ export interface Subject {
   display_order: number;
   max_attempts: number;
   duration_minutes: number;
+  minimum_duration_minutes: number;
   explanation_mode: ExplanationMode;
   show_correct_answer_on_wrong: boolean;
   shuffle_questions: boolean;
@@ -236,6 +237,7 @@ export interface ExamAttempt {
   final_score: number;
   started_at: string;
   deadline_at: string | null;
+  minimum_duration_minutes: number;
   completed_at: string | null;
 }
 

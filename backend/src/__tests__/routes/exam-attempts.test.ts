@@ -2,11 +2,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
   createExamDbMock,
+  completeAttemptMock,
   findAttemptMock,
   getNextAttemptQuestionMock,
   isAttemptExpiredMock,
 } = vi.hoisted(() => ({
   createExamDbMock: vi.fn(),
+  completeAttemptMock: vi.fn(),
   findAttemptMock: vi.fn(),
   getNextAttemptQuestionMock: vi.fn(),
   isAttemptExpiredMock: vi.fn(),
@@ -14,7 +16,7 @@ const {
 
 vi.mock('@/services/exam-service', () => ({
   abandonAttempt: vi.fn(),
-  completeAttempt: vi.fn(),
+  completeAttempt: completeAttemptMock,
   createAttempt: vi.fn(),
   createExamDb: createExamDbMock,
   findActiveAttempt: vi.fn(),
@@ -35,6 +37,7 @@ describe('examAttemptRoutes next question', () => {
     createExamDbMock.mockReset().mockReturnValue({});
     findAttemptMock.mockReset();
     getNextAttemptQuestionMock.mockReset();
+    completeAttemptMock.mockReset();
   });
 
   it('returns the next question for the participant attempt', async () => {
@@ -66,5 +69,18 @@ describe('examAttemptRoutes next question', () => {
       },
     });
     expect(getNextAttemptQuestionMock).toHaveBeenCalledWith({}, 7, 'siswa-01');
+  });
+
+  it('blocks manual submission before the minimum duration', async () => {
+    completeAttemptMock.mockResolvedValue({ blocked: true, minimum_duration_seconds: 2700, elapsed_seconds: 600 });
+    const { examAttemptRoutes } = await import('@/routes/exam-attempts');
+    const app = examAttemptRoutes({} as never);
+    const response = await app.request('http://localhost/7/complete', {
+      method: 'POST',
+      headers: { 'x-client-id': 'siswa-01' },
+    });
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({ error: 'minimum_duration_not_reached', minimum_duration_seconds: 2700 });
   });
 });

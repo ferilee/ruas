@@ -61,7 +61,10 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ message: 'Gagal memuat data.' }));
-    throw new Error(body.message || `HTTP ${res.status}`);
+    const error = new Error(body.message || `HTTP ${res.status}`) as Error & { code?: string; details?: Record<string, unknown> };
+    error.code = body.error;
+    error.details = body;
+    throw error;
   }
   return res.json();
 }
@@ -331,7 +334,7 @@ export async function importAdminUsers(data: unknown, mode: 'insert' | 'upsert',
 
 export type CurriculumItemInput = { slug: string; label: string; display_order: number };
 export type CurriculumClassInput = CurriculumItemInput & { academic_year: string; grade: number; program: string; section: string | null };
-export type CurriculumSubjectInput = CurriculumItemInput & { class_id: number | null; assessment_type_id: number | null; max_attempts: number; duration_minutes: number; explanation_mode: Subject['explanation_mode']; show_correct_answer_on_wrong: boolean; shuffle_questions: boolean; shuffle_options: boolean };
+export type CurriculumSubjectInput = CurriculumItemInput & { class_id: number | null; assessment_type_id: number | null; max_attempts: number; duration_minutes: number; minimum_duration_minutes: number; explanation_mode: Subject['explanation_mode']; show_correct_answer_on_wrong: boolean; shuffle_questions: boolean; shuffle_options: boolean };
 
 export async function fetchAdminCurriculum(): Promise<CurriculumData> {
   return adminRequest<CurriculumData>('/admin/curriculum');
