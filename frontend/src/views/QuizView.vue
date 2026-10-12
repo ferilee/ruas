@@ -56,7 +56,7 @@
         <span class="state-kicker">PERSIAPAN UJIAN</span>
         <h2>Siap mengerjakan?</h2>
         <p>{{ questionCount }} soal tersedia. Countdown dimulai setelah kamu menekan tombol mulai.</p>
-        <button class="primary-exam-button" type="button" @click="beginExam">Mulai Ujian</button>
+        <button class="primary-exam-button" type="button" :disabled="startingCountdown" @click="beginExam">{{ startingCountdown ? 'Bersiap...' : 'Mulai Ujian' }}</button>
       </div>
 
       <div v-else-if="state === 'resume'" class="exam-state-card resume-card">
@@ -236,6 +236,14 @@
         <button class="primary-exam-button" type="button" @click="resumeExam">Kembali ke Ujian</button>
       </section>
     </div>
+
+    <div v-if="startingCountdown" class="start-countdown-backdrop" role="status" aria-live="assertive">
+      <div class="start-countdown-card">
+        <span class="state-kicker">UJIAN DIMULAI</span>
+        <strong :key="countdownValue" class="start-countdown-number">{{ countdownValue }}</strong>
+        <p>Siapkan diri. Soal pertama segera dibuka.</p>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -262,6 +270,8 @@ const exitPassword = ref('');
 const exitError = ref('');
 const exitLoading = ref(false);
 const examPageRef = ref<HTMLElement | null>(null);
+const startingCountdown = ref(false);
+const countdownValue = ref(0);
 
 function getTopicId(): number { return Number(route.params.id); }
 
@@ -325,6 +335,7 @@ function formatDuration(seconds: number) {
 }
 
 async function beginExam() {
+  if (startingCountdown.value) return;
   if (!examGuard.isSupported.value) {
     securityMessage.value = 'Browser ini tidak mendukung mode layar penuh. Gunakan browser terbaru untuk memulai ujian.';
     showSecurityWarning.value = true;
@@ -340,7 +351,17 @@ async function beginExam() {
     return;
   }
 
-  await startQuiz();
+  startingCountdown.value = true;
+  try {
+    for (let value = 3; value >= 1; value -= 1) {
+      countdownValue.value = value;
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+    countdownValue.value = 0;
+    await startQuiz();
+  } finally {
+    startingCountdown.value = false;
+  }
 }
 
 async function resumeExam() {
@@ -436,6 +457,10 @@ onMounted(() => { initializeSession(); });
 <style scoped>
 .timer-driver { display: flex; margin: 0; border-radius: 0; padding: 8px 16px; font-size: 1rem; }
 .minimum-time-note { flex: 1 1 100%; margin: 0; color: #a86d1b; font-size: .78rem; font-weight: 700; text-align: center; }
+.start-countdown-backdrop { position: fixed; z-index: 40; inset: 0; display: grid; place-items: center; background: rgba(8, 34, 82, .72); backdrop-filter: blur(7px); }
+.start-countdown-card { display: flex; width: min(360px, calc(100% - 40px)); flex-direction: column; align-items: center; padding: 30px 24px; border: 1px solid rgba(255,255,255,.55); border-radius: 24px; color: #fff; background: linear-gradient(145deg, rgba(31, 121, 215, .96), rgba(25, 65, 170, .96)); box-shadow: 0 25px 70px rgba(0, 20, 70, .38); text-align: center; }
+.start-countdown-card .state-kicker { color: #cbe5ff; }.start-countdown-number { margin: 8px 0; color: #fff; font-size: clamp(6rem, 24vw, 10rem); line-height: .95; text-shadow: 0 8px 24px rgba(0,0,0,.18); animation: countdown-pop .95s ease both; }.start-countdown-card p { color: rgba(255,255,255,.84); font-size: .86rem; }
+@keyframes countdown-pop { 0% { opacity: .2; transform: scale(.58); } 60% { opacity: 1; transform: scale(1.08); } 100% { transform: scale(1); } }
 .exam-page { width: 100%; height: 100dvh; min-height: 100vh; min-height: 100svh; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; background: #f4f7fb; color: #1c2b3a; font-size: 16px; }
 .exam-page.font-small { font-size: 14px; }
 .exam-page.font-large { font-size: 18px; }
