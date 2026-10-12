@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import type { Pool } from '@/db/connection';
-import { createReportDb, getReportDetail, listReportAttempts, summarizeReport, summarizeReportByClass } from '@/services/report-service';
+import { countReportAttempts, createReportDb, getReportDetail, listReportAttempts, resetAllReportData, summarizeReport, summarizeReportByClass } from '@/services/report-service';
 
 const querySchema = z.object({
   status: z.enum(['all', 'in_progress', 'completed', 'abandoned']).default('completed'),
@@ -21,6 +21,24 @@ function parseId(value: string) {
 export function adminReportRoutes(pool: Pool) {
   const db = createReportDb(pool);
   const app = new Hono();
+
+  app.get('/reset/summary', async (c) => c.json({ attempts: await countReportAttempts(db) }));
+
+  app.delete('/reset', async (c) => {
+    let body: unknown = {};
+    try {
+      body = await c.req.json();
+    } catch {
+      // The validation response below is enough when the request has no JSON body.
+    }
+    const parsed = z.object({ confirmation: z.literal('RESET HASIL ASESMEN') }).safeParse(body);
+    if (!parsed.success) {
+      return c.json({ error: 'confirmation_required', message: 'Ketik RESET HASIL ASESMEN untuk menghapus seluruh hasil asesmen.' }, 400);
+    }
+
+    const deleted = await resetAllReportData(db);
+    return c.json({ deleted });
+  });
 
   app.get('/', async (c) => {
     const parsed = querySchema.safeParse(c.req.query());

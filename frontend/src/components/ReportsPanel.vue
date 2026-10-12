@@ -1,5 +1,6 @@
 <template>
   <section class="reports-panel">
+    <ConfirmDialog :open="resetConfirmOpen" title="Reset seluruh hasil asesmen?" :message="resetConfirmationMessage" confirm-label="Reset hasil" confirmation-phrase="RESET HASIL ASESMEN" @confirm="resetReportData" @cancel="closeResetConfirmation" />
     <div class="panel report-toolbar no-print">
       <div>
         <span class="eyebrow">MONITORING HASIL</span>
@@ -9,6 +10,7 @@
       <div class="toolbar-actions">
         <button class="secondary-btn" type="button" :disabled="loading" @click="loadReport">Muat ulang</button>
         <button class="primary-btn" type="button" :disabled="loading || rows.length === 0" @click="exportPdf">Ekspor PDF</button>
+        <button class="danger-btn" type="button" :disabled="resetting || resetCount === 0" @click="openResetConfirmation">{{ resetting ? 'Mereset...' : `Reset hasil (${resetCount})` }}</button>
       </div>
     </div>
 
@@ -36,6 +38,7 @@
     </section>
 
     <p v-if="errorMessage" class="error-text no-print">{{ errorMessage }}</p>
+    <p v-if="successMessage" class="success-text no-print">{{ successMessage }}</p>
 
     <section class="summary-grid">
       <article class="summary-card blue"><span>Total hasil</span><strong>{{ summary.total_attempts }}</strong><small>{{ summary.completed_attempts }} selesai</small></article>
@@ -112,7 +115,8 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
-import { fetchAdminCurriculum, fetchAdminReport, fetchAdminReportDetail } from '@/api/client';
+import { fetchAdminCurriculum, fetchAdminReport, fetchAdminReportDetail, fetchAdminReportResetCount, resetAdminReportData } from '@/api/client';
+import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import RuasSelect from '@/components/RuasSelect.vue';
 import type { AdminReportClassStatistic, AdminReportDetail, AdminReportFilters, AdminReportRow, AdminReportSummary, CurriculumData } from '@/types';
 
@@ -125,7 +129,11 @@ const classStatistics = ref<AdminReportClassStatistic[]>([]);
 const detail = ref<AdminReportDetail | null>(null);
 const loading = ref(false);
 const errorMessage = ref('');
+const successMessage = ref('');
 const filtersOpen = ref(false);
+const resetCount = ref(0);
+const resetting = ref(false);
+const resetConfirmOpen = ref(false);
 const statusOptions = [
   { value: 'completed', label: 'Selesai' },
   { value: 'all', label: 'Semua status' },
@@ -166,6 +174,44 @@ async function loadReport() {
     errorMessage.value = error instanceof Error ? error.message : 'Gagal memuat laporan.';
   } finally {
     loading.value = false;
+  }
+}
+
+async function loadResetCount() {
+  try {
+    resetCount.value = await fetchAdminReportResetCount();
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Gagal memuat jumlah hasil asesmen.';
+  }
+}
+
+const resetConfirmationMessage = computed(() => `Sebanyak ${resetCount.value} hasil asesmen, jawaban, dan catatan anti-cheat akan dihapus permanen. Data pengguna, soal, dan kurikulum tetap aman.`);
+
+function openResetConfirmation() {
+  if (resetCount.value > 0) resetConfirmOpen.value = true;
+}
+
+function closeResetConfirmation() {
+  resetConfirmOpen.value = false;
+}
+
+async function resetReportData() {
+  closeResetConfirmation();
+  resetting.value = true;
+  errorMessage.value = '';
+  successMessage.value = '';
+  try {
+    const deleted = await resetAdminReportData('RESET HASIL ASESMEN');
+    resetCount.value = 0;
+    rows.value = [];
+    classStatistics.value = [];
+    summary.value = { ...emptySummary };
+    detail.value = null;
+    successMessage.value = `${deleted} hasil asesmen berhasil direset.`;
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Gagal mereset hasil asesmen.';
+  } finally {
+    resetting.value = false;
   }
 }
 
@@ -213,7 +259,7 @@ onMounted(async () => {
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Gagal memuat filter kurikulum.';
   }
-  await loadReport();
+  await Promise.all([loadReport(), loadResetCount()]);
 });
 </script>
 
@@ -231,6 +277,7 @@ onMounted(async () => {
 .report-toolbar .primary-btn { color: #1555ae; background: #fff; }
 .secondary-btn { color: #1e40af; background: #e8edf5; }
 .report-toolbar .secondary-btn { color: #fff; border: 1px solid rgba(255,255,255,.4); background: rgba(255,255,255,.12); }
+.danger-btn { border: 1px solid rgba(255, 216, 216, .62); border-radius: 8px; padding: 10px 13px; color: #fff; background: rgba(174, 34, 57, .76); font: inherit; font-size: .78rem; font-weight: 800; cursor: pointer; white-space: nowrap; }.danger-btn:hover:not(:disabled) { background: #a5223d; }.success-text { color: #23815d; font-size: .85rem; }
 button:disabled { opacity: .55; cursor: default; }
 .panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .panel-heading h3 { color: #1e40af; font-size: 1.04rem; }

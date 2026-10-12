@@ -379,6 +379,19 @@ export async function fetchAdminReport(filters: AdminReportFilters): Promise<Adm
   return adminRequest<AdminReportData>(`/admin/reports${query ? `?${query}` : ''}`);
 }
 
+export async function fetchAdminReportResetCount(): Promise<number> {
+  const data = await adminRequest<{ attempts: number }>('/admin/reports/reset/summary');
+  return data.attempts;
+}
+
+export async function resetAdminReportData(confirmation: string): Promise<number> {
+  const data = await adminRequest<{ deleted: number }>('/admin/reports/reset', {
+    method: 'DELETE',
+    body: JSON.stringify({ confirmation }),
+  });
+  return data.deleted;
+}
+
 export async function fetchAdminReportDetail(attemptId: number): Promise<AdminReportDetail> {
   const data = await adminRequest<{ report: AdminReportDetail }>(`/admin/reports/${attemptId}`);
   return data.report;

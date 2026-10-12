@@ -1,4 +1,4 @@
-import { asc, desc, eq } from 'drizzle-orm';
+import { asc, desc, eq, inArray } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/mysql-core';
 import { drizzle } from 'drizzle-orm/mysql2';
 import { assessmentTypes } from '@/db/schema/assessment-types';
@@ -44,6 +44,24 @@ export function createReportDb(pool: Pool) {
       users,
     },
     mode: 'default',
+  });
+}
+
+export async function countReportAttempts(db: ReportDb) {
+  const rows = await db.select({ id: examAttempts.id }).from(examAttempts);
+  return rows.length;
+}
+
+export async function resetAllReportData(db: ReportDb) {
+  return db.transaction(async (tx) => {
+    const attempts = await tx.select({ id: examAttempts.id }).from(examAttempts);
+    const attemptIds = attempts.map((attempt) => attempt.id);
+    if (attemptIds.length === 0) return 0;
+
+    await tx.delete(examIntegrityEvents).where(inArray(examIntegrityEvents.attempt_id, attemptIds));
+    await tx.delete(examAnswers).where(inArray(examAnswers.attempt_id, attemptIds));
+    await tx.delete(examAttempts).where(inArray(examAttempts.id, attemptIds));
+    return attemptIds.length;
   });
 }
 
