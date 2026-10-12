@@ -9,6 +9,8 @@ import {
   createUser,
   createUserDb,
   deleteUser,
+  deleteAllParticipants,
+  countParticipantUsers,
   findUserById,
   listUsers,
   listUserIds,
@@ -139,6 +141,24 @@ export function adminUserRoutes(pool: Pool) {
   const app = new Hono();
 
   app.get('/', async (c) => c.json({ users: await listUsers(db, c.req.query('search')) }));
+
+  app.get('/participants/count', async (c) => c.json({ count: await countParticipantUsers(db) }));
+
+  app.delete('/participants', async (c) => {
+    let body: unknown = {};
+    try {
+      body = await c.req.json();
+    } catch {
+      // The validation response below is enough when the request has no JSON body.
+    }
+    const parsed = z.object({ confirmation: z.literal('HAPUS SEMUA PESERTA') }).safeParse(body);
+    if (!parsed.success) {
+      return c.json({ error: 'confirmation_required', message: 'Ketik HAPUS SEMUA PESERTA untuk menghapus seluruh akun peserta.' }, 400);
+    }
+
+    const deleted = await deleteAllParticipants(db);
+    return c.json({ deleted });
+  });
 
   app.post('/', async (c) => {
     const parsed = createUserSchema.safeParse(await c.req.json());

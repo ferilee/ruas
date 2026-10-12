@@ -151,6 +151,16 @@ export async function deleteUser(db: UserDb, id: number) {
   await db.delete(users).where(eq(users.id, id));
 }
 
+export async function countParticipantUsers(db: UserDb) {
+  const rows = await db.select({ id: users.id }).from(users).where(eq(users.role, 'participant'));
+  return rows.length;
+}
+
+export async function deleteAllParticipants(db: UserDb) {
+  const [result] = await db.delete(users).where(eq(users.role, 'participant'));
+  return Number(result.affectedRows ?? 0);
+}
+
 export async function countUsers(db: UserDb) {
   const rows = await db.select({ id: users.id }).from(users);
   return rows.length;

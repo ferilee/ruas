@@ -1,6 +1,6 @@
 <template>
   <section class="users-panel">
-    <ConfirmDialog :open="confirmOpen" :title="confirmTitle" :message="confirmMessage" :confirm-label="confirmLabel" @confirm="runConfirmation" @cancel="closeConfirmation" />
+    <ConfirmDialog :open="confirmOpen" :title="confirmTitle" :message="confirmMessage" :confirm-label="confirmLabel" :confirmation-phrase="confirmPhrase" @confirm="runConfirmation" @cancel="closeConfirmation" />
     <div class="users-grid">
       <div class="panel user-form-panel" :class="{ open: userFormOpen }">
         <div class="panel-heading">
@@ -49,6 +49,7 @@
 
     <div class="panel users-list-panel">
       <div class="panel-heading users-list-heading"><div><h2>Daftar pengguna</h2><p>{{ users.length }} akun ditemukan.</p></div><div class="user-list-actions"><div class="user-search"><span class="search-icon" aria-hidden="true">⌕</span><input v-model="search" placeholder="Cari username, nama, atau kelas" @keyup.enter="loadUsers" /><button class="search-button" type="button" aria-label="Cari pengguna" title="Cari" @click="loadUsers">Cari</button></div><button class="mobile-add-user" type="button" @click="openNewUser">＋ Tambah Pengguna</button></div></div>
+      <div v-if="participantCount > 0" class="danger-zone"><div><strong>Hapus semua peserta</strong><small>{{ participantCount }} akun peserta akan dihapus. Akun admin/editor dan laporan asesmen tetap aman.</small></div><button class="danger-zone-button" type="button" :disabled="deletingAll" @click="removeAllParticipants">{{ deletingAll ? 'Menghapus...' : 'Hapus semua peserta' }}</button></div>
       <div v-if="users.length" class="bulk-assignment-bar">
         <div class="bulk-assignment-copy"><strong>Penetapan massal</strong><small>{{ selectedUserIds.length ? `${selectedUserIds.length} pengguna dipilih` : 'Cari kelas atau identitas pengguna, lalu pilih semua hasil.' }}</small></div>
         <button class="select-all-button" type="button" @click="toggleAllUsers">{{ allUsersSelected ? 'Batalkan semua' : 'Pilih semua hasil' }}</button>
@@ -66,12 +67,13 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
-import { assignAdminUsersClass, assignAdminUsersSubject, createAdminUser, deleteAdminUser, fetchAdminCurriculum, fetchAdminUsers, importAdminUsers, updateAdminUser } from '@/api/client';
+import { assignAdminUsersClass, assignAdminUsersSubject, createAdminUser, deleteAdminUser, deleteAllAdminParticipants, fetchAdminCurriculum, fetchAdminParticipantCount, fetchAdminUsers, importAdminUsers, updateAdminUser } from '@/api/client';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import RuasSelect from '@/components/RuasSelect.vue';
 import type { AdminUser, AdminUserInput, CurriculumClass, Subject, UserImportSummary, UserRole } from '@/types';
 
 const users = ref<AdminUser[]>([]);
+const participantCount = ref(0);
 const classes = ref<CurriculumClass[]>([]);
 const subjects = ref<Subject[]>([]);
 const loading = ref(false);
@@ -93,12 +95,14 @@ const bulkSubjectId = ref<number | null | undefined>(undefined);
 const bulkSaving = ref(false);
 const bulkMessage = ref('');
 const bulkMessageType = ref<'success' | 'error'>('success');
+const deletingAll = ref(false);
 const fileInput = ref<HTMLInputElement | null>(null);
 const selectedFileName = ref('');
 const confirmOpen = ref(false);
 const confirmTitle = ref('Konfirmasi tindakan');
 const confirmMessage = ref('Apakah kamu yakin ingin melanjutkan?');
 const confirmLabel = ref('OK');
+const confirmPhrase = ref<string | undefined>(undefined);
 const pendingConfirmation = ref<(() => Promise<void>) | null>(null);
 const form = reactive<AdminUserInput>({ username: '', password: '', display_name: '', class_id: null, subject_id: null, role: 'participant', active: true });
 const classOptions = computed(() => [{ value: null, label: 'Belum ditetapkan' }, ...classes.value.map((item) => ({ value: item.id, label: `${item.label} · ${item.academic_year}` }))]);
@@ -119,12 +123,14 @@ function openNewUser() { resetForm(); userFormOpen.value = true; }
 function closeUserForm() { userFormOpen.value = false; }
 function openFilePicker() { fileInput.value?.click(); }
 function editUser(user: AdminUser) { Object.assign(form, { username: user.username, password: '', display_name: user.display_name, class_id: user.class_id, subject_id: user.subject_id, role: user.role, active: user.active }); editingId.value = user.id; formMessage.value = ''; userFormOpen.value = true; window.scrollTo({ top: 0, behavior: 'smooth' }); }
-function askConfirmation(title: string, message: string, action: () => Promise<void>, label = 'OK') { confirmTitle.value = title; confirmMessage.value = message; confirmLabel.value = label; pendingConfirmation.value = action; confirmOpen.value = true; }
-function closeConfirmation() { confirmOpen.value = false; pendingConfirmation.value = null; }
+function askConfirmation(title: string, message: string, action: () => Promise<void>, label = 'OK', phrase?: string) { confirmTitle.value = title; confirmMessage.value = message; confirmLabel.value = label; confirmPhrase.value = phrase; pendingConfirmation.value = action; confirmOpen.value = true; }
+function closeConfirmation() { confirmOpen.value = false; confirmPhrase.value = undefined; pendingConfirmation.value = null; }
 async function runConfirmation() { const action = pendingConfirmation.value; closeConfirmation(); if (action) await action(); }
 async function loadUsers() { loading.value = true; errorMessage.value = ''; try { users.value = await fetchAdminUsers(search.value); selectedUserIds.value = []; } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Gagal memuat pengguna.'; } finally { loading.value = false; } }
-async function saveUser() { saving.value = true; formMessage.value = ''; const currentId = editingId.value; try { const input = { ...form }; if (currentId === null) await createAdminUser(input); else await updateAdminUser(currentId, input); formMessageType.value = 'success'; resetForm(); formMessage.value = currentId === null ? 'Pengguna berhasil ditambahkan.' : 'Pengguna berhasil diperbarui.'; await loadUsers(); } catch (error) { formMessageType.value = 'error'; formMessage.value = error instanceof Error ? error.message : 'Gagal menyimpan pengguna.'; } finally { saving.value = false; } }
-function removeUser(user: AdminUser) { askConfirmation('Hapus pengguna?', `Akun ${user.username} akan dihapus. Tindakan ini tidak dapat dibatalkan.`, async () => { try { await deleteAdminUser(user.id); await loadUsers(); } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Gagal menghapus pengguna.'; } }, 'Hapus'); }
+async function loadParticipantCount() { try { participantCount.value = await fetchAdminParticipantCount(); } catch { participantCount.value = 0; } }
+async function saveUser() { saving.value = true; formMessage.value = ''; const currentId = editingId.value; try { const input = { ...form }; if (currentId === null) await createAdminUser(input); else await updateAdminUser(currentId, input); formMessageType.value = 'success'; resetForm(); formMessage.value = currentId === null ? 'Pengguna berhasil ditambahkan.' : 'Pengguna berhasil diperbarui.'; await Promise.all([loadUsers(), loadParticipantCount()]); } catch (error) { formMessageType.value = 'error'; formMessage.value = error instanceof Error ? error.message : 'Gagal menyimpan pengguna.'; } finally { saving.value = false; } }
+function removeUser(user: AdminUser) { askConfirmation('Hapus pengguna?', `Akun ${user.username} akan dihapus. Tindakan ini tidak dapat dibatalkan.`, async () => { try { await deleteAdminUser(user.id); await Promise.all([loadUsers(), loadParticipantCount()]); } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Gagal menghapus pengguna.'; } }, 'Hapus'); }
+function removeAllParticipants() { askConfirmation('Hapus semua peserta?', `Sebanyak ${participantCount.value} akun peserta akan dihapus permanen. Riwayat asesmen tetap tersimpan, tetapi akun peserta tidak dapat dipulihkan.`, async () => { deletingAll.value = true; errorMessage.value = ''; try { const deleted = await deleteAllAdminParticipants('HAPUS SEMUA PESERTA'); bulkMessageType.value = 'success'; bulkMessage.value = `${deleted} akun peserta berhasil dihapus.`; await Promise.all([loadUsers(), loadParticipantCount()]); } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Gagal menghapus semua peserta.'; } finally { deletingAll.value = false; } }, 'Hapus semua', 'HAPUS SEMUA PESERTA'); }
 function isUserSelected(id: number) { return selectedUserIds.value.includes(id); }
 function toggleUser(id: number) { selectedUserIds.value = isUserSelected(id) ? selectedUserIds.value.filter((selectedId) => selectedId !== id) : [...selectedUserIds.value, id]; }
 function toggleAllUsers() { selectedUserIds.value = allUsersSelected.value ? [] : users.value.map((user) => user.id); }
@@ -174,11 +180,11 @@ function applyBulkClass() {
 async function readFile(event: Event) { const file = (event.target as HTMLInputElement).files?.[0]; if (file) { selectedFileName.value = file.name; importText.value = await file.text(); parsedImport.value = null; importSummary.value = null; } }
 function parseImportText() { const value = importText.value.trim(); try { parsedImport.value = JSON.parse(value); } catch { parsedImport.value = value; } }
 async function previewImport() { parseImportText(); importing.value = true; try { importSummary.value = await importAdminUsers(parsedImport.value, importMode.value, true); } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Import tidak valid.'; } finally { importing.value = false; } }
-function applyImport() { if (parsedImport.value === null) return; askConfirmation('Terapkan import?', 'Data pengguna yang sudah dipreview akan disimpan ke database.', async () => { importing.value = true; try { importSummary.value = await importAdminUsers(parsedImport.value, importMode.value, false); await loadUsers(); } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Gagal menerapkan import.'; } finally { importing.value = false; } }, 'Terapkan'); }
+function applyImport() { if (parsedImport.value === null) return; askConfirmation('Terapkan import?', 'Data pengguna yang sudah dipreview akan disimpan ke database.', async () => { importing.value = true; try { importSummary.value = await importAdminUsers(parsedImport.value, importMode.value, false); await Promise.all([loadUsers(), loadParticipantCount()]); } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Gagal menerapkan import.'; } finally { importing.value = false; } }, 'Terapkan'); }
 function roleLabel(role: UserRole) { return { admin: 'Admin', editor: 'Editor', participant: 'Peserta' }[role]; }
 function classLabel(classId: number) { return classes.value.find((item) => item.id === classId)?.label ?? 'Kelas tidak ditemukan'; }
 function subjectLabel(subjectId: number | null) { return subjects.value.find((subject) => subject.id === subjectId)?.label ?? 'Belum ditetapkan'; }
-onMounted(async () => { await Promise.all([loadUsers(), fetchAdminCurriculum().then((data) => { classes.value = data.classes; subjects.value = data.subjects; }).catch(() => undefined)]); });
+onMounted(async () => { await Promise.all([loadUsers(), loadParticipantCount(), fetchAdminCurriculum().then((data) => { classes.value = data.classes; subjects.value = data.subjects; }).catch(() => undefined)]); });
 </script>
 
 <style scoped>
@@ -233,6 +239,7 @@ onMounted(async () => { await Promise.all([loadUsers(), fetchAdminCurriculum().t
 .status-badge.inactive { color: #a55b2d; background: #fff1e7; }
 .user-actions .danger-link { margin-left: 4px; }
 .bulk-assignment-bar { display: grid; grid-template-columns: minmax(180px, 1.3fr) auto minmax(280px, 1fr) minmax(280px, 1fr); align-items: center; gap: 10px; padding: 12px; border: 1px solid #cfe0f3; border-radius: 12px; background: linear-gradient(110deg, #f4f9ff, #edf5ff); }
+.danger-zone { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px 15px; border: 1px solid #f0c9c9; border-radius: 12px; background: linear-gradient(110deg, #fff8f8, #fff1f1); }.danger-zone strong, .danger-zone small { display: block; }.danger-zone strong { color: #9f3030; font-size: .8rem; }.danger-zone small { max-width: 650px; margin-top: 3px; color: #a86b6b; font-size: .7rem; line-height: 1.45; }.danger-zone-button { flex: 0 0 auto; padding: 9px 12px; border: 1px solid #e3a4a4; border-radius: 9px; color: #a13232; background: #fff; font: inherit; font-size: .72rem; font-weight: 800; cursor: pointer; }.danger-zone-button:hover:not(:disabled) { background: #fff0f0; }.danger-zone-button:disabled { cursor: wait; opacity: .6; }
 .bulk-assignment-copy strong, .bulk-assignment-copy small { display: block; }.bulk-assignment-copy strong { color: #24558f; font-size: .8rem; }.bulk-assignment-copy small { margin-top: 3px; color: #7890ac; font-size: .7rem; }
 .select-all-button { padding: 9px 11px; border: 1px solid #b9d2ef; border-radius: 9px; color: #2464ad; background: #fff; font: inherit; font-size: .72rem; font-weight: 700; cursor: pointer; }
 .bulk-action-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; min-width: 0; }.bulk-action-row .ruas-select { min-width: 0; width: 100%; }.bulk-apply-button { min-width: 0; padding: 10px 14px; white-space: nowrap; }
@@ -269,6 +276,8 @@ onMounted(async () => { await Promise.all([loadUsers(), fetchAdminCurriculum().t
   .user-actions { justify-content: flex-end; }
   .import-users-panel { order: 2; }
   .bulk-assignment-bar { grid-template-columns: 1fr 1fr; }
+  .danger-zone { align-items: stretch; flex-direction: column; }
+  .danger-zone-button { width: 100%; }
   .bulk-assignment-copy { grid-column: 1 / -1; }
   .bulk-action-row { grid-column: 1 / -1; }.bulk-action-row .ruas-select { width: 100%; }.bulk-action-row .bulk-apply-button { width: auto; }
 }

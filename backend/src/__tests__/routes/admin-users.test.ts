@@ -98,4 +98,39 @@ describe('adminUserRoutes bulk subject assignment', () => {
     expect(response.status).toBe(400);
     expect(db.update).not.toHaveBeenCalled();
   });
+
+  it('requires the exact confirmation before deleting all participants', async () => {
+    const db = { delete: vi.fn() };
+    drizzleMock.mockReturnValue(db);
+
+    const { adminUserRoutes } = await import('@/routes/admin-users');
+    const app = adminUserRoutes({} as never);
+    const response = await app.request('http://localhost/participants', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirmation: 'HAPUS PESERTA' }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(db.delete).not.toHaveBeenCalled();
+  });
+
+  it('deletes only participant accounts after exact confirmation', async () => {
+    const deleteWhere = vi.fn().mockResolvedValue([{ affectedRows: 4 }]);
+    const db = { delete: vi.fn(() => ({ where: deleteWhere })) };
+    drizzleMock.mockReturnValue(db);
+
+    const { adminUserRoutes } = await import('@/routes/admin-users');
+    const app = adminUserRoutes({} as never);
+    const response = await app.request('http://localhost/participants', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirmation: 'HAPUS SEMUA PESERTA' }),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ deleted: 4 });
+    expect(db.delete).toHaveBeenCalledTimes(1);
+    expect(deleteWhere).toHaveBeenCalledTimes(1);
+  });
 });

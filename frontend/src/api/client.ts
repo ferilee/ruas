@@ -273,6 +273,11 @@ export async function fetchAdminUsers(search?: string): Promise<AdminUser[]> {
   return data.users;
 }
 
+export async function fetchAdminParticipantCount(): Promise<number> {
+  const data = await adminRequest<{ count: number }>('/admin/users/participants/count');
+  return data.count;
+}
+
 export async function createAdminUser(input: AdminUserInput): Promise<AdminUser> {
   const data = await adminRequest<{ user: AdminUser }>('/admin/users', { method: 'POST', body: JSON.stringify(input) });
   return data.user;
@@ -301,6 +306,14 @@ export async function assignAdminUsersSubject(userIds: number[], subjectId: numb
 
 export async function deleteAdminUser(id: number): Promise<void> {
   await adminRequest(`/admin/users/${id}`, { method: 'DELETE' });
+}
+
+export async function deleteAllAdminParticipants(confirmation: string): Promise<number> {
+  const data = await adminRequest<{ deleted: number }>('/admin/users/participants', {
+    method: 'DELETE',
+    body: JSON.stringify({ confirmation }),
+  });
+  return data.deleted;
 }
 
 export async function importAdminUsers(data: unknown, mode: 'insert' | 'upsert', dryRun: boolean): Promise<UserImportSummary> {
