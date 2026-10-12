@@ -72,6 +72,20 @@ function toIso(value: Date | string | null) {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }
 
+function parseQuestionOrder(value: unknown): number[] {
+  if (Array.isArray(value)) {
+    return value.map((item) => Number(item)).filter((item) => Number.isInteger(item) && item > 0);
+  }
+  if (typeof value === 'string') {
+    try {
+      return parseQuestionOrder(JSON.parse(value));
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 function inDateRange(value: Date | string | null, from?: string, to?: string) {
   if (!value) return false;
   const timestamp = new Date(value).getTime();
@@ -148,8 +162,7 @@ export async function getReportDetail(db: ReportDb, attemptId: number) {
   const attempt = rows.find((row) => row.attempt_id === attemptId);
   if (!attempt) return null;
 
-  const orderedQuestionIds = Array.isArray(attempt.question_order) ? attempt.question_order : [];
-  const [answers, events, questionRows] = await Promise.all([
+  const [answers, events] = await Promise.all([
     db
       .select({
         id: examAnswers.id,
@@ -170,13 +183,17 @@ export async function getReportDetail(db: ReportDb, attemptId: number) {
       .from(examIntegrityEvents)
       .where(eq(examIntegrityEvents.attempt_id, attemptId))
       .orderBy(asc(examIntegrityEvents.occurred_at), asc(examIntegrityEvents.id)),
-    orderedQuestionIds.length
-      ? db.select({ id: questions.id, topic_id: questions.topic_id, topic_label: topics.label, question_text: questions.question_text })
-        .from(questions)
-        .innerJoin(topics, eq(questions.topic_id, topics.id))
-        .where(inArray(questions.id, orderedQuestionIds))
-      : Promise.resolve([]),
   ]);
+
+  const storedQuestionOrder = parseQuestionOrder(attempt.question_order);
+  const answeredQuestionIds = answers.map((answer) => answer.question_id);
+  const orderedQuestionIds = storedQuestionOrder.length ? storedQuestionOrder : answeredQuestionIds;
+  const questionRows = orderedQuestionIds.length
+    ? await db.select({ id: questions.id, topic_id: questions.topic_id, topic_label: topics.label, question_text: questions.question_text })
+      .from(questions)
+      .innerJoin(topics, eq(questions.topic_id, topics.id))
+      .where(inArray(questions.id, orderedQuestionIds))
+    : [];
 
   const questionIds = questionRows.map((question) => question.id);
   const optionRows = questionIds.length
