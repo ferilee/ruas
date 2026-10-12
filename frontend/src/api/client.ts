@@ -107,8 +107,9 @@ export async function saveParticipantProfile(profile: ParticipantProfileInput | 
   return data.profile;
 }
 
-export async function fetchAssessmentSchedule(): Promise<AssessmentSchedule> {
-  const data = await request<{ schedule: AssessmentSchedule }>('/schedule');
+export async function fetchAssessmentSchedule(subjectId?: number): Promise<AssessmentSchedule> {
+  const query = subjectId ? `?subject_id=${subjectId}` : '';
+  const data = await request<{ schedule: AssessmentSchedule }>(`/schedule${query}`);
   return data.schedule;
 }
 
@@ -365,9 +366,9 @@ export async function deleteAdminSubject(id: number): Promise<void> {
   await deleteCurriculumItem('subjects', id);
 }
 
-export async function fetchAdminSchedule(): Promise<AssessmentSchedule> {
-  const data = await adminRequest<{ schedule: AssessmentSchedule }>('/admin/schedule');
-  return data.schedule;
+export async function fetchAdminSchedule(): Promise<AssessmentSchedule[]> {
+  const data = await adminRequest<{ schedules: AssessmentSchedule[] }>('/admin/schedule');
+  return data.schedules;
 }
 
 export async function fetchAdminReport(filters: AdminReportFilters): Promise<AdminReportData> {
@@ -397,12 +398,16 @@ export async function fetchAdminReportDetail(attemptId: number): Promise<AdminRe
   return data.report;
 }
 
-export async function updateAdminSchedule(startAt: string | null): Promise<AssessmentSchedule> {
-  const data = await adminRequest<{ schedule: AssessmentSchedule }>('/admin/schedule', {
+export async function updateAdminSchedule(assessmentTypeId: number, input: { start_at: string | null; end_at: string | null; enabled: boolean; notes: string | null }): Promise<AssessmentSchedule> {
+  const data = await adminRequest<{ schedule: AssessmentSchedule }>(`/admin/schedule/${assessmentTypeId}`, {
     method: 'PUT',
-    body: JSON.stringify({ start_at: startAt }),
+    body: JSON.stringify(input),
   });
   return data.schedule;
+}
+
+export async function deleteAdminSchedule(assessmentTypeId: number): Promise<void> {
+  await adminRequest(`/admin/schedule/${assessmentTypeId}`, { method: 'DELETE' });
 }
 
 export async function createAdminQuestion(input: AdminQuestionInput): Promise<number> {

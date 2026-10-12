@@ -8,6 +8,7 @@ import { getParticipantIdentity } from '@/lib/participant-identity';
 import { checkAnswer } from '@/lib/scoring';
 import { mapCheckAnswerResponse } from '@/mappers/question-response';
 import { createExamDb, abandonAttempt, completeAttempt, createAttempt, findActiveAttempt, findAttempt, findAttemptAnswers, getAttemptAvailability, getExamReview, getNextAttemptQuestion, getQuestionExplanationMode, getSubjectExamSettings, isAttemptExpired, saveAnswer, saveIntegrityEvent } from '@/services/exam-service';
+import { getAssessmentScheduleStatusFromDb } from '@/services/assessment-schedule-service';
 
 const attemptSchema = z.object({ subject_id: z.coerce.number().int().positive(), topic_id: z.coerce.number().int().positive(), total_questions: z.coerce.number().int().nonnegative(), topic_access_token: z.string().trim().max(100).optional() });
 const answerSchema = z.object({ question_id: z.coerce.number().int().positive(), selected_keys: z.array(z.string().min(1)).min(1), elapsed_seconds: z.coerce.number().int().nonnegative() });
@@ -27,6 +28,10 @@ export function examAttemptRoutes(pool: Pool) {
     if (!identityKey) return c.json({ error: 'identity_required', message: 'Identitas peserta tidak tersedia.' }, 400);
     const parsed = attemptSchema.safeParse(await c.req.json());
     if (!parsed.success) return c.json({ error: 'invalid_body', message: 'Data sesi ujian tidak valid.' }, 400);
+    if (typeof (db as { select?: unknown }).select === 'function') {
+      const schedule = await getAssessmentScheduleStatusFromDb(db, parsed.data.subject_id);
+      if (!schedule.is_open) return c.json({ error: 'assessment_not_started', message: 'Asesmen belum dibuka oleh editor.', schedule }, 403);
+    }
     const created = await createAttempt(db, identityKey, parsed.data);
     if (!created) return c.json({ error: 'profile_required', message: 'Lengkapi profil peserta terlebih dahulu.' }, 400);
     if ('assignmentMismatch' in created && created.assignmentMismatch) {

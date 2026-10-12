@@ -47,8 +47,9 @@
         <p v-else-if="!assignmentLocked && filteredSubjects.length === 0 && !curriculumLoading" class="home-empty">Belum ada mata pelajaran untuk pilihan ini.</p>
         <p v-if="scheduleError" class="home-error" role="alert">{{ scheduleError }}</p>
         <p v-else-if="schedule && !schedule.is_open" class="schedule-notice">
-          Asesmen dibuka pada {{ formatStartAt(schedule.start_at) }}.
-          <strong>{{ formatRemaining(scheduleRemainingSeconds) }}</strong>
+          <template v-if="schedule.state === 'ended'">Jadwal asesmen ini sudah berakhir.</template>
+          <template v-else-if="schedule.state === 'disabled'">Jadwal asesmen ini sedang dinonaktifkan oleh admin.</template>
+          <template v-else>Asesmen dibuka pada {{ formatStartAt(schedule.start_at) }}. <strong>{{ formatRemaining(scheduleRemainingSeconds) }}</strong></template>
         </p>
 
         <button class="start-button" :disabled="curriculumLoading || scheduleLoading || !selectedSubjectId || !canStart" @click="startAssessment">
@@ -122,12 +123,12 @@ async function loadCurriculum() {
   }
 }
 
-async function loadSchedule() {
+async function loadSchedule(subjectId?: number) {
   scheduleLoading.value = true;
   scheduleError.value = null;
 
   try {
-    schedule.value = await fetchAssessmentSchedule();
+    schedule.value = await fetchAssessmentSchedule(subjectId);
     scheduleRemainingSeconds.value = schedule.value.starts_in_seconds;
   } catch (e) {
     schedule.value = null;
@@ -169,6 +170,9 @@ function chooseFirstSubject() {
 }
 
 watch([selectedClassId, selectedAssessmentTypeId], chooseFirstSubject);
+watch(selectedSubjectId, (subjectId) => {
+  if (subjectId) void loadSchedule(Number(subjectId));
+});
 
 onMounted(() => {
   loadData();
@@ -176,8 +180,13 @@ onMounted(() => {
     if (scheduleRemainingSeconds.value > 0) {
       scheduleRemainingSeconds.value -= 1;
     }
-    if (scheduleRemainingSeconds.value === 0 && schedule.value) {
+    if (scheduleRemainingSeconds.value === 0 && schedule.value?.state === 'upcoming') {
       schedule.value.is_open = true;
+      schedule.value.state = 'open';
+    }
+    if (schedule.value?.end_at && new Date(schedule.value.end_at).getTime() <= Date.now()) {
+      schedule.value.is_open = false;
+      schedule.value.state = 'ended';
     }
   }, 1000);
 });

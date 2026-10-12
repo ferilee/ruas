@@ -40,9 +40,17 @@ export interface CurriculumData {
 }
 
 export interface AssessmentSchedule {
+  id?: number;
+  assessment_type_id: number | null;
+  assessment_type_label?: string | null;
   start_at: string | null;
+  end_at: string | null;
+  enabled: boolean;
+  state: 'open' | 'upcoming' | 'ended' | 'disabled';
   is_open: boolean;
   starts_in_seconds: number;
+  notes?: string | null;
+  updated_at?: string;
 }
 
 export interface ParticipantProfile {

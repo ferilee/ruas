@@ -110,31 +110,49 @@
           <UsersPanel v-else-if="activeSection === 'users'" />
 
           <section v-else-if="activeSection === 'schedule'" class="panel schedule-panel">
-        <div class="schedule-hero">
-          <span class="schedule-icon" aria-hidden="true">◷</span>
-          <div><span class="schedule-eyebrow">AKSES ASESMEN</span><h2>Jadwal Asesmen</h2><p>Atur kapan peserta dapat mulai mengerjakan.</p></div>
-          <span v-if="scheduleStartAt" class="schedule-status">Terjadwal</span>
-          <span v-else class="schedule-status open">Terbuka</span>
-        </div>
+            <div class="schedule-hero">
+              <span class="schedule-icon" aria-hidden="true">◷</span>
+              <div><span class="schedule-eyebrow">AKSES ASESMEN</span><h2>Jadwal Asesmen</h2><p>Atur jadwal secara terpisah untuk setiap jenis asesmen.</p></div>
+              <span class="schedule-status open">{{ scheduleRows.length }} jenis</span>
+            </div>
 
-        <div class="schedule-time-card"><span>Waktu mulai</span><strong>{{ scheduleStartAt ? formatScheduleLabel(scheduleStartAt) : 'Terbuka sekarang' }}</strong><small>{{ scheduleStartAt ? 'Peserta menunggu sampai waktu ini.' : 'Peserta dapat langsung memulai asesmen.' }}</small></div>
+            <div class="schedule-layout">
+              <form class="schedule-form schedule-editor-form" @submit.prevent="saveSchedule">
+                <div class="panel-heading"><div><h3>Atur jadwal</h3><p>Pilih jenis asesmen, lalu tentukan jendela pengerjaannya.</p></div></div>
+                <label>Jenis asesmen
+                  <RuasSelect v-model="scheduleAssessmentTypeId" :options="scheduleTypeOptions" placeholder="Pilih jenis asesmen" aria-label="Jenis asesmen untuk jadwal" />
+                </label>
+                <label>Waktu mulai
+                  <input v-model="scheduleStartAt" type="datetime-local" />
+                </label>
+                <label>Waktu selesai <span class="label-optional">(opsional)</span>
+                  <input v-model="scheduleEndAt" type="datetime-local" />
+                </label>
+                <label>Catatan <span class="label-optional">(opsional)</span>
+                  <input v-model.trim="scheduleNotes" type="text" maxlength="255" placeholder="Contoh: Sesi pagi kelas XI" />
+                </label>
+                <label class="schedule-toggle"><input v-model="scheduleEnabled" type="checkbox" /> <span>Jadwal aktif</span></label>
+                <div class="schedule-actions">
+                  <button class="primary-btn" type="submit" :disabled="scheduleSaving || !scheduleAssessmentTypeId">
+                    {{ scheduleSaving ? 'Menyimpan...' : 'Simpan Jadwal' }}
+                  </button>
+                  <button class="secondary-btn" type="button" :disabled="scheduleSaving || !scheduleAssessmentTypeId" @click="openScheduleNow">Buka Sekarang</button>
+                </div>
+              </form>
 
-        <form class="schedule-form" @submit.prevent="saveSchedule">
-          <label>Waktu mulai
-            <input v-model="scheduleStartAt" type="datetime-local" />
-          </label>
-          <div class="schedule-actions">
-            <button class="primary-btn" type="submit" :disabled="scheduleSaving">
-              {{ scheduleSaving ? 'Menyimpan...' : 'Simpan Jadwal' }}
-            </button>
-            <button class="secondary-btn" type="button" :disabled="scheduleSaving || !scheduleStartAt" @click="openScheduleNow">
-              Buka Sekarang
-            </button>
-          </div>
-        </form>
-        <p class="field-hint schedule-hint">Kosongkan waktu lalu simpan untuk membuka asesmen segera.</p>
-        <p v-if="scheduleMessage" :class="scheduleMessageType === 'error' ? 'error-text' : 'success-text'">{{ scheduleMessage }}</p>
-      </section>
+              <div class="schedule-list-card">
+                <div class="panel-heading"><div><h3>Jadwal per jenis</h3><p>Jadwal ini berlaku untuk semua mata pelajaran dengan jenis asesmen yang sama.</p></div></div>
+                <div v-if="scheduleRows.length === 0" class="schedule-empty">Belum ada jadwal khusus. Peserta dapat mulai segera.</div>
+                <button v-for="row in scheduleRows" :key="row.assessment_type_id ?? row.id ?? 'schedule'" type="button" class="schedule-row" @click="editSchedule(row)">
+                  <span class="schedule-row-main"><strong>{{ row.assessment_type_label }}</strong><small>{{ row.notes || 'Tanpa catatan' }}</small></span>
+                  <span :class="['schedule-row-state', `state-${row.state}`]">{{ scheduleStateLabel(row.state) }}</span>
+                  <span class="schedule-row-time">{{ formatScheduleWindow(row) }}</span>
+                </button>
+              </div>
+            </div>
+            <p class="field-hint schedule-hint">Kosongkan waktu mulai lalu simpan untuk membuka jenis asesmen segera. Matikan “Jadwal aktif” untuk menutup sementara.</p>
+            <p v-if="scheduleMessage" :class="scheduleMessageType === 'error' ? 'error-text' : 'success-text'">{{ scheduleMessage }}</p>
+          </section>
 
           <template v-else>
           <div class="question-toolbar">
@@ -319,6 +337,7 @@ import {
   createAdminQuestion,
   deleteAdminQuestion,
   fetchAdminAuthStatus,
+  fetchAdminCurriculum,
   fetchAdminQuestion,
   fetchAdminQuestions,
   fetchAdminSchedule,
@@ -328,7 +347,7 @@ import {
   updateAdminQuestion,
   updateAdminSchedule,
 } from '@/api/client';
-import type { AdminQuestionInput, AdminQuestionListItem, AdminTopic, ImportSummary } from '@/types';
+import type { AdminQuestionInput, AdminQuestionListItem, AdminTopic, AssessmentSchedule, AssessmentType, ImportSummary } from '@/types';
 
 const router = useRouter();
 type AdminSection = 'overview' | 'curriculum' | 'questions' | 'schedule' | 'reports' | 'users';
@@ -401,9 +420,16 @@ const confirmMessage = ref('Apakah kamu yakin ingin melanjutkan?');
 const confirmLabel = ref('OK');
 const pendingConfirmation = ref<(() => Promise<void>) | null>(null);
 const scheduleStartAt = ref('');
+const scheduleEndAt = ref('');
+const scheduleEnabled = ref(true);
+const scheduleNotes = ref('');
+const scheduleAssessmentTypeId = ref<number | null>(null);
+const scheduleTypes = ref<AssessmentType[]>([]);
+const scheduleRows = ref<AssessmentSchedule[]>([]);
 const scheduleSaving = ref(false);
 const scheduleMessage = ref('');
 const scheduleMessageType = ref<'success' | 'error'>('success');
+const scheduleTypeOptions = computed(() => scheduleTypes.value.map((item) => ({ value: item.id, label: item.label })));
 
 function selectSection(section: AdminSection) {
   activeSection.value = section;
@@ -540,21 +566,20 @@ async function loadQuestions() {
 
 async function loadData() {
   try {
-    const [questionRows, topicRows] = await Promise.all([fetchAdminQuestions(), fetchAdminTopics()]);
+    const [questionRows, topicRows, curriculumData, schedules] = await Promise.all([
+      fetchAdminQuestions(),
+      fetchAdminTopics(),
+      fetchAdminCurriculum(),
+      fetchAdminSchedule(),
+    ]);
     questions.value = questionRows;
     topics.value = topicRows;
     syncTopicAccessDrafts(topicRows);
-
-    try {
-      const schedule = await fetchAdminSchedule();
-      scheduleStartAt.value = toDateTimeLocal(schedule.start_at);
-    } catch (error) {
-      scheduleStartAt.value = '';
-      scheduleMessageType.value = 'error';
-      scheduleMessage.value = error instanceof Error
-        ? `Jadwal belum dapat dimuat: ${error.message}`
-        : 'Jadwal belum dapat dimuat.';
-    }
+    scheduleTypes.value = curriculumData.assessment_types;
+    scheduleRows.value = schedules;
+    const selectedId = scheduleAssessmentTypeId.value ?? scheduleTypes.value[0]?.id ?? null;
+    scheduleAssessmentTypeId.value = selectedId;
+    loadScheduleDraft(scheduleRows.value.find((row) => row.assessment_type_id === selectedId) ?? null);
   } catch (error) {
     isAuthenticated.value = false;
     errorMessage.value = error instanceof Error ? error.message : 'Gagal memuat data editor.';
@@ -575,8 +600,38 @@ function formatScheduleLabel(value: string) {
   return new Intl.DateTimeFormat('id-ID', { dateStyle: 'full', timeStyle: 'short' }).format(date);
 }
 
+function loadScheduleDraft(row: AssessmentSchedule | null) {
+  scheduleStartAt.value = toDateTimeLocal(row?.start_at ?? null);
+  scheduleEndAt.value = toDateTimeLocal(row?.end_at ?? null);
+  scheduleEnabled.value = row?.enabled ?? true;
+  scheduleNotes.value = row?.notes ?? '';
+}
+
+function editSchedule(row: AssessmentSchedule) {
+  scheduleAssessmentTypeId.value = row.assessment_type_id;
+  loadScheduleDraft(row);
+  scheduleMessage.value = '';
+}
+
+function scheduleStateLabel(state: AssessmentSchedule['state']) {
+  return { open: 'Terbuka', upcoming: 'Menunggu', ended: 'Berakhir', disabled: 'Nonaktif' }[state];
+}
+
+function formatScheduleWindow(row: AssessmentSchedule) {
+  if (!row.start_at && !row.end_at) return 'Terbuka segera';
+  const start = row.start_at ? formatScheduleLabel(row.start_at) : 'Segera';
+  const end = row.end_at ? formatScheduleLabel(row.end_at) : 'tanpa batas akhir';
+  return `${start} · ${end}`;
+}
+
 async function saveSchedule() {
+  if (!scheduleAssessmentTypeId.value) {
+    scheduleMessageType.value = 'error';
+    scheduleMessage.value = 'Pilih jenis asesmen terlebih dahulu.';
+    return;
+  }
   let startAt: string | null = null;
+  let endAt: string | null = null;
   if (scheduleStartAt.value) {
     const date = new Date(scheduleStartAt.value);
     if (Number.isNaN(date.getTime())) {
@@ -586,14 +641,29 @@ async function saveSchedule() {
     }
     startAt = date.toISOString();
   }
+  if (scheduleEndAt.value) {
+    const date = new Date(scheduleEndAt.value);
+    if (Number.isNaN(date.getTime())) {
+      scheduleMessageType.value = 'error';
+      scheduleMessage.value = 'Waktu selesai tidak valid.';
+      return;
+    }
+    endAt = date.toISOString();
+  }
+  if (startAt && endAt && new Date(endAt).getTime() <= new Date(startAt).getTime()) {
+    scheduleMessageType.value = 'error';
+    scheduleMessage.value = 'Waktu selesai harus setelah waktu mulai.';
+    return;
+  }
 
   scheduleSaving.value = true;
   scheduleMessage.value = '';
   try {
-    const schedule = await updateAdminSchedule(startAt);
-    scheduleStartAt.value = toDateTimeLocal(schedule.start_at);
+    await updateAdminSchedule(scheduleAssessmentTypeId.value, { start_at: startAt, end_at: endAt, enabled: scheduleEnabled.value, notes: scheduleNotes.value || null });
+    scheduleRows.value = await fetchAdminSchedule();
+    loadScheduleDraft(scheduleRows.value.find((row) => row.assessment_type_id === scheduleAssessmentTypeId.value) ?? null);
     scheduleMessageType.value = 'success';
-    scheduleMessage.value = schedule.start_at ? 'Jadwal asesmen berhasil disimpan.' : 'Asesmen dibuka segera.';
+    scheduleMessage.value = startAt ? 'Jadwal jenis asesmen berhasil disimpan.' : 'Jenis asesmen dibuka segera.';
   } catch (error) {
     scheduleMessageType.value = 'error';
     scheduleMessage.value = error instanceof Error ? error.message : 'Gagal menyimpan jadwal.';
@@ -604,6 +674,8 @@ async function saveSchedule() {
 
 async function openScheduleNow() {
   scheduleStartAt.value = '';
+  scheduleEndAt.value = '';
+  scheduleEnabled.value = true;
   await saveSchedule();
 }
 
@@ -891,6 +963,27 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
   font-size: 0.85rem;
 }
 
+.schedule-layout { display: grid; grid-template-columns: minmax(260px, .82fr) minmax(0, 1.18fr); gap: 16px; align-items: start; }
+.schedule-editor-form, .schedule-list-card { min-width: 0; padding: 16px; border: 1px solid #e1eaf4; border-radius: 13px; background: #fbfdff; }
+.schedule-editor-form { align-items: stretch; flex-direction: column; padding-top: 16px; }
+.schedule-editor-form .panel-heading, .schedule-list-card .panel-heading { margin: 0 0 4px; padding: 0 0 10px; border-bottom: 1px solid #e6eef6; }
+.schedule-editor-form .panel-heading h3, .schedule-list-card .panel-heading h3 { color: #245a9d; font-size: .98rem; }
+.schedule-editor-form label { width: 100%; }
+.label-optional { color: #95a6ba; font-size: .72rem; font-weight: 400; }
+.schedule-toggle { flex-direction: row !important; align-items: center; gap: 7px; color: #456382; font-size: .8rem; }
+.schedule-toggle input { width: auto; accent-color: #2671c9; }
+.schedule-list-card { display: flex; flex-direction: column; gap: 8px; }
+.schedule-empty { padding: 14px 4px; color: #7d94ae; font-size: .8rem; }
+.schedule-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; width: 100%; padding: 12px; border: 1px solid #e1eaf4; border-radius: 11px; color: #385b86; background: #fff; font: inherit; text-align: left; cursor: pointer; transition: border-color .16s ease, transform .16s ease, box-shadow .16s ease; }
+.schedule-row:hover { border-color: #8bb8ea; box-shadow: 0 6px 14px rgba(35, 101, 199, .1); transform: translateY(-1px); }
+.schedule-row-main { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.schedule-row-main strong { overflow: hidden; color: #244978; font-size: .82rem; text-overflow: ellipsis; white-space: nowrap; }
+.schedule-row-main small, .schedule-row-time { color: #8196ae; font-size: .7rem; }
+.schedule-row-state { align-self: start; padding: 4px 7px; border-radius: 999px; color: #23734b; background: #dcf7e9; font-size: .65rem; font-weight: 800; white-space: nowrap; }
+.schedule-row-state.state-upcoming { color: #916300; background: #fff2c2; }
+.schedule-row-state.state-ended, .schedule-row-state.state-disabled { color: #a24d58; background: #ffebeb; }
+.schedule-row-time { grid-column: 1 / -1; line-height: 1.4; }
+
 .schedule-status {
   padding: 5px 10px;
   border-radius: 999px;
@@ -940,6 +1033,7 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
   .schedule-form label {
     width: 100%;
   }
+  .schedule-layout { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 960px) {

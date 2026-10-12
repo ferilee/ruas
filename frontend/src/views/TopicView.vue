@@ -31,8 +31,9 @@
 
     <template v-else>
       <div v-if="schedule && !schedule.is_open" class="topic-schedule-notice" role="status">
-        Asesmen belum dibuka. Jadwal mulai {{ formatStartAt(schedule.start_at) }}.
-        <strong>{{ formatRemaining(scheduleRemainingSeconds) }}</strong>
+        <template v-if="schedule.state === 'ended'">Jadwal asesmen ini sudah berakhir.</template>
+        <template v-else-if="schedule.state === 'disabled'">Jadwal asesmen ini sedang dinonaktifkan oleh admin.</template>
+        <template v-else>Asesmen belum dibuka. Jadwal mulai {{ formatStartAt(schedule.start_at) }}. <strong>{{ formatRemaining(scheduleRemainingSeconds) }}</strong></template>
       </div>
 
       <div class="topic-list">
@@ -90,7 +91,7 @@ async function loadTopicsData() {
     const [fetchedTopics, subjects, fetchedSchedule] = await Promise.all([
       fetchTopics(subjectId),
       fetchSubjects(),
-      fetchAssessmentSchedule(),
+      fetchAssessmentSchedule(subjectId),
     ]);
     topics.value = fetchedTopics;
     topicAccessState.value = Object.fromEntries(fetchedTopics.map((topic) => [topic.id, Boolean(getTopicAccessToken(topic.id))]));
@@ -197,8 +198,13 @@ onMounted(() => {
     if (scheduleRemainingSeconds.value > 0) {
       scheduleRemainingSeconds.value -= 1;
     }
-    if (scheduleRemainingSeconds.value === 0 && schedule.value) {
+    if (scheduleRemainingSeconds.value === 0 && schedule.value?.state === 'upcoming') {
       schedule.value.is_open = true;
+      schedule.value.state = 'open';
+    }
+    if (schedule.value?.end_at && new Date(schedule.value.end_at).getTime() <= Date.now()) {
+      schedule.value.is_open = false;
+      schedule.value.state = 'ended';
     }
   }, 1000);
 });
