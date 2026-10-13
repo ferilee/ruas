@@ -68,6 +68,7 @@ export interface ParticipantProfile {
   class_label: string;
   assessment_type_label: string;
   access_token: string;
+  is_demo: boolean;
   is_complete: boolean;
 }
 

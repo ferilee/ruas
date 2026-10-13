@@ -24,13 +24,14 @@ export async function findParticipantProfile(db: ParticipantDb, identityKey: str
         subject_id: participantProfiles.subject_id,
         subject_label: subjects.label,
         access_token: participantProfiles.access_token,
+        is_demo: participantProfiles.is_demo,
       })
       .from(participantProfiles)
       .leftJoin(subjects, eq(participantProfiles.subject_id, subjects.id))
       .where(eq(participantProfiles.identity_key, identityKey))
       .limit(1),
     db
-      .select({ username: users.username, display_name: users.display_name, class_id: users.class_id, class_label: educationClasses.label, subject_id: users.subject_id })
+      .select({ username: users.username, display_name: users.display_name, class_id: users.class_id, class_label: educationClasses.label, subject_id: users.subject_id, is_demo: users.is_demo })
       .from(users)
       .leftJoin(educationClasses, eq(users.class_id, educationClasses.id))
       .where(eq(users.username, identityKey))
@@ -65,6 +66,7 @@ export async function findParticipantProfile(db: ParticipantDb, identityKey: str
     class_label: account?.class_label ?? subjectContext?.class_label ?? '',
     assessment_type_label: subjectContext?.assessment_type_label ?? '',
     access_token: profile?.access_token ?? '',
+    is_demo: Boolean(account?.is_demo || profile?.is_demo),
     is_complete: Boolean(profile),
   };
 }

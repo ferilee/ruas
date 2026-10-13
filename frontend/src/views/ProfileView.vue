@@ -18,7 +18,7 @@
       </router-link>
       <div class="participant-badge">
         <span class="participant-badge-icon" aria-hidden="true">♙</span>
-        <span>Peserta baru</span>
+        <span>{{ isDemo ? 'MODE DEMO' : 'Peserta baru' }}</span>
       </div>
     </header>
 
@@ -27,6 +27,11 @@
         <span class="session-kicker">Langkah 1 dari 1</span>
         <h2>Lengkapi data peserta</h2>
         <p>Data ini digunakan untuk menyiapkan sesi latihan Anda di Ruang Asesmen.</p>
+
+        <div v-if="isDemo" class="demo-mode-notice" role="status">
+          <strong>MODE DEMO AKTIF</strong>
+          <span>Anda sedang mencoba dengan data contoh. Hasil demo tidak masuk laporan.</span>
+        </div>
 
         <div class="session-status">
           <span class="status-dot"></span>
@@ -114,6 +119,7 @@ const router = useRouter();
 const profileLoading = ref(true);
 const saving = ref(false);
 const error = ref('');
+const isDemo = ref(false);
 const form = reactive<ProfileForm>({
   username: '',
   participant_code: '',
@@ -136,6 +142,7 @@ async function loadProfile() {
       return;
     }
     Object.assign(form, profile);
+    isDemo.value = profile.is_demo;
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Profil peserta gagal dimuat.';
   } finally {
@@ -687,6 +694,35 @@ onMounted(() => { void loadProfile(); });
 
 .session-status {
   color: #236bdc;
+}
+
+.demo-mode-notice {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 20px;
+  padding: 12px 14px;
+  border: 1px solid rgba(208, 161, 48, 0.45);
+  border-radius: 16px;
+  background: rgba(255, 248, 219, 0.88);
+  color: #765214;
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.demo-mode-notice strong {
+  color: #8a5c09;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+}
+
+.demo-mode-notice span {
+  color: #927345;
+}
+
+.participant-badge span:last-child {
+  font-weight: 800;
+  letter-spacing: 0.04em;
 }
 
 .session-note {

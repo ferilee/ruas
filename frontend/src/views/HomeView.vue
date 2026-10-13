@@ -15,6 +15,11 @@
         {{ assignmentLocked ? 'Penugasan asesmen Anda telah diatur langsung oleh admin.' : 'Pilih kelas, jenis asesmen, dan mata pelajaran untuk memulai asesmen' }}
       </p>
 
+      <div v-if="participantProfile?.is_demo" class="demo-mode-notice" role="status">
+        <strong>MODE DEMO AKTIF</strong>
+        <span>Anda sedang mencoba dengan data contoh. Hasil demo tidak masuk laporan.</span>
+      </div>
+
       <div class="selection-form">
         <div v-if="assignmentLocked" class="assignment-summary" aria-label="Penugasan asesmen">
           <div class="assignment-heading">
@@ -509,6 +514,32 @@ onUnmounted(() => {
   border-radius: 22px;
   background: rgba(245, 249, 255, 0.62);
   box-shadow: 8px 10px 18px rgba(133, 159, 207, 0.13), inset 2px 2px 8px rgba(255, 255, 255, 0.55);
+}
+
+.demo-mode-notice {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: min(100%, 390px);
+  margin: 0 auto 16px;
+  padding: 11px 14px;
+  border: 1px solid rgba(208, 161, 48, 0.45);
+  border-radius: 16px;
+  background: rgba(255, 248, 219, 0.88);
+  color: #765214;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  text-align: left;
+}
+
+.demo-mode-notice strong {
+  color: #8a5c09;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+}
+
+.demo-mode-notice span {
+  color: #927345;
 }
 
 .assignment-heading {
