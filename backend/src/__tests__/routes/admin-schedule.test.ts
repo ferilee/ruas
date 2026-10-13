@@ -7,22 +7,30 @@ vi.mock('drizzle-orm/mysql2', () => ({ drizzle: drizzleMock }));
 describe('adminScheduleRoutes', () => {
   beforeEach(() => drizzleMock.mockReset());
 
-  it('returns schedules grouped by assessment type', async () => {
+  it('returns schedules grouped by topic', async () => {
     drizzleMock.mockReturnValue({
       select: (shape?: unknown) => {
-        if (shape && typeof shape === 'object' && 'assessment_type_label' in (shape as Record<string, unknown>)) {
+        if (shape && typeof shape === 'object' && 'topic_label' in (shape as Record<string, unknown>)) {
           return {
             from: () => ({
-              innerJoin: async () => [{
+              innerJoin: () => ({
+                innerJoin: () => ({
+                  leftJoin: async () => [{
                 id: 2,
-                assessment_type_id: 3,
+                topic_id: 3,
+                topic_label: 'Barisan dan Deret',
+                subject_id: 4,
+                subject_label: 'Matematika',
+                assessment_type_id: 1,
                 assessment_type_label: 'Asesmen Tengah Semester',
                 start_at: new Date(Date.now() - 60 * 60 * 1000),
                 end_at: new Date(Date.now() + 60 * 60 * 1000),
                 enabled: true,
                 notes: 'Sesi pagi',
                 updated_at: new Date('2026-10-11T01:00:00.000Z'),
-              }],
+                  }],
+                }),
+              }),
             }),
           };
         }
@@ -35,9 +43,9 @@ describe('adminScheduleRoutes', () => {
     const response = await app.request('http://localhost/');
 
     expect(response.status).toBe(200);
-    const body = await response.json() as { schedules: Array<{ assessment_type_id: number; assessment_type_label: string; state: string }> };
+    const body = await response.json() as { schedules: Array<{ topic_id: number; topic_label: string; state: string }> };
     expect(body.schedules).toHaveLength(1);
-    expect(body.schedules[0]).toMatchObject({ assessment_type_id: 3, assessment_type_label: 'Asesmen Tengah Semester', state: 'open' });
+    expect(body.schedules[0]).toMatchObject({ topic_id: 3, topic_label: 'Barisan dan Deret', state: 'open' });
   });
 
   it('rejects an invalid schedule window', async () => {

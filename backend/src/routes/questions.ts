@@ -29,8 +29,8 @@ import { canAccessTopic, getTopicAccess, verifyTopicAccess } from '@/services/to
 
 type QuestionsDb = ReturnType<typeof createQuestionsDb>;
 
-async function requireAssessmentOpen(c: Context, db: QuestionsDb) {
-  const schedule = await getAssessmentScheduleStatusFromDb(db);
+async function requireAssessmentOpen(c: Context, db: QuestionsDb, topicId?: number) {
+  const schedule = await getAssessmentScheduleStatusFromDb(db, topicId);
   if (!schedule.is_open) {
     return c.json(
       {
@@ -59,14 +59,14 @@ export function questionsRoutes(pool: Pool) {
   const app = new Hono();
 
   app.get('/count', async (c) => {
-    const scheduleError = await requireAssessmentOpen(c, db);
-    if (scheduleError) return scheduleError;
-
     const parsed = parseRandomQuestionQuery(c.req.query());
 
     if (!parsed.success) {
       return c.json({ error: 'invalid_query', message: 'topic_id harus berupa angka positif.' }, 400);
     }
+
+    const scheduleError = await requireAssessmentOpen(c, db, parsed.data.topic_id);
+    if (scheduleError) return scheduleError;
 
     const topicAccessError = await requireTopicAccess(c, db, parsed.data.topic_id);
     if (topicAccessError) return topicAccessError;
@@ -76,14 +76,14 @@ export function questionsRoutes(pool: Pool) {
   });
 
   app.get('/random', async (c) => {
-    const scheduleError = await requireAssessmentOpen(c, db);
-    if (scheduleError) return scheduleError;
-
     const parsed = parseRandomQuestionQuery(c.req.query());
 
     if (!parsed.success) {
       return c.json({ error: 'invalid_query', message: 'topic_id harus berupa angka positif.' }, 400);
     }
+
+    const scheduleError = await requireAssessmentOpen(c, db, parsed.data.topic_id);
+    if (scheduleError) return scheduleError;
 
     const topicAccessError = await requireTopicAccess(c, db, parsed.data.topic_id);
     if (topicAccessError) return topicAccessError;
@@ -100,9 +100,6 @@ export function questionsRoutes(pool: Pool) {
   });
 
   app.post('/:id/check', async (c) => {
-    const scheduleError = await requireAssessmentOpen(c, db);
-    if (scheduleError) return scheduleError;
-
     const id = parseQuestionIdParam(c.req.param('id'));
 
     if (id === null) {
@@ -121,6 +118,9 @@ export function questionsRoutes(pool: Pool) {
     if (!question) {
       return c.json({ error: 'not_found', message: 'Soal tidak ditemukan.' }, 404);
     }
+
+    const scheduleError = await requireAssessmentOpen(c, db, question.topic_id);
+    if (scheduleError) return scheduleError;
 
     const topicAccess = await verifyTopicAccess(db, question.topic_id, c.req.header('x-topic-access-token'));
     if (topicAccess === null) return c.json({ error: 'not_found', message: 'Topik tidak ditemukan.' }, 404);

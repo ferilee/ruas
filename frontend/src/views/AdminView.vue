@@ -112,15 +112,15 @@
           <section v-else-if="activeSection === 'schedule'" class="panel schedule-panel">
             <div class="schedule-hero">
               <span class="schedule-icon" aria-hidden="true">◷</span>
-              <div><span class="schedule-eyebrow">AKSES ASESMEN</span><h2>Jadwal Asesmen</h2><p>Atur jadwal secara terpisah untuk setiap jenis asesmen.</p></div>
-              <span class="schedule-status open">{{ scheduleRows.length }} jenis</span>
+              <div><span class="schedule-eyebrow">AKSES TOPIK</span><h2>Jadwal Asesmen</h2><p>Atur jadwal secara terpisah untuk setiap topik.</p></div>
+              <span class="schedule-status open">{{ scheduleRows.length }} topik</span>
             </div>
 
             <div class="schedule-layout">
               <form class="schedule-form schedule-editor-form" @submit.prevent="saveSchedule">
-                <div class="panel-heading"><div><h3>Atur jadwal</h3><p>Pilih jenis asesmen, lalu tentukan jendela pengerjaannya.</p></div></div>
-                <label>Jenis asesmen
-                  <RuasSelect v-model="scheduleAssessmentTypeId" :options="scheduleTypeOptions" placeholder="Pilih jenis asesmen" aria-label="Jenis asesmen untuk jadwal" />
+                <div class="panel-heading"><div><h3>Atur jadwal</h3><p>Pilih topik, lalu tentukan jendela pengerjaannya.</p></div></div>
+                <label>Topik
+                  <RuasSelect v-model="scheduleTopicId" :options="scheduleTopicOptions" placeholder="Pilih topik" aria-label="Topik untuk jadwal" />
                 </label>
                 <label>Waktu mulai
                   <input v-model="scheduleStartAt" type="datetime-local" />
@@ -133,24 +133,29 @@
                 </label>
                 <label class="schedule-toggle"><input v-model="scheduleEnabled" type="checkbox" /> <span>Jadwal aktif</span></label>
                 <div class="schedule-actions">
-                  <button class="primary-btn" type="submit" :disabled="scheduleSaving || !scheduleAssessmentTypeId">
+                  <button class="primary-btn" type="submit" :disabled="scheduleSaving || !scheduleTopicId">
                     {{ scheduleSaving ? 'Menyimpan...' : 'Simpan Jadwal' }}
                   </button>
-                  <button class="secondary-btn" type="button" :disabled="scheduleSaving || !scheduleAssessmentTypeId" @click="openScheduleNow">Buka Sekarang</button>
+                  <button class="secondary-btn" type="button" :disabled="scheduleSaving || !scheduleTopicId" @click="openScheduleNow">Buka Sekarang</button>
                 </div>
               </form>
 
               <div class="schedule-list-card">
-                <div class="panel-heading"><div><h3>Jadwal per jenis</h3><p>Jadwal ini berlaku untuk semua mata pelajaran dengan jenis asesmen yang sama.</p></div></div>
+                <div class="panel-heading"><div><h3>Jadwal per topik</h3><p>Urutan status: Sedang Berlangsung, Akan Datang, lalu Sudah Berakhir.</p></div></div>
                 <div v-if="scheduleRows.length === 0" class="schedule-empty">Belum ada jadwal khusus. Peserta dapat mulai segera.</div>
-                <button v-for="row in scheduleRows" :key="row.assessment_type_id ?? row.id ?? 'schedule'" type="button" class="schedule-row" @click="editSchedule(row)">
-                  <span class="schedule-row-main"><strong>{{ row.assessment_type_label }}</strong><small>{{ row.notes || 'Tanpa catatan' }}</small></span>
-                  <span :class="['schedule-row-state', `state-${row.state}`]">{{ scheduleStateLabel(row.state) }}</span>
-                  <span class="schedule-row-time">{{ formatScheduleWindow(row) }}</span>
-                </button>
+                <template v-for="group in scheduleGroups" :key="group.key">
+                  <div v-if="group.rows.length" class="schedule-group">
+                    <h4>{{ group.label }} <span>{{ group.rows.length }}</span></h4>
+                    <button v-for="row in group.rows" :key="row.topic_id ?? row.id ?? 'schedule'" type="button" class="schedule-row" @click="editSchedule(row)">
+                      <span class="schedule-row-main"><strong>{{ row.topic_label }}</strong><small>{{ row.subject_label || 'Tanpa mata pelajaran' }} · {{ row.notes || 'Tanpa catatan' }}</small></span>
+                      <span :class="['schedule-row-state', `state-${row.state}`]">{{ scheduleStateLabel(row.state) }}</span>
+                      <span class="schedule-row-time">{{ formatScheduleWindow(row) }}</span>
+                    </button>
+                  </div>
+                </template>
               </div>
             </div>
-            <p class="field-hint schedule-hint">Kosongkan waktu mulai lalu simpan untuk membuka jenis asesmen segera. Matikan “Jadwal aktif” untuk menutup sementara.</p>
+            <p class="field-hint schedule-hint">Kosongkan waktu mulai lalu simpan untuk membuka topik segera. Matikan “Jadwal aktif” untuk menutup sementara.</p>
             <p v-if="scheduleMessage" :class="scheduleMessageType === 'error' ? 'error-text' : 'success-text'">{{ scheduleMessage }}</p>
           </section>
 
@@ -360,7 +365,7 @@ import {
   updateAdminQuestion,
   updateAdminSchedule,
 } from '@/api/client';
-import type { AdminQuestionInput, AdminQuestionListItem, AdminTopic, AssessmentSchedule, AssessmentType, ImportSummary } from '@/types';
+import type { AdminQuestionInput, AdminQuestionListItem, AdminTopic, AssessmentSchedule, ImportSummary } from '@/types';
 
 const router = useRouter();
 type AdminSection = 'overview' | 'curriculum' | 'questions' | 'schedule' | 'reports' | 'users';
@@ -446,13 +451,17 @@ const scheduleStartAt = ref('');
 const scheduleEndAt = ref('');
 const scheduleEnabled = ref(true);
 const scheduleNotes = ref('');
-const scheduleAssessmentTypeId = ref<number | null>(null);
-const scheduleTypes = ref<AssessmentType[]>([]);
+const scheduleTopicId = ref<number | null>(null);
 const scheduleRows = ref<AssessmentSchedule[]>([]);
 const scheduleSaving = ref(false);
 const scheduleMessage = ref('');
 const scheduleMessageType = ref<'success' | 'error'>('success');
-const scheduleTypeOptions = computed(() => scheduleTypes.value.map((item) => ({ value: item.id, label: item.label })));
+const scheduleTopicOptions = computed(() => topics.value.map((item) => ({ value: item.id, label: `${item.subject_label} — ${item.label}` })));
+const scheduleGroups = computed(() => [
+  { key: 'open', label: 'Sedang Berlangsung', rows: scheduleRows.value.filter((row) => row.state === 'open') },
+  { key: 'upcoming', label: 'Akan Datang', rows: scheduleRows.value.filter((row) => row.state === 'upcoming') },
+  { key: 'ended', label: 'Sudah Berakhir', rows: scheduleRows.value.filter((row) => row.state === 'ended' || row.state === 'disabled') },
+]);
 
 watch(search, () => {
   if (questionSearchTimer) clearTimeout(questionSearchTimer);
@@ -632,10 +641,9 @@ function goToQuestionPage(page: number) {
 
 async function loadData() {
   try {
-    const [questionRows, topicRows, curriculumData, schedules] = await Promise.all([
+    const [questionRows, topicRows, schedules] = await Promise.all([
       fetchAdminQuestions(),
       fetchAdminTopics(),
-      fetchAdminCurriculum(),
       fetchAdminSchedule(),
     ]);
     questions.value = questionRows.questions;
@@ -645,11 +653,10 @@ async function loadData() {
     questionTotalPages.value = questionRows.total_pages;
     topics.value = topicRows;
     syncTopicAccessDrafts(topicRows);
-    scheduleTypes.value = curriculumData.assessment_types;
     scheduleRows.value = schedules;
-    const selectedId = scheduleAssessmentTypeId.value ?? scheduleTypes.value[0]?.id ?? null;
-    scheduleAssessmentTypeId.value = selectedId;
-    loadScheduleDraft(scheduleRows.value.find((row) => row.assessment_type_id === selectedId) ?? null);
+    const selectedId = scheduleTopicId.value ?? topics.value[0]?.id ?? null;
+    scheduleTopicId.value = selectedId;
+    loadScheduleDraft(scheduleRows.value.find((row) => row.topic_id === selectedId) ?? null);
   } catch (error) {
     isAuthenticated.value = false;
     errorMessage.value = error instanceof Error ? error.message : 'Gagal memuat data editor.';
@@ -678,7 +685,7 @@ function loadScheduleDraft(row: AssessmentSchedule | null) {
 }
 
 function editSchedule(row: AssessmentSchedule) {
-  scheduleAssessmentTypeId.value = row.assessment_type_id;
+  scheduleTopicId.value = row.topic_id;
   loadScheduleDraft(row);
   scheduleMessage.value = '';
 }
@@ -695,9 +702,9 @@ function formatScheduleWindow(row: AssessmentSchedule) {
 }
 
 async function saveSchedule() {
-  if (!scheduleAssessmentTypeId.value) {
+  if (!scheduleTopicId.value) {
     scheduleMessageType.value = 'error';
-    scheduleMessage.value = 'Pilih jenis asesmen terlebih dahulu.';
+    scheduleMessage.value = 'Pilih topik terlebih dahulu.';
     return;
   }
   let startAt: string | null = null;
@@ -729,11 +736,11 @@ async function saveSchedule() {
   scheduleSaving.value = true;
   scheduleMessage.value = '';
   try {
-    await updateAdminSchedule(scheduleAssessmentTypeId.value, { start_at: startAt, end_at: endAt, enabled: scheduleEnabled.value, notes: scheduleNotes.value || null });
+    await updateAdminSchedule(scheduleTopicId.value, { start_at: startAt, end_at: endAt, enabled: scheduleEnabled.value, notes: scheduleNotes.value || null });
     scheduleRows.value = await fetchAdminSchedule();
-    loadScheduleDraft(scheduleRows.value.find((row) => row.assessment_type_id === scheduleAssessmentTypeId.value) ?? null);
+    loadScheduleDraft(scheduleRows.value.find((row) => row.topic_id === scheduleTopicId.value) ?? null);
     scheduleMessageType.value = 'success';
-    scheduleMessage.value = startAt ? 'Jadwal jenis asesmen berhasil disimpan.' : 'Jenis asesmen dibuka segera.';
+    scheduleMessage.value = startAt ? 'Jadwal topik berhasil disimpan.' : 'Topik dibuka segera.';
   } catch (error) {
     scheduleMessageType.value = 'error';
     scheduleMessage.value = error instanceof Error ? error.message : 'Gagal menyimpan jadwal.';
@@ -1086,6 +1093,9 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .schedule-toggle input { width: auto; accent-color: #2671c9; }
 .schedule-list-card { display: flex; flex-direction: column; gap: 8px; }
 .schedule-empty { padding: 14px 4px; color: #7d94ae; font-size: .8rem; }
+.schedule-group { display: flex; flex-direction: column; gap: 8px; }
+.schedule-group h4 { display: flex; align-items: center; gap: 7px; margin: 8px 2px 0; color: #456382; font-size: .76rem; }
+.schedule-group h4 span { display: inline-grid; min-width: 20px; height: 20px; place-items: center; border-radius: 999px; color: #2a65b5; background: #e7f1ff; font-size: .65rem; }
 .schedule-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; width: 100%; padding: 12px; border: 1px solid #e1eaf4; border-radius: 11px; color: #385b86; background: #fff; font: inherit; text-align: left; cursor: pointer; transition: border-color .16s ease, transform .16s ease, box-shadow .16s ease; }
 .schedule-row:hover { border-color: #8bb8ea; box-shadow: 0 6px 14px rgba(35, 101, 199, .1); transform: translateY(-1px); }
 .schedule-row-main { display: flex; min-width: 0; flex-direction: column; gap: 3px; }

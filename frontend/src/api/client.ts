@@ -111,8 +111,8 @@ export async function saveParticipantProfile(profile: ParticipantProfileInput | 
   return data.profile;
 }
 
-export async function fetchAssessmentSchedule(subjectId?: number): Promise<AssessmentSchedule> {
-  const query = subjectId ? `?subject_id=${subjectId}` : '';
+export async function fetchAssessmentSchedule(topicId?: number): Promise<AssessmentSchedule> {
+  const query = topicId ? `?topic_id=${topicId}` : '';
   const data = await request<{ schedule: AssessmentSchedule }>(`/schedule${query}`);
   return data.schedule;
 }
@@ -405,16 +405,16 @@ export async function fetchAdminReportDetail(attemptId: number): Promise<AdminRe
   return data.report;
 }
 
-export async function updateAdminSchedule(assessmentTypeId: number, input: { start_at: string | null; end_at: string | null; enabled: boolean; notes: string | null }): Promise<AssessmentSchedule> {
-  const data = await adminRequest<{ schedule: AssessmentSchedule }>(`/admin/schedule/${assessmentTypeId}`, {
+export async function updateAdminSchedule(topicId: number, input: { start_at: string | null; end_at: string | null; enabled: boolean; notes: string | null }): Promise<AssessmentSchedule> {
+  const data = await adminRequest<{ schedule: AssessmentSchedule }>(`/admin/schedule/${topicId}`, {
     method: 'PUT',
     body: JSON.stringify(input),
   });
   return data.schedule;
 }
 
-export async function deleteAdminSchedule(assessmentTypeId: number): Promise<void> {
-  await adminRequest(`/admin/schedule/${assessmentTypeId}`, { method: 'DELETE' });
+export async function deleteAdminSchedule(topicId: number): Promise<void> {
+  await adminRequest(`/admin/schedule/${topicId}`, { method: 'DELETE' });
 }
 
 export async function createAdminQuestion(input: AdminQuestionInput): Promise<number> {

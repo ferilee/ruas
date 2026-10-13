@@ -3,6 +3,7 @@ import { drizzle } from 'drizzle-orm/mysql2';
 import { assessmentSchedule } from '@/db/schema/assessment-schedule';
 import { assessmentTypes } from '@/db/schema/assessment-types';
 import { subjects } from '@/db/schema/subjects';
+import { topics } from '@/db/schema/topics';
 import type { Pool } from '@/db/connection';
 
 type ScheduleDb = ReturnType<typeof drizzle>;
@@ -10,8 +11,8 @@ type ScheduleDb = ReturnType<typeof drizzle>;
 export const ASSESSMENT_SCHEDULE_ID = 1;
 
 export interface AssessmentScheduleStatus {
-  assessment_type_id: number | null;
-  assessment_type_label?: string | null;
+  topic_id: number | null;
+  topic_label?: string | null;
   start_at: string | null;
   end_at: string | null;
   enabled: boolean;
@@ -21,14 +22,14 @@ export interface AssessmentScheduleStatus {
 }
 
 export function createAssessmentScheduleDb(pool: Pool) {
-  return drizzle(pool, { schema: { assessmentSchedule, assessmentTypes, subjects }, mode: 'default' });
+  return drizzle(pool, { schema: { assessmentSchedule, assessmentTypes, subjects, topics }, mode: 'default' });
 }
 
-export async function findAssessmentSchedule(db: ScheduleDb, assessmentTypeId: number) {
+export async function findAssessmentSchedule(db: ScheduleDb, topicId: number) {
   const [row] = await db
     .select({ start_at: assessmentSchedule.start_at })
     .from(assessmentSchedule)
-    .where(eq(assessmentSchedule.assessment_type_id, assessmentTypeId))
+    .where(eq(assessmentSchedule.topic_id, topicId))
     .limit(1);
 
   return row ?? null;
@@ -54,7 +55,7 @@ export function getAssessmentScheduleStatus(
   if (!startAt) {
     const isEnded = Boolean(endAt && endAt.getTime() <= now.getTime());
     const state: AssessmentScheduleStatus['state'] = !enabled ? 'disabled' : isEnded ? 'ended' : 'open';
-    const status = { assessment_type_id: null, start_at: null, end_at: endAt?.toISOString() ?? null, enabled, state, is_open: state === 'open', starts_in_seconds: 0 };
+    const status = { topic_id: null, start_at: null, end_at: endAt?.toISOString() ?? null, enabled, state, is_open: state === 'open', starts_in_seconds: 0 };
     return legacyCall ? ({ start_at: null, is_open: status.is_open, starts_in_seconds: 0 } as AssessmentScheduleStatus) : status;
   }
 
@@ -62,7 +63,7 @@ export function getAssessmentScheduleStatus(
   const isEnded = Boolean(endAt && endAt.getTime() <= now.getTime());
   const state: AssessmentScheduleStatus['state'] = !enabled ? 'disabled' : startsInSeconds > 0 ? 'upcoming' : isEnded ? 'ended' : 'open';
   const status = {
-    assessment_type_id: null,
+    topic_id: null,
     start_at: startAt.toISOString(),
     end_at: endAt?.toISOString() ?? null,
     enabled,
@@ -77,7 +78,11 @@ export async function listAssessmentSchedulesFromDb(db: ScheduleDb, now = new Da
   const rows = await db
     .select({
       id: assessmentSchedule.id,
-      assessment_type_id: assessmentSchedule.assessment_type_id,
+      topic_id: assessmentSchedule.topic_id,
+      topic_label: topics.label,
+      subject_id: subjects.id,
+      subject_label: subjects.label,
+      assessment_type_id: subjects.assessment_type_id,
       assessment_type_label: assessmentTypes.label,
       start_at: assessmentSchedule.start_at,
       end_at: assessmentSchedule.end_at,
@@ -86,36 +91,31 @@ export async function listAssessmentSchedulesFromDb(db: ScheduleDb, now = new Da
       updated_at: assessmentSchedule.updated_at,
     })
     .from(assessmentSchedule)
-    .innerJoin(assessmentTypes, eq(assessmentSchedule.assessment_type_id, assessmentTypes.id));
+    .innerJoin(topics, eq(assessmentSchedule.topic_id, topics.id))
+    .innerJoin(subjects, eq(topics.subject_id, subjects.id))
+    .leftJoin(assessmentTypes, eq(subjects.assessment_type_id, assessmentTypes.id));
 
   return rows.map((row) => ({
     ...row,
     ...getAssessmentScheduleStatus(row.start_at, row.end_at, Boolean(row.enabled), now),
-    assessment_type_id: row.assessment_type_id,
-    assessment_type_label: row.assessment_type_label,
+    topic_id: row.topic_id,
+    topic_label: row.topic_label,
     start_at: row.start_at?.toISOString() ?? null,
     end_at: row.end_at?.toISOString() ?? null,
   }));
 }
 
-export async function getAssessmentScheduleStatusFromDb(db: ScheduleDb, subjectId?: number, now = new Date()) {
-  if (!subjectId) {
-    const [schedule] = await db
-      .select({ start_at: assessmentSchedule.start_at, end_at: assessmentSchedule.end_at, enabled: assessmentSchedule.enabled })
-      .from(assessmentSchedule)
-      .where(eq(assessmentSchedule.id, ASSESSMENT_SCHEDULE_ID))
-      .limit(1);
-    return getAssessmentScheduleStatus(schedule?.start_at, schedule?.end_at, schedule?.enabled === null || schedule?.enabled === undefined ? true : Boolean(schedule.enabled), now);
-  }
+export async function getAssessmentScheduleStatusFromDb(db: ScheduleDb, topicId?: number, now = new Date()) {
+  if (!topicId) return getAssessmentScheduleStatus(null, null, true, now);
 
-  const [subject] = await db
-    .select({ assessment_type_id: subjects.assessment_type_id, start_at: assessmentSchedule.start_at, end_at: assessmentSchedule.end_at, enabled: assessmentSchedule.enabled })
-    .from(subjects)
-    .leftJoin(assessmentSchedule, eq(assessmentSchedule.assessment_type_id, subjects.assessment_type_id))
-    .where(eq(subjects.id, subjectId))
+  const [topic] = await db
+    .select({ topic_id: topics.id, start_at: assessmentSchedule.start_at, end_at: assessmentSchedule.end_at, enabled: assessmentSchedule.enabled })
+    .from(topics)
+    .leftJoin(assessmentSchedule, eq(assessmentSchedule.topic_id, topics.id))
+    .where(eq(topics.id, topicId))
     .limit(1);
-  if (!subject?.assessment_type_id) return getAssessmentScheduleStatus(null, null, true, now);
+  if (!topic) return getAssessmentScheduleStatus(null, null, true, now);
 
-  const status = getAssessmentScheduleStatus(subject.start_at, subject.end_at, subject.enabled === null ? true : Boolean(subject.enabled), now);
-  return { ...status, assessment_type_id: subject.assessment_type_id };
+  const status = getAssessmentScheduleStatus(topic.start_at, topic.end_at, topic.enabled === null ? true : Boolean(topic.enabled), now);
+  return { ...status, topic_id: topic.topic_id };
 }

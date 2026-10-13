@@ -30,24 +30,18 @@
     </div>
 
     <template v-else>
-      <div v-if="schedule && !schedule.is_open" class="topic-schedule-notice" role="status">
-        <template v-if="schedule.state === 'ended'">Jadwal asesmen ini sudah berakhir.</template>
-        <template v-else-if="schedule.state === 'disabled'">Jadwal asesmen ini sedang dinonaktifkan oleh admin.</template>
-        <template v-else>Asesmen belum dibuka. Jadwal mulai {{ formatStartAt(schedule.start_at) }}. <strong>{{ formatRemaining(scheduleRemainingSeconds) }}</strong></template>
-      </div>
-
       <div class="topic-list">
         <button
           v-for="topic in topics"
           :key="topic.id"
           class="topic-card"
           type="button"
-          :class="{ locked: !canStart || !canOpenTopic(topic), 'token-locked': topic.requires_token && !hasTopicAccess(topic.id) }"
-          :aria-disabled="!canStart || !canOpenTopic(topic)"
-          :tabindex="canStart && canOpenTopic(topic) ? 0 : -1"
+          :class="{ locked: !canEnterTopic(topic), 'token-locked': topic.requires_token && !hasTopicAccess(topic.id) }"
+          :aria-disabled="!canEnterTopic(topic)"
+          :tabindex="canEnterTopic(topic) ? 0 : -1"
           @click="handleTopicClick(topic)"
         >
-        <span class="topic-label"><span>{{ topic.label }} <span class="topic-count">({{ topic.question_count }})</span></span><small class="topic-attempts"><span v-if="topic.requires_token && !hasTopicAccess(topic.id)" class="topic-lock-label">🔒 Token diperlukan · </span>{{ attemptsLabel(topic.id) }}</small></span>
+        <span class="topic-label"><span>{{ topic.label }} <span class="topic-count">({{ topic.question_count }})</span></span><small class="topic-attempts"><span v-if="topic.requires_token && !hasTopicAccess(topic.id)" class="topic-lock-label">🔒 Token diperlukan · </span>{{ scheduleLabel(topic.id) }} · {{ attemptsLabel(topic.id) }}</small></span>
         <span class="topic-arrow">{{ topic.requires_token && !hasTopicAccess(topic.id) ? '🔐' : '→' }}</span>
         </button>
       </div>
@@ -72,6 +66,7 @@ const error = ref<string | null>(null);
 const schedule = ref<AssessmentSchedule | null>(null);
 const scheduleLoading = ref(true);
 const scheduleRemainingSeconds = ref(0);
+const topicSchedules = ref<Record<number, AssessmentSchedule>>({});
 const topicAvailability = ref<Record<number, ExamAttemptAvailability | null>>({});
 const topicAccessState = ref<Record<number, boolean>>({});
 const tokenModalTopic = ref<Topic | null>(null);
@@ -80,7 +75,7 @@ const tokenError = ref('');
 const tokenLoading = ref(false);
 let scheduleTimer: ReturnType<typeof setInterval> | undefined;
 
-const canStart = computed(() => schedule.value?.is_open === true && scheduleRemainingSeconds.value === 0);
+const canStart = computed(() => Object.values(topicSchedules.value).some((item) => item.is_open));
 
 async function loadTopicsData() {
   loading.value = true;
@@ -88,10 +83,9 @@ async function loadTopicsData() {
   error.value = null;
 
   try {
-    const [fetchedTopics, subjects, fetchedSchedule] = await Promise.all([
+    const [fetchedTopics, subjects] = await Promise.all([
       fetchTopics(subjectId),
       fetchSubjects(),
-      fetchAssessmentSchedule(subjectId),
     ]);
     topics.value = fetchedTopics;
     topicAccessState.value = Object.fromEntries(fetchedTopics.map((topic) => [topic.id, Boolean(getTopicAccessToken(topic.id))]));
@@ -105,8 +99,10 @@ async function loadTopicsData() {
     topicAvailability.value = Object.fromEntries(availability);
     const subject = subjects.find((s) => s.id === subjectId);
     subjectLabel.value = subject?.label ?? '';
-    schedule.value = fetchedSchedule;
-    scheduleRemainingSeconds.value = fetchedSchedule.starts_in_seconds;
+    const schedules = await Promise.all(fetchedTopics.map(async (topic) => [topic.id, await fetchAssessmentSchedule(topic.id)] as const));
+    topicSchedules.value = Object.fromEntries(schedules);
+    schedule.value = schedules[0]?.[1] ?? null;
+    scheduleRemainingSeconds.value = schedule.value?.starts_in_seconds ?? 0;
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Gagal memuat data.';
   } finally {
@@ -117,6 +113,26 @@ async function loadTopicsData() {
 
 function hasTopicAccess(topicId: number) {
   return topicAccessState.value[topicId] || Boolean(getTopicAccessToken(topicId));
+}
+
+function topicSchedule(topicId: number) {
+  return topicSchedules.value[topicId];
+}
+
+function canStartTopic(topic: Topic) {
+  return topicSchedule(topic.id)?.is_open === true;
+}
+
+function canEnterTopic(topic: Topic) {
+  return (canStartTopic(topic) || topicAvailability.value[topic.id]?.has_active_attempt === true) && canOpenTopic(topic);
+}
+
+function scheduleLabel(topicId: number) {
+  const item = topicSchedule(topicId);
+  if (!item || item.state === 'open') return 'Sedang berlangsung';
+  if (item.state === 'upcoming') return `Akan datang · ${formatStartAt(item.start_at)}`;
+  if (item.state === 'disabled') return 'Dinonaktifkan';
+  return 'Sudah berakhir';
 }
 
 function canOpenTopic(topic: Topic) {
@@ -157,7 +173,7 @@ async function submitTopicToken() {
 
 async function handleTopicClick(topic: Topic) {
   const availability = topicAvailability.value[topic.id];
-  if (!canStart.value || (!availability?.has_active_attempt && availability && !availability.can_start)) {
+  if (!canEnterTopic(topic) || (!availability?.has_active_attempt && availability && !availability.can_start)) {
     return;
   }
   if (topic.requires_token && !hasTopicAccess(topic.id) && !availability?.has_active_attempt) {
@@ -198,13 +214,15 @@ onMounted(() => {
     if (scheduleRemainingSeconds.value > 0) {
       scheduleRemainingSeconds.value -= 1;
     }
-    if (scheduleRemainingSeconds.value === 0 && schedule.value?.state === 'upcoming') {
-      schedule.value.is_open = true;
-      schedule.value.state = 'open';
-    }
-    if (schedule.value?.end_at && new Date(schedule.value.end_at).getTime() <= Date.now()) {
-      schedule.value.is_open = false;
-      schedule.value.state = 'ended';
+    for (const item of Object.values(topicSchedules.value)) {
+      if (item.start_at && new Date(item.start_at).getTime() <= Date.now() && (!item.end_at || new Date(item.end_at).getTime() > Date.now()) && item.enabled) {
+        item.is_open = true;
+        item.state = 'open';
+      }
+      if (item.end_at && new Date(item.end_at).getTime() <= Date.now()) {
+        item.is_open = false;
+        item.state = 'ended';
+      }
     }
   }, 1000);
 });

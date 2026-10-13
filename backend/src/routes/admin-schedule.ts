@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import { assessmentSchedule } from '@/db/schema/assessment-schedule';
-import { assessmentTypes } from '@/db/schema/assessment-types';
+import { topics } from '@/db/schema/topics';
 import type { Pool } from '@/db/connection';
 import {
   createAssessmentScheduleDb,
@@ -38,29 +38,29 @@ export function adminScheduleRoutes(pool: Pool) {
     return c.json({ schedules: await listAssessmentSchedulesFromDb(db) });
   });
 
-  app.put('/:assessmentTypeId', async (c) => {
-    const assessmentTypeId = parseId(c.req.param('assessmentTypeId'));
+  app.put('/:topicId', async (c) => {
+    const topicId = parseId(c.req.param('topicId'));
     const parsed = updateScheduleSchema.safeParse(await c.req.json());
-    if (!assessmentTypeId || !parsed.success) return c.json({ error: 'invalid_body', message: 'Data jadwal asesmen tidak valid.' }, 400);
-    const [assessmentType] = await db.select({ id: assessmentTypes.id }).from(assessmentTypes).where(eq(assessmentTypes.id, assessmentTypeId)).limit(1);
-    if (!assessmentType) return c.json({ error: 'not_found', message: 'Jenis asesmen tidak ditemukan.' }, 404);
+    if (!topicId || !parsed.success) return c.json({ error: 'invalid_body', message: 'Data jadwal asesmen tidak valid.' }, 400);
+    const [topic] = await db.select({ id: topics.id }).from(topics).where(eq(topics.id, topicId)).limit(1);
+    if (!topic) return c.json({ error: 'not_found', message: 'Topik tidak ditemukan.' }, 404);
 
     const startAt = parsed.data.start_at ? new Date(parsed.data.start_at) : null;
     const endAt = parsed.data.end_at ? new Date(parsed.data.end_at) : null;
 
     await db
       .insert(assessmentSchedule)
-      .values({ assessment_type_id: assessmentTypeId, start_at: startAt, end_at: endAt, enabled: parsed.data.enabled, notes: parsed.data.notes, updated_at: new Date() })
+      .values({ topic_id: topicId, start_at: startAt, end_at: endAt, enabled: parsed.data.enabled, notes: parsed.data.notes, updated_at: new Date() })
       .onDuplicateKeyUpdate({ set: { start_at: startAt, end_at: endAt, enabled: parsed.data.enabled, notes: parsed.data.notes, updated_at: new Date() } });
 
-    const schedule = (await listAssessmentSchedulesFromDb(db)).find((item) => item.assessment_type_id === assessmentTypeId);
+    const schedule = (await listAssessmentSchedulesFromDb(db)).find((item) => item.topic_id === topicId);
     return c.json({ schedule });
   });
 
-  app.delete('/:assessmentTypeId', async (c) => {
-    const assessmentTypeId = parseId(c.req.param('assessmentTypeId'));
-    if (!assessmentTypeId) return c.json({ error: 'invalid_param', message: 'Jenis asesmen tidak valid.' }, 400);
-    await db.delete(assessmentSchedule).where(eq(assessmentSchedule.assessment_type_id, assessmentTypeId));
+  app.delete('/:topicId', async (c) => {
+    const topicId = parseId(c.req.param('topicId'));
+    if (!topicId) return c.json({ error: 'invalid_param', message: 'Topik tidak valid.' }, 400);
+    await db.delete(assessmentSchedule).where(eq(assessmentSchedule.topic_id, topicId));
     return c.json({ deleted: true });
   });
 

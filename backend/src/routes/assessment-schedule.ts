@@ -11,8 +11,8 @@ export function assessmentScheduleRoutes(pool: Pool) {
   const app = new Hono();
 
   app.get('/', async (c) => {
-    const subjectId = z.coerce.number().int().positive().optional().safeParse(c.req.query('subject_id'));
-    return c.json({ schedule: await getAssessmentScheduleStatusFromDb(db, subjectId.success ? subjectId.data : undefined) });
+    const topicId = z.coerce.number().int().positive().optional().safeParse(c.req.query('topic_id'));
+    return c.json({ schedule: await getAssessmentScheduleStatusFromDb(db, topicId.success ? topicId.data : undefined) });
   });
 
   return app;

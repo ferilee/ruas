@@ -42,7 +42,10 @@ export interface CurriculumData {
 
 export interface AssessmentSchedule {
   id?: number;
-  assessment_type_id: number | null;
+  topic_id: number | null;
+  topic_label?: string | null;
+  subject_id?: number | null;
+  subject_label?: string | null;
   assessment_type_label?: string | null;
   start_at: string | null;
   end_at: string | null;
