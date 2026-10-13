@@ -46,10 +46,41 @@
 
     <section id="kontak" class="landing-cta"><div><span class="eyebrow">RUANG UNTUK BERTUMBUH</span><h2>Mulai membangun pengalaman asesmen yang lebih baik.</h2></div><router-link to="/auth" class="landing-secondary light">Kembali ke aplikasi</router-link></section>
     <footer class="landing-footer"><span>RUAS · Ruang Asesmen</span><span>Belajar, berlatih, berkembang.</span></footer>
+    <button class="scroll-progress" :class="{ 'at-bottom': atBottom }" type="button" :style="atBottom ? undefined : { background: `conic-gradient(#2d82df ${scrollProgress}%, rgba(255, 255, 255, .45) 0)` }" :aria-label="atBottom ? 'Kembali ke atas' : `Posisi halaman ${scrollProgress}%`" @click="handleScrollAction">
+      <span v-if="!atBottom">{{ scrollProgress }}%</span>
+      <span v-else aria-hidden="true">↑</span>
+    </button>
   </div>
 </template>
 
 <script setup lang="ts">
+import { onMounted, onUnmounted, ref } from 'vue';
+
+const scrollProgress = ref(0);
+const atBottom = ref(false);
+
+function updateScrollProgress() {
+  const documentHeight = document.documentElement.scrollHeight - window.innerHeight;
+  const progress = documentHeight <= 0 ? 100 : Math.round((window.scrollY / documentHeight) * 100);
+  scrollProgress.value = Math.min(100, Math.max(0, progress));
+  atBottom.value = scrollProgress.value >= 100;
+}
+
+function handleScrollAction() {
+  if (atBottom.value) window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+onMounted(() => {
+  updateScrollProgress();
+  window.addEventListener('scroll', updateScrollProgress, { passive: true });
+  window.addEventListener('resize', updateScrollProgress);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('scroll', updateScrollProgress);
+  window.removeEventListener('resize', updateScrollProgress);
+});
+
 const features = [
   { icon: '▦', title: 'Kurikulum terstruktur', description: 'Kelola kelas, jenis asesmen, mata pelajaran, dan topik dengan rapi.' },
   { icon: '?', title: 'Bank soal fleksibel', description: 'Buat, impor, acak, dan atur pembahasan soal sesuai kebutuhan.' },
@@ -88,4 +119,6 @@ const servicePoints = ['Alur aplikasi sesuai kebutuhan sekolah', 'Dashboard admi
 .landing-section { padding: 84px 0; }.intro-section { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1fr); gap: 80px; border-top: 1px solid rgba(94, 128, 184, .26); }.section-heading h2, .service-copy h2, .landing-cta h2 { margin-top: 13px; color: #10265e; font-size: clamp(1.7rem, 3vw, 2.65rem); letter-spacing: -.04em; line-height: 1.12; }.intro-section > p { padding-top: 28px; color: #647b9f; font-size: 1rem; line-height: 1.8; }.feature-section, .flow-section { border-top: 1px solid rgba(94, 128, 184, .26); }.feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 34px; }.feature-card { padding: 22px; border: 1px solid rgba(255, 255, 255, .9); border-radius: 19px; background: rgba(255, 255, 255, .51); box-shadow: 7px 10px 20px rgba(117, 148, 204, .09); }.feature-icon { display: grid; width: 38px; height: 38px; place-items: center; border-radius: 12px; color: #fff; background: linear-gradient(145deg, #318cf0, #2458cb); font-weight: 800; }.feature-card h3, .flow-step h3 { margin-top: 18px; color: #244978; font-size: .95rem; }.feature-card p, .flow-step p { margin-top: 7px; color: #7086a7; font-size: .76rem; line-height: 1.65; }.flow-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-top: 34px; }.flow-step { position: relative; padding: 19px 0; border-top: 2px solid #9cc6fa; }.step-number { color: #287ce7; font-size: .7rem; font-weight: 800; letter-spacing: .1em; }.service-section { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, .72fr); gap: 70px; align-items: center; margin-bottom: 84px; padding: 54px; border-radius: 28px; background: linear-gradient(120deg, #1f64c4, #258de5); box-shadow: 16px 20px 38px rgba(48, 102, 186, .22); }.service-copy .eyebrow { color: #b8d8ff; }.service-copy h2 { color: #fff; }.service-copy p { max-width: 580px; margin: 18px 0 25px; color: #d8eaff; font-size: .88rem; line-height: 1.7; }.service-copy .landing-primary { color: #2164bd; background: #fff; box-shadow: none; }.service-points { display: grid; gap: 13px; }.service-points div { display: flex; align-items: center; gap: 10px; color: #eef6ff; font-size: .78rem; }.service-points span { display: inline-grid; width: 23px; height: 23px; place-items: center; border-radius: 50%; color: #fff; background: rgba(255, 255, 255, .2); }.landing-cta { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 45px 0; border-top: 1px solid rgba(94, 128, 184, .26); }.landing-cta .eyebrow { color: #3477d5; }.landing-cta h2 { max-width: 620px; }.landing-secondary.light { border-color: rgba(45, 102, 190, .3); color: #2461ba; background: rgba(255, 255, 255, .55); white-space: nowrap; }.landing-footer { display: flex; justify-content: space-between; padding: 22px 0 34px; color: #5f78a1; font-size: .7rem; }
 @media (max-width: 820px) { .landing-hero { grid-template-columns: 1fr; gap: 50px; padding-top: 58px; }.hero-preview { width: min(100%, 500px); justify-self: center; }.feature-grid { grid-template-columns: repeat(2, 1fr); }.flow-grid { grid-template-columns: repeat(2, 1fr); }.service-section { grid-template-columns: 1fr; gap: 28px; padding: 35px; } }
 @media (max-width: 560px) { .landing-hero, .landing-section, .landing-cta, .landing-footer { width: min(100% - 32px, 1120px); }.landing-header { padding-right: 16px; padding-left: 16px; }.landing-header .header-actions { gap: 5px; }.landing-header .landing-link { display: none; }.hero-copy h1 { font-size: 2.55rem; }.hero-copy p { font-size: .9rem; }.hero-preview { padding: 18px; transform: none; }.intro-section, .service-section { grid-template-columns: 1fr; gap: 20px; }.landing-section { padding: 58px 0; }.feature-grid, .flow-grid { grid-template-columns: 1fr; }.service-section { margin-bottom: 58px; padding: 26px 21px; border-radius: 22px; }.landing-cta { align-items: flex-start; flex-direction: column; padding: 34px 0; }.landing-footer { flex-direction: column; gap: 6px; } }
+.scroll-progress { position: fixed; z-index: 10; right: 24px; bottom: 24px; display: grid; width: 52px; height: 52px; place-items: center; border: 1px solid rgba(255, 255, 255, .85); border-radius: 50%; color: #fff; background: conic-gradient(#2d82df 0%, rgba(255, 255, 255, .45) 0); box-shadow: 0 8px 18px rgba(35, 88, 173, .24), inset 2px 2px 7px rgba(255, 255, 255, .22); font: inherit; font-size: .78rem; font-weight: 700; cursor: default; transition: transform .18s ease, background .18s ease; }.scroll-progress::before { position: absolute; z-index: -1; width: 43px; height: 43px; border-radius: 50%; background: #286bc5; content: ''; }.scroll-progress.at-bottom { color: #fff; background: linear-gradient(145deg, #3a93ed, #1e59bf); cursor: pointer; font-size: 1.3rem; }.scroll-progress.at-bottom::before { display: none; }.scroll-progress.at-bottom:hover { transform: translateY(-3px); }
+@media (max-width: 560px) { .scroll-progress { right: 14px; bottom: 16px; width: 48px; height: 48px; } }
 </style>
