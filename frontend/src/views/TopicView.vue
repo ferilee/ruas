@@ -124,7 +124,9 @@ function canStartTopic(topic: Topic) {
 }
 
 function canEnterTopic(topic: Topic) {
-  return (canStartTopic(topic) || topicAvailability.value[topic.id]?.has_active_attempt === true) && canOpenTopic(topic);
+  const availability = topicAvailability.value[topic.id];
+  return (canStartTopic(topic) || availability?.has_active_attempt === true)
+    && (!availability || availability.can_start || availability.has_active_attempt);
 }
 
 function scheduleLabel(topicId: number) {
