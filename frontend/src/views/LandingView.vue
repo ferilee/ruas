@@ -40,7 +40,7 @@
     </section>
 
     <section id="layanan" class="landing-section service-section" aria-labelledby="service-title">
-      <div class="service-copy"><span class="eyebrow">LAYANAN PENGEMBANGAN</span><h2 id="service-title">Butuh aplikasi asesmen yang sesuai dengan sekolah Anda?</h2><p>Saya membantu sekolah dan lembaga pendidikan membangun aplikasi serupa RUAS dengan alur, identitas visual, dan kebutuhan pengelolaan yang dapat disesuaikan.</p><a href="#kontak" class="landing-primary">Diskusikan kebutuhan Anda <span>→</span></a></div>
+      <div class="service-copy"><span class="eyebrow">LAYANAN PENGEMBANGAN</span><h2 id="service-title">Butuh aplikasi asesmen yang sesuai dengan sekolah Anda?</h2><p>Saya membantu sekolah dan lembaga pendidikan membangun aplikasi serupa RUAS dengan alur, identitas visual, dan kebutuhan pengelolaan yang dapat disesuaikan.</p><a href="https://rakitapp.ferilee.gurumuda.eu.org/" class="landing-primary" target="_blank" rel="noopener noreferrer">Diskusikan kebutuhan Anda <span>→</span></a></div>
       <div class="service-points"><div v-for="point in servicePoints" :key="point"><span>✓</span>{{ point }}</div></div>
     </section>
 
