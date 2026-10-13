@@ -71,7 +71,7 @@
 
     <section class="panel table-panel report-print-area">
       <div class="panel-heading table-heading">
-        <div><h3>Hasil siswa</h3><p>{{ rows.length }} hasil sesuai filter · klik baris untuk melihat analisis nomor soal</p></div>
+        <div><h3>Hasil siswa</h3><p>{{ rows.length }} hasil sesuai filter</p></div>
         <span class="print-note no-print">Ekspor PDF menggunakan dialog cetak browser.</span>
       </div>
       <div v-if="loading" class="panel-empty">Memuat laporan...</div>

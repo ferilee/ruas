@@ -308,7 +308,7 @@
         </main>
       </div>
 
-      <nav class="mobile-bottom-nav" aria-label="Navigasi admin mobile">
+      <nav class="mobile-bottom-nav no-print" aria-label="Navigasi admin mobile">
         <button
           v-for="item in mobilePrimaryNavigation"
           :key="item.id"
@@ -1191,5 +1191,8 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
   .mobile-more-item { display: flex; width: 100%; align-items: center; gap: 10px; padding: 12px 8px; border: 0; border-radius: 9px; color: #55708f; background: transparent; font: inherit; font-size: .8rem; font-weight: 700; text-align: left; cursor: pointer; }
   .mobile-more-item:hover { background: #edf5ff; color: #1d5fc0; }
   .mobile-more-item > span:nth-child(2) { flex: 1; }
+}
+@media print {
+  .mobile-bottom-nav, .mobile-more-menu, .mobile-more-backdrop { display: none !important; }
 }
 </style>
