@@ -1,8 +1,8 @@
 <template>
   <div :class="wrapperClasses">
-    <header v-if="!isExamRoute && !isAuthRoute && !isProfileRoute && !isAdminRoute" :class="['app-header', { 'home-header': isHomeRoute || isTopicRoute }]">
+    <header v-if="!isExamRoute && !isAuthRoute && !isProfileRoute && !isAdminRoute" :class="['app-header', { 'home-header': isHomeRoute || isTopicRoute, 'landing-header': isLandingRoute }]">
       <router-link to="/" class="app-logo">
-        <span v-if="isHomeRoute || isTopicRoute" class="brand-mark" aria-hidden="true">
+        <span v-if="isHomeRoute || isTopicRoute || isLandingRoute" class="brand-mark" aria-hidden="true">
           <svg viewBox="0 0 48 48">
             <path d="M7 18 24 8l17 10-17 10L7 18Z" />
             <path d="M13 23v9c6 5 16 5 22 0v-9" />
@@ -10,15 +10,18 @@
             <circle cx="41" cy="32" r="2" />
           </svg>
         </span>
-        <span v-if="isHomeRoute || isTopicRoute" class="brand-copy">
+        <span v-if="isHomeRoute || isTopicRoute || isLandingRoute" class="brand-copy">
           <strong>RUAS</strong>
           <small>RUANG ASESMEN</small>
         </span>
         <span v-else>Ruang Asesmen</span>
       </router-link>
-      <router-link to="/admin" class="admin-link">Editor</router-link>
+      <div class="header-actions">
+        <router-link to="/tentang" class="landing-link">Tentang &amp; Layanan</router-link>
+        <router-link to="/admin" class="admin-link">Editor</router-link>
+      </div>
     </header>
-    <main :class="['app-main', { 'home-main': isHomeRoute, 'auth-main': isAuthRoute, 'profile-main-shell': isProfileRoute, 'topic-main': isTopicRoute, 'admin-main': isAdminRoute }]">
+    <main :class="['app-main', { 'home-main': isHomeRoute, 'auth-main': isAuthRoute, 'profile-main-shell': isProfileRoute, 'topic-main': isTopicRoute, 'admin-main': isAdminRoute, 'landing-main': isLandingRoute }]">
       <router-view />
     </main>
   </div>
@@ -35,6 +38,7 @@ const isAuthRoute = computed(() => route.name === 'auth');
 const isProfileRoute = computed(() => route.name === 'profile');
 const isTopicRoute = computed(() => route.name === 'topics');
 const isAdminRoute = computed(() => route.name === 'admin');
+const isLandingRoute = computed(() => route.name === 'landing');
 const wrapperClasses = computed(() => {
   if (isExamRoute.value) return 'app-wrapper exam-wrapper';
   if (isAuthRoute.value) return 'auth-shell';
@@ -166,6 +170,13 @@ body {
   color: #10265e;
 }
 
+.landing-header .app-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  color: #10265e;
+}
+
 .brand-mark {
   display: grid;
   width: 52px;
@@ -207,13 +218,44 @@ body {
 }
 
 .home-header .admin-link {
-  position: absolute;
-  right: 24px;
   color: #59709d;
 }
 
-.home-header .admin-link:hover {
+.header-actions {
+  position: absolute;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.landing-link,
+.admin-link {
+  color: #59709d;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.landing-link {
+  padding: 9px 13px;
+  border: 1px solid rgba(77, 126, 201, 0.22);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.42);
+}
+
+.landing-link:hover,
+.admin-link:hover {
   color: #236bdc;
+}
+
+.landing-header {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding-right: 24px;
+  padding-left: 24px;
+  border-bottom-color: rgba(255, 255, 255, 0.65);
+  background: transparent;
 }
 
 .app-main {
@@ -225,6 +267,10 @@ body {
 }
 
 .topic-main {
+  padding: 0;
+}
+
+.landing-main {
   padding: 0;
 }
 

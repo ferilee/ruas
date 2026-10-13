@@ -389,9 +389,18 @@ onUnmounted(() => {
     min-height: 86px;
   }
 
-  .home-header .admin-link {
+  .header-actions {
     right: 14px;
-    font-size: 0.75rem;
+    gap: 5px;
+  }
+
+  .landing-link,
+  .admin-link {
+    font-size: 0.66rem;
+  }
+
+  .landing-link {
+    padding: 7px 8px;
   }
 
   .brand-mark {
