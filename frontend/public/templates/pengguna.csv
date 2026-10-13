@@ -1,1 +1,1 @@
-username,password,display_name,role,active,class_id,class_code,subject_id
+username,password,display_name,role,active,is_demo,class_id,class_code,subject_id

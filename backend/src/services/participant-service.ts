@@ -89,14 +89,15 @@ export async function saveParticipantProfile(
     birth_date: string;
     subject_id: number;
     access_token: string | null;
+    is_demo?: boolean;
   },
 ) {
   const existingId = await findParticipantId(db, identityKey);
   if (existingId) {
-    await db.update(participantProfiles).set({ ...profile, updated_at: new Date() }).where(eq(participantProfiles.id, existingId));
+    await db.update(participantProfiles).set({ ...profile, is_demo: profile.is_demo ? 1 : 0, updated_at: new Date() }).where(eq(participantProfiles.id, existingId));
     return existingId;
   }
 
-  const [result] = await db.insert(participantProfiles).values({ identity_key: identityKey, ...profile });
+  const [result] = await db.insert(participantProfiles).values({ identity_key: identityKey, ...profile, is_demo: profile.is_demo ? 1 : 0 });
   return Number(result.insertId);
 }

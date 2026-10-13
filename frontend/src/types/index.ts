@@ -181,6 +181,7 @@ export interface AdminUser {
   subject_id: number | null;
   role: UserRole;
   active: boolean;
+  is_demo: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -193,6 +194,7 @@ export interface AdminUserInput {
   subject_id: number | null;
   role: UserRole;
   active: boolean;
+  is_demo: boolean;
 }
 
 export interface UserImportSummary {

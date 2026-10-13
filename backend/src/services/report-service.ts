@@ -50,7 +50,11 @@ export function createReportDb(pool: Pool) {
 }
 
 export async function countReportAttempts(db: ReportDb) {
-  const rows = await db.select({ id: examAttempts.id }).from(examAttempts);
+  const rows = await db
+    .select({ id: examAttempts.id })
+    .from(examAttempts)
+    .innerJoin(participantProfiles, eq(examAttempts.participant_id, participantProfiles.id))
+    .where(eq(participantProfiles.is_demo, 0));
   return rows.length;
 }
 
@@ -135,6 +139,7 @@ export async function listReportAttempts(db: ReportDb, filters: ReportFilters) {
     .leftJoin(userClasses, eq(users.class_id, userClasses.id))
     .leftJoin(subjectClasses, eq(subjects.class_id, subjectClasses.id))
     .leftJoin(assessmentTypes, eq(subjects.assessment_type_id, assessmentTypes.id))
+    .where(eq(participantProfiles.is_demo, 0))
     .orderBy(desc(examAttempts.started_at), desc(examAttempts.id));
 
   const normalizedRows = rows.map(({ user_class_id, user_class_label, subject_class_id, subject_class_label, ...row }) => ({

@@ -10,6 +10,7 @@ export const participantProfiles = mysqlTable('participant_profiles', {
   birth_date: varchar('birth_date', { length: 10 }).notNull(),
   subject_id: int('subject_id').notNull().references(() => subjects.id),
   access_token: varchar('access_token', { length: 255 }),
+  is_demo: int('is_demo').notNull().default(0),
   created_at: timestamp('created_at').defaultNow().notNull(),
   updated_at: timestamp('updated_at').defaultNow().notNull(),
 });

@@ -1,4 +1,4 @@
-import { asc, eq, inArray, like, or } from 'drizzle-orm';
+import { and, asc, eq, inArray, like, or } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/mysql2';
 import { educationClasses } from '@/db/schema/education-classes';
 import { users } from '@/db/schema/users';
@@ -18,6 +18,7 @@ export interface UserInput {
   subject_id: number | null;
   role: UserRole;
   active: boolean;
+  is_demo: boolean;
 }
 
 export function createUserDb(pool: Pool) {
@@ -34,6 +35,7 @@ export function toPublicUser(user: typeof users.$inferSelect, classLabel?: strin
     subject_id: user.subject_id,
     role: user.role,
     active: Boolean(user.active),
+    is_demo: Boolean(user.is_demo),
     created_at: user.created_at,
     updated_at: user.updated_at,
   };
@@ -91,7 +93,21 @@ export async function authenticateUser(db: UserDb, username: string, password: s
   return user;
 }
 
+export async function findDemoUser(db: UserDb) {
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(and(eq(users.is_demo, 1), eq(users.role, 'participant'), eq(users.active, 1)))
+    .limit(1);
+  return user ?? null;
+}
+
+async function clearDemoUser(db: UserDb) {
+  await db.update(users).set({ is_demo: 0, updated_at: new Date() }).where(eq(users.is_demo, 1));
+}
+
 export async function createUser(db: UserDb, input: UserInput) {
+  if (input.is_demo) await clearDemoUser(db);
   const [result] = await db.insert(users).values({
     username: input.username,
     password_hash: hashPassword(input.password ?? ''),
@@ -100,11 +116,13 @@ export async function createUser(db: UserDb, input: UserInput) {
     subject_id: input.subject_id,
     role: input.role,
     active: input.active ? 1 : 0,
+    is_demo: input.is_demo ? 1 : 0,
   });
   return findUserById(db, Number(result.insertId));
 }
 
 export async function updateUser(db: UserDb, id: number, input: UserInput) {
+  if (input.is_demo) await clearDemoUser(db);
   const values: {
     username: string;
     display_name: string;
@@ -112,6 +130,7 @@ export async function updateUser(db: UserDb, id: number, input: UserInput) {
     subject_id: number | null;
     role: UserRole;
     active: number;
+    is_demo: number;
     password_hash?: string;
     updated_at: Date;
   } = {
@@ -121,6 +140,7 @@ export async function updateUser(db: UserDb, id: number, input: UserInput) {
     subject_id: input.subject_id,
     role: input.role,
     active: input.active ? 1 : 0,
+    is_demo: input.is_demo ? 1 : 0,
     updated_at: new Date(),
   };
   if (input.password) values.password_hash = hashPassword(input.password);

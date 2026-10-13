@@ -6,6 +6,7 @@
       "display_name": "Budi Santoso",
       "role": "participant",
       "active": true,
+      "is_demo": false,
       "class_code": "11-TKJ-A",
       "subject_id": null
     }

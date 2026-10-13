@@ -44,6 +44,22 @@ function topicAccessHeaders(topicId: number): Record<string, string> {
 
 const BASE = '/api';
 
+export async function fetchDemoAvailability(): Promise<boolean> {
+  const res = await fetch(`${BASE}/auth/demo`);
+  if (!res.ok) return false;
+  const data = await res.json() as { available?: boolean };
+  return Boolean(data.available);
+}
+
+export async function loginAsDemo(): Promise<{ token: string }> {
+  const res = await fetch(`${BASE}/auth/demo`, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ message: 'Mode demo belum tersedia.' }));
+    throw new Error(body.message || 'Mode demo belum tersedia.');
+  }
+  return res.json() as Promise<{ token: string }>;
+}
+
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const token = sessionStorage.getItem('auth_token');
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };

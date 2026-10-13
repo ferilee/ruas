@@ -120,6 +120,13 @@
       "when": 1791855000000,
       "tag": "0016_bright_topic_schedule",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "5",
+      "when": 1791875474490,
+      "tag": "0017_add_demo_mode",
+      "breakpoints": true
     }
   ]
 }

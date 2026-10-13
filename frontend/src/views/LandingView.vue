@@ -7,6 +7,7 @@
         <p>Ruang Asesmen membantu sekolah mengelola soal, jadwal, peserta, dan hasil ujian dalam satu ruang digital.</p>
         <div class="hero-actions">
           <router-link to="/auth" class="landing-primary">Masuk ke Ruang Asesmen <span>→</span></router-link>
+          <router-link to="/auth?demo=1" class="landing-secondary">Coba demo <span>→</span></router-link>
           <a href="#layanan" class="landing-secondary">Lihat layanan</a>
         </div>
         <div class="hero-proof"><span>✓</span> Dirancang untuk kebutuhan asesmen sekolah</div>

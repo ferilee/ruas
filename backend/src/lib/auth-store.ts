@@ -1,4 +1,5 @@
 const TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
+const DEMO_TOKEN_TTL_MS = 60 * 60 * 1000;
 const tokens = new Map<string, { username: string; expiresAt: number }>();
 
 function cleanupExpiredTokens(now: number) {
@@ -9,13 +10,17 @@ function cleanupExpiredTokens(now: number) {
   }
 }
 
-export function createToken(username = ''): string {
+export function createToken(username = '', options?: { ttlMs?: number }): string {
   const now = Date.now();
   cleanupExpiredTokens(now);
 
   const token = crypto.randomUUID();
-  tokens.set(token, { username, expiresAt: now + TOKEN_TTL_MS });
+  tokens.set(token, { username, expiresAt: now + (options?.ttlMs ?? TOKEN_TTL_MS) });
   return token;
+}
+
+export function createDemoToken(username: string): string {
+  return createToken(username, { ttlMs: DEMO_TOKEN_TTL_MS });
 }
 
 export function isValidToken(token: string | undefined): boolean {

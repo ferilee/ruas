@@ -21,7 +21,7 @@ import {
 } from '@/services/user-service';
 
 const roleSchema = z.enum(['admin', 'editor', 'participant']);
-const createUserSchema = z.object({
+const userFieldsSchema = z.object({
   username: z.string().trim().min(1).max(100).regex(/^[A-Za-z0-9._@+-]+$/, 'Username mengandung karakter yang tidak didukung.'),
   password: z.string().min(1).max(200),
   display_name: z.string().trim().min(1).max(150),
@@ -29,8 +29,15 @@ const createUserSchema = z.object({
   subject_id: z.preprocess((value) => (value === '' || value === undefined ? null : value), z.coerce.number().int().positive().nullable()).default(null),
   role: roleSchema,
   active: z.boolean().default(true),
+  is_demo: z.boolean().default(false),
 });
-const updateUserSchema = createUserSchema.extend({ password: z.string().max(200).optional() });
+function validateDemoRole(value: { is_demo: boolean; role: z.infer<typeof roleSchema> }, context: z.RefinementCtx) {
+  if (value.is_demo && value.role !== 'participant') {
+    context.addIssue({ code: 'custom', path: ['is_demo'], message: 'Akun demo harus memiliki peran peserta.' });
+  }
+}
+const createUserSchema = userFieldsSchema.superRefine(validateDemoRole);
+const updateUserSchema = userFieldsSchema.extend({ password: z.string().max(200).optional() }).superRefine(validateDemoRole);
 const importRequestSchema = z.object({
   data: z.unknown(),
   mode: z.enum(['insert', 'upsert']).default('insert'),
@@ -118,6 +125,7 @@ function validateImportRow(value: unknown) {
     subject_id: row.subject_id,
     role: row.role || 'participant',
     active: parseBoolean(row.active),
+    is_demo: row.is_demo === undefined || row.is_demo === '' ? false : parseBoolean(row.is_demo),
   });
 }
 

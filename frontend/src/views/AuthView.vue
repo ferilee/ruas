@@ -133,6 +133,11 @@
         </button>
       </form>
 
+      <div v-if="demoAvailable" class="demo-access">
+        <div><strong>Ingin melihat cara kerja RUAS?</strong><small>Gunakan data contoh tanpa membuat akun.</small></div>
+        <button type="button" :disabled="loading" @click="loginAsDemo"><span aria-hidden="true">▷</span> {{ loading && demoLoading ? 'Membuka demo...' : 'Coba mode demo' }}</button>
+      </div>
+
       <div class="auth-divider" aria-hidden="true">
         <span></span>
         <small>RUANG ASESMEN</small>
@@ -147,8 +152,8 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
-import { fetchParticipantProfile, saveParticipantProfile } from '@/api/client';
+import { useRoute, useRouter } from 'vue-router';
+import { fetchDemoAvailability, fetchParticipantProfile, loginAsDemo as requestDemoLogin, saveParticipantProfile } from '@/api/client';
 import { clearLegacyParticipantProfile, getLegacyParticipantProfile } from '@/lib/participant-profile';
 
 const router = useRouter();
@@ -157,6 +162,9 @@ const password = ref('');
 const showPassword = ref(false);
 const loading = ref(false);
 const error = ref('');
+const demoAvailable = ref(false);
+const demoLoading = ref(false);
+const route = useRoute();
 type ThemeMode = 'light' | 'dark' | 'system';
 
 const themeOptions: Array<{ value: ThemeMode; label: string; icon: string }> = [
@@ -205,12 +213,14 @@ onMounted(async () => {
   applyThemePreference();
 
   try {
+    demoAvailable.value = await fetchDemoAvailability();
     const res = await fetch('/api/auth');
     if (!res.ok) return;
     const data = await res.json() as { auth_enabled?: boolean };
     if (!data.auth_enabled) {
       router.replace('/');
     }
+    if (route.query.demo === '1' && demoAvailable.value) await loginAsDemo();
   } catch {
     // Let the login form handle server connectivity issues when submitted.
   }
@@ -252,6 +262,24 @@ async function login() {
     error.value = 'Tidak dapat terhubung ke server.';
   } finally {
     loading.value = false;
+  }
+}
+
+async function loginAsDemo() {
+  if (loading.value) return;
+  loading.value = true;
+  demoLoading.value = true;
+  error.value = '';
+  try {
+    const data = await requestDemoLogin();
+    sessionStorage.setItem('auth_token', data.token);
+    const profile = await fetchParticipantProfile();
+    await router.push(profile?.is_complete && profile.subject_id ? '/' : '/profile');
+  } catch (demoError) {
+    error.value = demoError instanceof Error ? demoError.message : 'Mode demo belum tersedia.';
+  } finally {
+    loading.value = false;
+    demoLoading.value = false;
   }
 }
 </script>
@@ -872,4 +900,5 @@ async function login() {
     border-radius: 19px;
   }
 }
+.demo-access { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 22px; padding: 13px 14px; border: 1px solid rgba(67, 125, 215, .28); border-radius: 14px; background: rgba(255, 255, 255, .46); text-align: left; }.demo-access strong, .demo-access small { display: block; }.demo-access strong { color: #244d88; font-size: .75rem; }.demo-access small { margin-top: 3px; color: #7188ac; font-size: .67rem; line-height: 1.35; }.demo-access button { flex: 0 0 auto; padding: 9px 11px; border: 1px solid #8eb9ec; border-radius: 9px; color: #246ac5; background: #fff; font: inherit; font-size: .72rem; font-weight: 800; cursor: pointer; }.demo-access button:disabled { cursor: wait; opacity: .6; }
 </style>

@@ -46,6 +46,7 @@ export function participantProfileRoutes(pool: Pool) {
       participant_code: account?.username ?? parsed.data.participant_code,
       name: account?.display_name ?? parsed.data.name,
       subject_id: subject.id,
+      is_demo: Boolean(account?.is_demo),
     });
     return c.json({ profile: await findParticipantProfile(db, identityKey) });
   });

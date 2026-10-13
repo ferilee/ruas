@@ -20,6 +20,7 @@
             <label>Peran<RuasSelect v-model="form.role" :options="roleOptions" aria-label="Peran pengguna" /></label>
             <label class="active-field"><span>Status</span><span class="check-line"><input v-model="form.active" type="checkbox" /> Aktif</span></label>
           </div>
+          <label class="demo-field"><span>Mode demo</span><span class="check-line"><input v-model="form.is_demo" type="checkbox" /> Jadikan satu-satunya akun demo publik</span><small>Hanya untuk peran Peserta. Data percobaan akun demo tidak masuk laporan dan akan direset saat demo dibuka.</small></label>
           <p v-if="formMessage" :class="formMessageType === 'error' ? 'error-text' : 'success-text'">{{ formMessage }}</p>
           <button class="primary-btn full-btn" type="submit" :disabled="saving"><span aria-hidden="true">＋</span> {{ saving ? 'Menyimpan...' : editingId === null ? 'Tambah Pengguna' : 'Simpan Perubahan' }}</button>
         </form>
@@ -60,7 +61,7 @@
       <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
       <div v-if="loading" class="panel-empty">Memuat pengguna...</div>
       <div v-else-if="users.length === 0" class="panel-empty">Belum ada pengguna.</div>
-      <div v-else class="user-table-wrap"><table class="user-table"><thead><tr><th class="selection-column"><input type="checkbox" :checked="allUsersSelected" aria-label="Pilih semua pengguna" @change="toggleAllUsers" /></th><th>Pengguna</th><th>Peran / penetapan</th><th>Status</th><th>Aksi</th></tr></thead><tbody><tr v-for="user in users" :key="user.id"><td class="selection-column"><input type="checkbox" :checked="isUserSelected(user.id)" :aria-label="`Pilih ${user.display_name}`" @change="toggleUser(user.id)" /></td><td class="user-identity"><strong>{{ user.display_name }}</strong><small>{{ user.username }}</small></td><td class="user-assignment"><span class="role-badge">{{ roleLabel(user.role) }}</span><small>Kelas: {{ user.class_label || 'Belum ditetapkan' }}</small><small>Mapel: {{ subjectLabel(user.subject_id) }}</small></td><td class="user-status"><span :class="['status-badge', { inactive: !user.active }]">{{ user.active ? 'Aktif' : 'Nonaktif' }}</span></td><td class="user-actions"><button class="text-button" type="button" @click="editUser(user)">Edit</button><button class="danger-link" type="button" @click="removeUser(user)">Hapus</button></td></tr></tbody></table></div>
+      <div v-else class="user-table-wrap"><table class="user-table"><thead><tr><th class="selection-column"><input type="checkbox" :checked="allUsersSelected" aria-label="Pilih semua pengguna" @change="toggleAllUsers" /></th><th>Pengguna</th><th>Peran / penetapan</th><th>Status</th><th>Aksi</th></tr></thead><tbody><tr v-for="user in users" :key="user.id"><td class="selection-column"><input type="checkbox" :checked="isUserSelected(user.id)" :aria-label="`Pilih ${user.display_name}`" @change="toggleUser(user.id)" /></td><td class="user-identity"><strong>{{ user.display_name }}</strong><small>{{ user.username }}</small></td><td class="user-assignment"><span class="role-badge">{{ roleLabel(user.role) }}</span><span v-if="user.is_demo" class="demo-badge">Demo publik</span><small>Kelas: {{ user.class_label || 'Belum ditetapkan' }}</small><small>Mapel: {{ subjectLabel(user.subject_id) }}</small></td><td class="user-status"><span :class="['status-badge', { inactive: !user.active }]">{{ user.active ? 'Aktif' : 'Nonaktif' }}</span></td><td class="user-actions"><button class="text-button" type="button" @click="editUser(user)">Edit</button><button class="danger-link" type="button" @click="removeUser(user)">Hapus</button></td></tr></tbody></table></div>
     </div>
   </section>
 </template>
@@ -105,7 +106,7 @@ const confirmMessage = ref('Apakah kamu yakin ingin melanjutkan?');
 const confirmLabel = ref('OK');
 const confirmPhrase = ref<string | undefined>(undefined);
 const pendingConfirmation = ref<(() => Promise<void>) | null>(null);
-const form = reactive<AdminUserInput>({ username: '', password: '', display_name: '', class_id: null, subject_id: null, role: 'participant', active: true });
+const form = reactive<AdminUserInput>({ username: '', password: '', display_name: '', class_id: null, subject_id: null, role: 'participant', active: true, is_demo: false });
 const classOptions = computed(() => [{ value: null, label: 'Belum ditetapkan' }, ...classes.value.map((item) => ({ value: item.id, label: `${item.label} · ${item.academic_year}` }))]);
 const subjectOptions = computed(() => [{ value: null, label: 'Belum ditetapkan' }, ...subjects.value.map((subject) => ({ value: subject.id, label: subject.label }))]);
 const roleOptions = [
@@ -120,11 +121,11 @@ const importModeOptions = [
 const allUsersSelected = computed(() => users.value.length > 0 && users.value.every((user) => selectedUserIds.value.includes(user.id)));
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
-function resetForm() { Object.assign(form, { username: '', password: '', display_name: '', class_id: null, subject_id: null, role: 'participant', active: true }); editingId.value = null; formMessage.value = ''; userFormOpen.value = false; }
+function resetForm() { Object.assign(form, { username: '', password: '', display_name: '', class_id: null, subject_id: null, role: 'participant', active: true, is_demo: false }); editingId.value = null; formMessage.value = ''; userFormOpen.value = false; }
 function openNewUser() { resetForm(); userFormOpen.value = true; }
 function closeUserForm() { userFormOpen.value = false; }
 function openFilePicker() { fileInput.value?.click(); }
-function editUser(user: AdminUser) { Object.assign(form, { username: user.username, password: '', display_name: user.display_name, class_id: user.class_id, subject_id: user.subject_id, role: user.role, active: user.active }); editingId.value = user.id; formMessage.value = ''; userFormOpen.value = true; window.scrollTo({ top: 0, behavior: 'smooth' }); }
+function editUser(user: AdminUser) { Object.assign(form, { username: user.username, password: '', display_name: user.display_name, class_id: user.class_id, subject_id: user.subject_id, role: user.role, active: user.active, is_demo: user.is_demo }); editingId.value = user.id; formMessage.value = ''; userFormOpen.value = true; window.scrollTo({ top: 0, behavior: 'smooth' }); }
 function askConfirmation(title: string, message: string, action: () => Promise<void>, label = 'OK', phrase?: string) { confirmTitle.value = title; confirmMessage.value = message; confirmLabel.value = label; confirmPhrase.value = phrase; pendingConfirmation.value = action; confirmOpen.value = true; }
 function closeConfirmation() { confirmOpen.value = false; confirmPhrase.value = undefined; pendingConfirmation.value = null; }
 async function runConfirmation() { const action = pendingConfirmation.value; closeConfirmation(); if (action) await action(); }
@@ -211,6 +212,7 @@ onUnmounted(() => { if (searchTimer) clearTimeout(searchTimer); });
 .user-fields-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .active-field { justify-content: end; }
 .check-line { display: flex; align-items: center; gap: 8px; min-height: 42px; color: #43648d; font-weight: 500; }
+.demo-field small { color: #7890ac; font-size: .68rem; font-weight: 400; line-height: 1.4; }
 .check-line input { width: auto; }
 .text-button { border: 0; padding: 6px 0; color: #1d69c5; background: transparent; font: inherit; font-weight: 700; cursor: pointer; }
 .import-users-panel .panel-heading > div { min-width: 0; }
@@ -246,6 +248,7 @@ onUnmounted(() => { if (searchTimer) clearTimeout(searchTimer); });
 .user-table td strong, .user-table td small { display: block; }
 .user-table td small { margin-top: 3px; color: #8298b2; font-size: .72rem; }
 .role-badge, .status-badge { display: inline-block; border-radius: 999px; padding: 5px 9px; color: #1b63b3; background: #eaf3ff; font-size: .7rem; font-weight: 700; }
+.demo-badge { display: inline-block; border-radius: 999px; padding: 5px 9px; color: #765214; background: #fff2c9; font-size: .7rem; font-weight: 700; }
 .status-badge { color: #17734c; background: #e9f8f0; }
 .status-badge.inactive { color: #a55b2d; background: #fff1e7; }
 .user-actions .danger-link { margin-left: 4px; }
