@@ -8,7 +8,7 @@
             <h2>{{ editingId === null ? 'Tambah pengguna' : `Edit pengguna #${editingId}` }}</h2>
             <p>Akun, kelas, dan penetapan mata pelajaran disimpan aman di database.</p>
           </div>
-          <div class="user-form-actions"><button v-if="editingId !== null" class="text-button" type="button" @click="resetForm">Batal</button><button class="mobile-close-button" type="button" aria-label="Tutup form pengguna" @click="closeUserForm">×</button></div>
+          <div class="user-form-actions"><button v-if="editingId !== null" class="text-button" type="button" @click="resetForm">Batal</button><button class="panel-collapse-button" type="button" @click="closeUserForm">Sembunyikan</button><button class="mobile-close-button" type="button" aria-label="Tutup form pengguna" @click="closeUserForm">×</button></div>
         </div>
         <form class="user-form" @submit.prevent="saveUser">
           <label>Username<input v-model.trim="form.username" required autocomplete="off" placeholder="Contoh: P130100230" /></label>
@@ -25,10 +25,10 @@
         </form>
       </div>
 
-      <div class="panel import-users-panel">
+      <div class="panel import-users-panel" :class="{ open: importPanelOpen }">
         <div class="panel-heading">
           <div><h2>Import pengguna</h2><p>CSV: <code>username,password,display_name,role,active,class_id,class_code,subject_id</code></p></div>
-          <label class="import-mode-field"><span>Mode import</span><RuasSelect v-model="importMode" :options="importModeOptions" aria-label="Mode import pengguna" /></label>
+          <div class="import-panel-actions"><label class="import-mode-field"><span>Mode import</span><RuasSelect v-model="importMode" :options="importModeOptions" aria-label="Mode import pengguna" /></label><button class="panel-collapse-button" type="button" @click="importPanelOpen = false">Sembunyikan</button></div>
         </div>
         <div class="import-step"><span class="step-number">1</span><div><strong>Pilih file atau tempel data</strong><small>Gunakan format CSV atau JSON.</small></div></div>
         <input ref="fileInput" class="hidden-file-input" type="file" accept=".csv,.json,application/json,text/csv" @change="readFile" />
@@ -48,7 +48,7 @@
     </div>
 
     <div class="panel users-list-panel">
-      <div class="panel-heading users-list-heading"><div><h2>Daftar pengguna</h2><p>{{ users.length }} akun ditemukan.</p></div><div class="user-list-actions"><div class="user-search"><span class="search-icon" aria-hidden="true">⌕</span><input v-model="search" placeholder="Cari username, nama, atau kelas" @keyup.enter="loadUsers" /><button class="search-button" type="button" aria-label="Cari pengguna" title="Cari" @click="loadUsers">Cari</button></div><button class="mobile-add-user" type="button" @click="openNewUser">＋ Tambah Pengguna</button></div></div>
+      <div class="panel-heading users-list-heading"><div><h2>Daftar pengguna</h2><p>{{ users.length }} akun ditemukan.</p></div><div class="user-list-actions"><div class="user-search"><span class="search-icon" aria-hidden="true">⌕</span><input v-model="search" placeholder="Cari username, nama, atau kelas" @keyup.enter="loadUsers" /><button class="search-button" type="button" aria-label="Cari pengguna" title="Cari" @click="loadUsers">Cari</button></div><div class="user-panel-toggles"><button class="panel-toggle-button" type="button" @click="openNewUser">＋ {{ userFormOpen ? 'Edit pengguna' : 'Tambah pengguna' }}</button><button class="panel-toggle-button secondary" type="button" @click="importPanelOpen = !importPanelOpen">{{ importPanelOpen ? 'Sembunyikan import' : 'Import pengguna' }}</button></div></div></div>
       <div v-if="participantCount > 0" class="danger-zone"><div><strong>Hapus semua peserta</strong><small>{{ participantCount }} akun peserta akan dihapus. Akun admin/editor dan laporan asesmen tetap aman.</small></div><button class="danger-zone-button" type="button" :disabled="deletingAll" @click="removeAllParticipants">{{ deletingAll ? 'Menghapus...' : 'Hapus semua peserta' }}</button></div>
       <div v-if="users.length" class="bulk-assignment-bar">
         <div class="bulk-assignment-copy"><strong>Penetapan massal</strong><small>{{ selectedUserIds.length ? `${selectedUserIds.length} pengguna dipilih` : 'Cari kelas atau identitas pengguna, lalu pilih semua hasil.' }}</small></div>
@@ -66,7 +66,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { assignAdminUsersClass, assignAdminUsersSubject, createAdminUser, deleteAdminUser, deleteAllAdminParticipants, fetchAdminCurriculum, fetchAdminParticipantCount, fetchAdminUsers, importAdminUsers, updateAdminUser } from '@/api/client';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import RuasSelect from '@/components/RuasSelect.vue';
@@ -84,6 +84,7 @@ const formMessage = ref('');
 const formMessageType = ref<'success' | 'error'>('success');
 const editingId = ref<number | null>(null);
 const userFormOpen = ref(false);
+const importPanelOpen = ref(false);
 const search = ref('');
 const importText = ref('');
 const parsedImport = ref<unknown>(null);
@@ -117,6 +118,7 @@ const importModeOptions = [
   { value: 'upsert', label: 'Tambah atau perbarui' },
 ];
 const allUsersSelected = computed(() => users.value.length > 0 && users.value.every((user) => selectedUserIds.value.includes(user.id)));
+let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
 function resetForm() { Object.assign(form, { username: '', password: '', display_name: '', class_id: null, subject_id: null, role: 'participant', active: true }); editingId.value = null; formMessage.value = ''; userFormOpen.value = false; }
 function openNewUser() { resetForm(); userFormOpen.value = true; }
@@ -127,6 +129,7 @@ function askConfirmation(title: string, message: string, action: () => Promise<v
 function closeConfirmation() { confirmOpen.value = false; confirmPhrase.value = undefined; pendingConfirmation.value = null; }
 async function runConfirmation() { const action = pendingConfirmation.value; closeConfirmation(); if (action) await action(); }
 async function loadUsers() { loading.value = true; errorMessage.value = ''; try { users.value = await fetchAdminUsers(search.value); selectedUserIds.value = []; } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Gagal memuat pengguna.'; } finally { loading.value = false; } }
+watch(search, () => { if (searchTimer) clearTimeout(searchTimer); searchTimer = setTimeout(() => { void loadUsers(); }, 350); });
 async function loadParticipantCount() { try { participantCount.value = await fetchAdminParticipantCount(); } catch { participantCount.value = 0; } }
 async function saveUser() { saving.value = true; formMessage.value = ''; const currentId = editingId.value; try { const input = { ...form }; if (currentId === null) await createAdminUser(input); else await updateAdminUser(currentId, input); formMessageType.value = 'success'; resetForm(); formMessage.value = currentId === null ? 'Pengguna berhasil ditambahkan.' : 'Pengguna berhasil diperbarui.'; await Promise.all([loadUsers(), loadParticipantCount()]); } catch (error) { formMessageType.value = 'error'; formMessage.value = error instanceof Error ? error.message : 'Gagal menyimpan pengguna.'; } finally { saving.value = false; } }
 function removeUser(user: AdminUser) { askConfirmation('Hapus pengguna?', `Akun ${user.username} akan dihapus. Tindakan ini tidak dapat dibatalkan.`, async () => { try { await deleteAdminUser(user.id); await Promise.all([loadUsers(), loadParticipantCount()]); } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Gagal menghapus pengguna.'; } }, 'Hapus'); }
@@ -185,6 +188,7 @@ function roleLabel(role: UserRole) { return { admin: 'Admin', editor: 'Editor', 
 function classLabel(classId: number) { return classes.value.find((item) => item.id === classId)?.label ?? 'Kelas tidak ditemukan'; }
 function subjectLabel(subjectId: number | null) { return subjects.value.find((subject) => subject.id === subjectId)?.label ?? 'Belum ditetapkan'; }
 onMounted(async () => { await Promise.all([loadUsers(), loadParticipantCount(), fetchAdminCurriculum().then((data) => { classes.value = data.classes; subjects.value = data.subjects; }).catch(() => undefined)]); });
+onUnmounted(() => { if (searchTimer) clearTimeout(searchTimer); });
 </script>
 
 <style scoped>
@@ -193,8 +197,12 @@ onMounted(async () => { await Promise.all([loadUsers(), loadParticipantCount(), 
 .users-panel button { transition: transform .16s ease, box-shadow .16s ease, background .16s ease; }
 .users-panel button:not(:disabled):hover { transform: translateY(-1px); }
 .users-grid { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: 20px; }
-.user-form-panel, .import-users-panel { display: flex; flex-direction: column; gap: 14px; }
+.user-form-panel, .import-users-panel { display: none; flex-direction: column; gap: 14px; }
+.user-form-panel.open, .import-users-panel.open { display: flex; }
 .user-form-actions, .user-list-actions { display: flex; align-items: center; gap: 9px; }
+.panel-collapse-button { padding: 7px 9px; border: 1px solid #c8dcef; border-radius: 8px; color: #2865ad; background: #fff; font: inherit; font-size: .7rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.panel-collapse-button:hover { background: #edf6ff; }
+.import-panel-actions { display: flex; align-items: flex-end; gap: 9px; }
 .mobile-close-button, .mobile-add-user { display: none; }
 .user-form { display: flex; flex-direction: column; gap: 14px; }
 .user-form label { display: flex; flex-direction: column; gap: 7px; color: #42628c; font-size: .78rem; font-weight: 700; }
@@ -225,6 +233,9 @@ onMounted(async () => { await Promise.all([loadUsers(), loadParticipantCount(), 
 .action-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 112px; }
 .import-summary { padding: 11px; border-radius: 9px; background: #f1f7ff; color: #31577f; font-size: .78rem; }
 .users-list-heading { align-items: flex-start; }
+.user-panel-toggles { display: flex; gap: 7px; }
+.panel-toggle-button { padding: 10px 12px; border: 0; border-radius: 9px; color: #fff; background: linear-gradient(110deg, #2378db, #2251b5); font: inherit; font-size: .75rem; font-weight: 800; cursor: pointer; white-space: nowrap; }
+.panel-toggle-button.secondary { border: 1px solid #bed5ee; color: #2464ad; background: #f5f9ff; }
 .user-search { position: relative; }.user-search input { width: min(220px, 100%); padding-left: 34px; }.search-icon { position: absolute; top: 50%; left: 11px; z-index: 1; color: #6d88aa; font-size: 1.25rem; line-height: 1; transform: translateY(-53%); pointer-events: none; }.search-button { padding: 10px 13px; border: 0; border-radius: 8px; color: #fff; background: #2b72ce; font: inherit; font-size: .76rem; font-weight: 700; cursor: pointer; }
 .user-table-wrap { overflow-x: auto; }
 .user-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
@@ -259,7 +270,12 @@ onMounted(async () => { await Promise.all([loadUsers(), loadParticipantCount(), 
   .user-search input { flex: 1; width: auto; }
   .search-button { min-width: 58px; }
   .mobile-add-user { display: block; width: 100%; padding: 10px 14px; border: 0; border-radius: 9px; color: #fff; background: linear-gradient(110deg, #2378db, #2251b5); font: inherit; font-size: .8rem; font-weight: 700; cursor: pointer; }
+  .user-panel-toggles { width: 100%; display: grid; grid-template-columns: 1fr 1fr; }
+  .panel-toggle-button { width: 100%; }
+  .import-users-panel.open { display: flex; }
   .import-users-panel .panel-heading { align-items: flex-start; flex-direction: column; }
+  .import-panel-actions { width: 100%; align-items: stretch; flex-direction: column; }
+  .import-panel-actions .panel-collapse-button { align-self: flex-start; }
   .import-mode-field { width: 100%; }
   .template-links { justify-content: flex-end; }
   .import-actions { display: grid; grid-template-columns: 1fr 1fr; }
