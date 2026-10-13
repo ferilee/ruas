@@ -1,4 +1,17 @@
-ALTER TABLE `assessment_schedule` ADD `topic_id` int;--> statement-breakpoint
+SET @add_topic_id = (
+  SELECT IF(
+    COUNT(*) = 0,
+    'ALTER TABLE `assessment_schedule` ADD `topic_id` int',
+    'SELECT 1'
+  )
+  FROM information_schema.columns
+  WHERE table_schema = DATABASE()
+    AND table_name = 'assessment_schedule'
+    AND column_name = 'topic_id'
+);--> statement-breakpoint
+PREPARE add_topic_id_stmt FROM @add_topic_id;--> statement-breakpoint
+EXECUTE add_topic_id_stmt;--> statement-breakpoint
+DEALLOCATE PREPARE add_topic_id_stmt;--> statement-breakpoint
 INSERT INTO `assessment_schedule` (`topic_id`, `start_at`, `end_at`, `enabled`, `notes`, `updated_at`)
 SELECT `topics`.`id`, `legacy`.`start_at`, `legacy`.`end_at`, `legacy`.`enabled`, `legacy`.`notes`, `legacy`.`updated_at`
 FROM `assessment_schedule` AS `legacy`
