@@ -8,7 +8,7 @@
           <p id="confirm-message">{{ message }}</p>
           <label v-if="confirmationPhrase" class="confirmation-field">
             <span>Ketik konfirmasi</span>
-            <input v-model="confirmationValue" :placeholder="confirmationPlaceholder" autocomplete="off" @keyup.enter="canConfirm && $emit('confirm')" />
+            <input v-model="confirmationValue" :placeholder="confirmationPlaceholder || confirmationPhrase" autocomplete="off" @keyup.enter="canConfirm && $emit('confirm')" />
           </label>
         </div>
         <div class="confirm-actions">
@@ -31,7 +31,7 @@ const props = withDefaults(defineProps<{
   cancelLabel?: string;
   confirmationPhrase?: string;
   confirmationPlaceholder?: string;
-}>(), { confirmLabel: 'OK', cancelLabel: 'Batal', confirmationPlaceholder: 'HAPUS SEMUA PESERTA' });
+}>(), { confirmLabel: 'OK', cancelLabel: 'Batal', confirmationPlaceholder: '' });
 
 const confirmationValue = ref('');
 const canConfirm = computed(() => !props.confirmationPhrase || confirmationValue.value.trim() === props.confirmationPhrase);
