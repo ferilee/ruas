@@ -62,6 +62,7 @@
       <div v-else-if="state === 'resume'" class="exam-state-card resume-card">
         <span class="state-kicker">UJIAN SELESAI</span>
         <h2>Hasil pengerjaan</h2>
+        <p v-if="endedByTimeout" class="timeout-notice" role="status">Waktu habis. Jawaban yang tersimpan telah dikumpulkan otomatis.</p>
         <div class="resume-stats">
           <div><strong>{{ correctCount }}</strong><span>Benar</span></div>
           <div><strong>{{ incorrectCount }}</strong><span>Salah</span></div>
@@ -276,7 +277,7 @@ const countdownValue = ref(0);
 function getTopicId(): number { return Number(route.params.id); }
 
 const {
-  accuracy, cancelExit: dismissExitModal, confirmExitState, correctCount,
+  accuracy, cancelExit: dismissExitModal, confirmExitState, correctCount, endedByTimeout,
   currentQuestionNumber, errorMessage, examReview, explanationMode, finalTime, finishSession, hasActiveSession,
   incorrectCount, initializeSession, isLastQuestion, nextQuestion, onSelectKeys, question,
   questionCount, recordIntegrityEvent, resetSession, result, retryCurrentState, selectedKeys, showExitModal,
@@ -380,7 +381,7 @@ async function resumeExam() {
 function handleTimeExpired() {
   if (state.value !== 'answering' && state.value !== 'reviewing') return;
   timerRunning.value = false;
-  void finishSession();
+  void finishSession('timeout');
 }
 
 function handleViolation(violation: ExamViolation) {
@@ -515,6 +516,7 @@ onMounted(() => { initializeSession(); });
 .exam-state-card h2 { color: #233b51; font-size: 1.45rem; }
 .exam-state-card p { max-width: 520px; color: #6b8194; }
 .ready-card .primary-exam-button, .resume-card .primary-exam-button, .error-card .primary-exam-button { margin-top: 8px; }
+.timeout-notice { width: min(560px, 100%); margin: 0 0 12px; padding: 11px 14px; border: 1px solid #f0c7a6; border-radius: 10px; color: #9b5d2a; background: #fff8f1; font-size: .82rem; line-height: 1.45; }
 .resume-stats { width: min(560px, 100%); margin: 18px 0 10px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
 .resume-stats div { padding: 14px 8px; border-radius: 8px; background: #f1f6fa; }
 .resume-stats strong, .resume-stats span { display: block; }

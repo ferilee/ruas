@@ -330,7 +330,8 @@ export async function completeAttempt(db: ExamDb, attemptId: number, identityKey
   const completedAt = new Date();
   const totalTime = Math.max(0, Math.floor((completedAt.getTime() - new Date(attempt.started_at).getTime()) / 1000));
   const minimumTime = Math.max(0, attempt.minimum_duration_minutes * 60);
-  if (!options.force && totalTime < minimumTime) {
+  const deadlineReached = isAttemptExpired(attempt, completedAt);
+  if (!options.force && !deadlineReached && totalTime < minimumTime) {
     return { blocked: true as const, minimum_duration_seconds: minimumTime, elapsed_seconds: totalTime };
   }
   const accuracy = answers.length ? Math.round((correctCount / answers.length) * 100) : 0;

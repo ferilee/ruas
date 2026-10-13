@@ -47,8 +47,10 @@ export function useQuizSession(options: UseQuizSessionOptions) {
   const serverClockOffsetMs = ref(0);
   const examReview = ref<ExamReviewItem[]>([]);
   const explanationMode = ref<ExplanationMode | null>(null);
+  const endedByTimeout = ref(false);
   const clockTick = ref(Date.now());
   let clockInterval: ReturnType<typeof setInterval> | null = null;
+  let finishing = false;
 
   const currentQuestionNumber = computed(() => {
     if (state.value === 'reviewing') return answeredIds.value.size;
@@ -226,8 +228,12 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     await saveExamIntegrityEvent(attemptId.value, type, occurredAt);
   }
 
-  async function finishSession() {
+  async function finishSession(reason: 'timeout' | 'manual' = 'manual') {
+    if (finishing) return;
+    finishing = true;
+    endedByTimeout.value = reason === 'timeout';
     timerRunning.value = false;
+    try {
       if (attemptId.value) {
       try {
         persistedAttempt.value = await completeExamAttempt(attemptId.value);
@@ -249,7 +255,10 @@ export function useQuizSession(options: UseQuizSessionOptions) {
         return;
       }
     }
-    state.value = 'resume';
+      state.value = 'resume';
+    } finally {
+      finishing = false;
+    }
   }
 
   function resetSession() {
@@ -261,6 +270,8 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     serverClockOffsetMs.value = 0;
     examReview.value = [];
     explanationMode.value = null;
+    endedByTimeout.value = false;
+    finishing = false;
   }
 
   if (getCurrentInstance()) {
@@ -323,6 +334,7 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     examReview,
     errorMessage,
     explanationMode,
+    endedByTimeout,
     finalTime,
     finishSession,
     hasActiveSession,
