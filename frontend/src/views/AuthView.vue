@@ -6,13 +6,16 @@
     <div class="orb orb-bottom-right" aria-hidden="true"></div>
 
     <div class="auth-utility-bar">
-      <router-link to="/admin" class="editor-access" aria-label="Akses editor">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M4 5.5h16v13H4z" />
-          <path d="M8 9h8M8 12h8M8 15h5" />
-        </svg>
-        <span>Akses Editor</span>
-      </router-link>
+      <div class="auth-utility-links">
+        <router-link to="/admin" class="editor-access" aria-label="Akses editor">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 5.5h16v13H4z" />
+            <path d="M8 9h8M8 12h8M8 15h5" />
+          </svg>
+          <span>Akses Editor</span>
+        </router-link>
+        <router-link to="/tentang" class="landing-access" aria-label="Tentang dan layanan RUAS">Tentang &amp; Layanan</router-link>
+      </div>
 
       <div class="theme-picker" @click.stop>
         <button
@@ -320,6 +323,13 @@ async function login() {
   pointer-events: none;
 }
 
+.auth-utility-links {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  pointer-events: auto;
+}
+
 .editor-access,
 .theme-button {
   pointer-events: auto;
@@ -342,6 +352,28 @@ async function login() {
   font-size: 0.78rem;
   font-weight: 700;
   text-decoration: none;
+}
+
+.landing-access {
+  display: inline-flex;
+  min-height: 46px;
+  align-items: center;
+  padding: 0 15px;
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  border-radius: 15px;
+  color: #236bdc;
+  background: rgba(255, 255, 255, 0.42);
+  box-shadow: 7px 9px 18px rgba(90, 122, 184, 0.11), inset 2px 2px 8px rgba(255, 255, 255, 0.65);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.landing-access:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 9px 12px 22px rgba(90, 122, 184, 0.16), inset 2px 2px 8px rgba(255, 255, 255, 0.75);
 }
 
 .editor-access svg {
@@ -681,6 +713,7 @@ async function login() {
 }
 
 .auth-page[data-theme='dark'] .editor-access,
+.auth-page[data-theme='dark'] .landing-access,
 .auth-page[data-theme='dark'] .theme-button {
   border-color: rgba(156, 192, 255, 0.28);
   background: rgba(26, 49, 96, 0.72);
@@ -689,6 +722,7 @@ async function login() {
 }
 
 .auth-page[data-theme='dark'] .editor-access:hover,
+.auth-page[data-theme='dark'] .landing-access:hover,
 .auth-page[data-theme='dark'] .theme-button:hover {
   background: rgba(40, 72, 132, 0.88);
 }
@@ -754,6 +788,7 @@ async function login() {
 
 @media (prefers-reduced-motion: reduce) {
   .editor-access,
+  .landing-access,
   .theme-button {
     transition: none;
   }
@@ -786,6 +821,17 @@ async function login() {
     padding: 0 12px;
     border-radius: 14px;
     font-size: 0.72rem;
+  }
+
+  .auth-utility-links {
+    gap: 5px;
+  }
+
+  .landing-access {
+    min-height: 45px;
+    padding: 0 10px;
+    border-radius: 14px;
+    font-size: 0.68rem;
   }
 
   .theme-button {
