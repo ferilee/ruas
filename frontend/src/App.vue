@@ -46,6 +46,7 @@ const wrapperClasses = computed(() => {
   if (isHomeRoute.value) return 'home-shell';
   if (isTopicRoute.value) return 'topic-shell';
   if (isAdminRoute.value) return 'admin-shell';
+  if (isLandingRoute.value) return 'landing-shell';
   return 'app-wrapper';
 });
 </script>
@@ -114,6 +115,14 @@ body {
   min-height: 100dvh;
   width: 100%;
   background: #f4f7fb;
+}
+
+.landing-shell {
+  min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
+  width: 100%;
+  background: linear-gradient(145deg, #f5f8ff 0%, #e8f0ff 52%, #d9e7ff 100%);
 }
 
 .exam-wrapper {
