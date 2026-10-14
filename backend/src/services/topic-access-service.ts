@@ -7,6 +7,12 @@ import { matchesTopicToken } from '@/lib/topic-token';
 
 type TopicAccessDb = ReturnType<typeof drizzle>;
 
+export function classIdsMatch(left: unknown, right: unknown) {
+  const leftId = Number(left);
+  const rightId = Number(right);
+  return Number.isInteger(leftId) && Number.isInteger(rightId) && leftId > 0 && leftId === rightId;
+}
+
 async function findAccountClassId(db: TopicAccessDb, identityKey?: string | null) {
   if (!identityKey) return null;
   const [account] = await db
@@ -28,7 +34,7 @@ export async function canParticipantAccessTopic(db: TopicAccessDb, topicId: numb
   const classId = await findAccountClassId(db, identityKey);
   if (!identityKey) return true;
   if (classId === null) return false;
-  return mappings.some((mapping) => mapping.class_id === classId);
+  return mappings.some((mapping) => classIdsMatch(mapping.class_id, classId));
 }
 
 export async function getParticipantClassId(db: TopicAccessDb, identityKey?: string | null) {
