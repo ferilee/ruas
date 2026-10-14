@@ -230,6 +230,7 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     questionCountReady.value = false;
     questionCountError.value = '';
     let endpointCount: number | null = null;
+    let countError: unknown = null;
     try {
       endpointCount = await fetchQuestionCount(options.getTopicId());
       if (endpointCount > 0) {
@@ -237,10 +238,12 @@ export function useQuizSession(options: UseQuizSessionOptions) {
         questionCountReady.value = true;
         return;
       }
-    } catch {
+    } catch (error) {
+      countError = error;
       // Use the topic metadata below when the count endpoint is unavailable.
     }
 
+    let topicError: unknown = null;
     try {
       const topic = await fetchTopic(options.getTopicId());
       if (topic) {
@@ -248,7 +251,8 @@ export function useQuizSession(options: UseQuizSessionOptions) {
         questionCountReady.value = true;
         return;
       }
-    } catch {
+    } catch (error) {
+      topicError = error;
       // Fall through to the user-facing error below.
     }
 
@@ -257,8 +261,18 @@ export function useQuizSession(options: UseQuizSessionOptions) {
       questionCountReady.value = true;
     } else {
       questionCount.value = 0;
-      questionCountError.value = 'Jumlah soal belum dapat dimuat. Periksa jadwal atau akses topik, lalu coba lagi.';
+      questionCountError.value = getQuestionLoadError(topicError ?? countError);
     }
+  }
+
+  function getQuestionLoadError(error: unknown) {
+    const code = (error as Error & { code?: string })?.code;
+    if (code === 'unauthorized') return 'Sesi login berakhir. Silakan login kembali.';
+    if (code === 'assessment_not_started') return 'Asesmen untuk topik ini belum dibuka oleh admin.';
+    if (code === 'topic_token_required') return 'Topik ini memerlukan token sebelum soal dapat dibuka.';
+    if (code === 'not_found') return 'Topik tidak tersedia untuk akun atau kelas ini. Periksa mapping kelas peserta.';
+    if (error instanceof Error && error.message) return `Soal belum dapat dimuat: ${error.message}`;
+    return 'Jumlah soal belum dapat dimuat. Periksa jadwal atau akses topik, lalu coba lagi.';
   }
 
   async function retryCurrentState() {

@@ -72,7 +72,9 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
   if (res.status === 401) {
     sessionStorage.removeItem('auth_token');
     window.location.href = '/auth';
-    throw new Error('Sesi berakhir.');
+    const error = new Error('Sesi login berakhir. Silakan login kembali.') as Error & { code?: string; details?: Record<string, unknown> };
+    error.code = 'unauthorized';
+    throw error;
   }
 
   if (!res.ok) {
@@ -219,13 +221,9 @@ export async function fetchQuestionCount(topicId: number): Promise<number> {
   return data.count;
 }
 
-export async function fetchTopic(topicId: number): Promise<Topic | null> {
-  try {
-    const data = await request<{ topic: Topic }>(`/topics/${topicId}`);
-    return data.topic;
-  } catch {
-    return null;
-  }
+export async function fetchTopic(topicId: number): Promise<Topic> {
+  const data = await request<{ topic: Topic }>(`/topics/${topicId}`);
+  return data.topic;
 }
 
 export async function fetchAdminAuthStatus(): Promise<boolean> {

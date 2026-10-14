@@ -205,6 +205,23 @@ describe('useQuizSession', () => {
     expect(session.state.value).toBe('ready');
   });
 
+  it('explains when the topic is unavailable for the participant mapping', async () => {
+    const accessError = Object.assign(new Error('Topik tidak ditemukan.'), { code: 'not_found' });
+    fetchQuestionCount.mockRejectedValue(accessError);
+    fetchTopic.mockRejectedValue(accessError);
+
+    const session = useQuizSession({
+      getTopicId: () => 11,
+      getQuerySubjectId: () => 7,
+      getQueryTopicLabel: () => 'Barisan dan Deret XI KKKR',
+    });
+
+    await session.initializeSession();
+
+    expect(session.state.value).toBe('error');
+    expect(session.errorMessage.value).toContain('mapping kelas peserta');
+  });
+
   it('does not apply minimum duration between questions', async () => {
     fetchQuestionCount.mockResolvedValue(2);
     fetchNextAttemptQuestion
