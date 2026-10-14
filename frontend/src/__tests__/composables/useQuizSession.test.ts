@@ -177,6 +177,48 @@ describe('useQuizSession', () => {
     expect(session.state.value).toBe('ready');
   });
 
+  it('does not apply minimum duration between questions', async () => {
+    fetchQuestionCount.mockResolvedValue(2);
+    fetchNextAttemptQuestion
+      .mockResolvedValueOnce(firstQuestion)
+      .mockResolvedValueOnce(secondQuestion);
+    createExamAttempt.mockResolvedValue({
+      attempt: {
+        id: 501,
+        total_questions: 2,
+        minimum_duration_minutes: 30,
+        started_at: new Date().toISOString(),
+        deadline_at: null,
+      } as never,
+      server_now: new Date().toISOString(),
+    });
+    saveExamAnswer.mockResolvedValue({
+      correct: true,
+      correct_keys: ['B'],
+      explanation: null,
+      explanation_mode: 'after_answer',
+    });
+
+    const session = useQuizSession({
+      getTopicId: () => 11,
+      getQuerySubjectId: () => 7,
+      getQueryTopicLabel: () => 'Barisan dan Deret XI KKKR',
+    });
+
+    await session.initializeSession();
+    await session.startQuiz();
+    session.onSelectKeys(['B']);
+    session.timerRunning.value = false;
+    session.onTime(20);
+    await session.submitAnswer();
+
+    expect(session.isLastQuestion.value).toBe(false);
+    expect(session.canComplete.value).toBe(false);
+    await session.nextQuestion();
+    expect(session.question.value?.id).toBe(202);
+    expect(session.timerRunning.value).toBe(true);
+  });
+
   it('submits an answer and moves into reviewing state with summary updated', async () => {
     fetchQuestionCount.mockResolvedValue(1);
     fetchNextAttemptQuestion.mockResolvedValue(firstQuestion);

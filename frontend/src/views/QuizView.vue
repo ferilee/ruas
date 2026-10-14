@@ -184,6 +184,7 @@
         <ul>
           <li>Soal bertanda ragu-ragu tetap dapat dijawab dan dikoreksi.</li>
           <li>Timer menampilkan sisa waktu. Jika tidak ada batas waktu, timer menampilkan waktu berjalan.</li>
+          <li v-if="minimumDurationSeconds > 0">Minimum waktu {{ Math.ceil(minimumDurationSeconds / 60) }} menit berlaku untuk seluruh sesi. Kamu tetap dapat berpindah soal, tetapi hasil baru dapat dilihat setelah semua soal selesai dan waktu minimum tercapai.</li>
           <li>Jawaban diperiksa setelah tombol simpan jawaban ditekan.</li>
           <li>Perpindahan tab, keluar layar penuh, dan shortcut terlarang akan menjeda ujian.</li>
         </ul>
@@ -282,7 +283,7 @@ const {
   incorrectCount, initializeSession, isLastQuestion, nextQuestion, onSelectKeys, question,
   questionCount, questionCountReady, recordIntegrityEvent, resetSession, result, retryCurrentState, selectedKeys, showExitModal,
   startQuiz, state, subjectId, submitAnswer, topicLabel, totalTime, timerRunning, onTime,
-  deadlineAt, serverClockOffsetMs, canComplete, minimumTimeRemaining, submittingAnswer,
+  deadlineAt, serverClockOffsetMs, canComplete, minimumDurationSeconds, minimumTimeRemaining, submittingAnswer,
 } = useQuizSession({
   getTopicId,
   getQuerySubjectId: () => Number(route.query.subject_id),
