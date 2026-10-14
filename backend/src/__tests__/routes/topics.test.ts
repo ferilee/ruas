@@ -31,19 +31,25 @@ describe('topicsRoutes', () => {
       select: () => ({
         from: () => ({
           leftJoin: () => ({
-            where: () => ({
-              groupBy: () => ({
-                orderBy: async () => [
-                  {
-                    id: 2,
-                    subject_id: 1,
-                    slug: 'penalaran-umum',
-                    label: 'Penalaran Umum',
-                    display_order: 1,
-                    requires_token: false,
-                    question_count: 10,
-                  },
-                ],
+            leftJoin: () => ({
+              leftJoin: () => ({
+                where: () => ({
+                  groupBy: () => ({
+                    orderBy: async () => [
+                      {
+                        id: 2,
+                        subject_id: 1,
+                        class_id: 4,
+                        class_label: 'Kelas 11 TKJ A',
+                        slug: 'penalaran-umum',
+                        label: 'Penalaran Umum',
+                        display_order: 1,
+                        requires_token: false,
+                        question_count: 10,
+                      },
+                    ],
+                  }),
+                }),
               }),
             }),
           }),
@@ -61,6 +67,8 @@ describe('topicsRoutes', () => {
         {
           id: 2,
           subject_id: 1,
+          class_id: 4,
+          class_label: 'Kelas 11 TKJ A',
           slug: 'penalaran-umum',
           label: 'Penalaran Umum',
           display_order: 1,

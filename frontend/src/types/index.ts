@@ -88,6 +88,8 @@ export interface ParticipantProfileInput {
 export interface Topic {
   id: number;
   subject_id: number;
+  class_id?: number | null;
+  class_label?: string | null;
   slug: string;
   label: string;
   display_order: number;

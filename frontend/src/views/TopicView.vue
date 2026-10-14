@@ -30,20 +30,31 @@
     </div>
 
     <template v-else>
-      <div class="topic-list">
-        <button
-          v-for="topic in topics"
-          :key="topic.id"
-          class="topic-card"
-          type="button"
-          :class="{ locked: !canEnterTopic(topic), 'token-locked': topic.requires_token && !hasTopicAccess(topic.id) }"
-          :aria-disabled="!canEnterTopic(topic)"
-          :tabindex="canEnterTopic(topic) ? 0 : -1"
-          @click="handleTopicClick(topic)"
-        >
-        <span class="topic-label"><span>{{ topic.label }} <span class="topic-count">({{ topic.question_count }})</span></span><small class="topic-attempts"><span v-if="topic.requires_token && !hasTopicAccess(topic.id)" class="topic-lock-label">🔒 Token diperlukan · </span>{{ scheduleLabel(topic.id) }} · {{ attemptsLabel(topic.id) }}</small></span>
-        <span class="topic-arrow">{{ topic.requires_token && !hasTopicAccess(topic.id) ? '🔐' : '→' }}</span>
-        </button>
+      <div class="topic-groups">
+        <section v-for="group in topicGroups" :key="group.key" class="topic-group">
+          <div class="topic-group-heading">
+            <div>
+              <span class="topic-group-kicker">KATEGORI KELAS</span>
+              <h2>{{ group.label }}</h2>
+            </div>
+            <span class="topic-group-count">{{ group.topics.length }} topik</span>
+          </div>
+          <div class="topic-list">
+            <button
+              v-for="topic in group.topics"
+              :key="topic.id"
+              class="topic-card"
+              type="button"
+              :class="{ locked: !canEnterTopic(topic), 'token-locked': topic.requires_token && !hasTopicAccess(topic.id) }"
+              :aria-disabled="!canEnterTopic(topic)"
+              :tabindex="canEnterTopic(topic) ? 0 : -1"
+              @click="handleTopicClick(topic)"
+            >
+              <span class="topic-label"><span>{{ topic.label }} <span class="topic-count">({{ topic.question_count }})</span></span><small class="topic-attempts"><span v-if="topic.requires_token && !hasTopicAccess(topic.id)" class="topic-lock-label">🔒 Token diperlukan · </span>{{ scheduleLabel(topic.id) }} · {{ attemptsLabel(topic.id) }}</small></span>
+              <span class="topic-arrow">{{ topic.requires_token && !hasTopicAccess(topic.id) ? '🔐' : '→' }}</span>
+            </button>
+          </div>
+        </section>
       </div>
     </template>
   </div>
@@ -75,7 +86,19 @@ const tokenError = ref('');
 const tokenLoading = ref(false);
 let scheduleTimer: ReturnType<typeof setInterval> | undefined;
 
-const canStart = computed(() => Object.values(topicSchedules.value).some((item) => item.is_open));
+const topicGroups = computed(() => {
+  const groups = new Map<string, { key: string; label: string; topics: Topic[] }>();
+
+  for (const topic of topics.value) {
+    const key = topic.class_id ? `class:${topic.class_id}` : 'all-classes';
+    const label = topic.class_label || 'Semua kelas';
+    const group = groups.get(key) ?? { key, label, topics: [] };
+    group.topics.push(topic);
+    groups.set(key, group);
+  }
+
+  return Array.from(groups.values());
+});
 
 async function loadTopicsData() {
   loading.value = true;
@@ -137,13 +160,6 @@ function scheduleLabel(topicId: number) {
   return 'Sudah berakhir';
 }
 
-function canOpenTopic(topic: Topic) {
-  const availability = topicAvailability.value[topic.id];
-  if (availability?.has_active_attempt) return true;
-  if (topic.requires_token && !hasTopicAccess(topic.id)) return false;
-  return !availability || availability.can_start;
-}
-
 function openTokenModal(topic: Topic) {
   tokenModalTopic.value = topic;
   tokenInput.value = '';
@@ -197,17 +213,6 @@ function attemptsLabel(topicId: number) {
 function formatStartAt(value: string | null) {
   if (!value) return 'segera';
   return new Intl.DateTimeFormat('id-ID', { dateStyle: 'long', timeStyle: 'short' }).format(new Date(value));
-}
-
-function formatRemaining(seconds: number) {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const remainder = seconds % 60;
-  return hours > 0
-    ? `${hours}j ${minutes}m lagi`
-    : minutes > 0
-      ? `${minutes}m ${remainder}dtk lagi`
-      : `${remainder}dtk lagi`;
 }
 
 onMounted(() => {
@@ -453,6 +458,58 @@ onUnmounted(() => {
   gap: 14px;
 }
 
+.topic-groups {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: min(100%, 700px);
+  margin: 0 auto;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.topic-group {
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.84);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.22);
+  box-shadow: 6px 10px 20px rgba(133, 159, 207, 0.08), inset 1px 1px 7px rgba(255, 255, 255, 0.38);
+}
+
+.topic-group-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 4px 14px;
+}
+
+.topic-group-kicker {
+  display: block;
+  margin-bottom: 5px;
+  color: #6f8fc3;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.topic-group-heading h2 {
+  margin: 0;
+  color: #214a91;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.topic-group-count {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.62);
+  color: #6682b4;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
 .topic-card {
   display: flex;
   min-height: 76px;
@@ -596,6 +653,19 @@ onUnmounted(() => {
     padding: 13px 14px 13px 18px;
     border-radius: 19px;
     font-size: 0.92rem;
+  }
+
+  .topic-group {
+    padding: 13px;
+    border-radius: 20px;
+  }
+
+  .topic-group-heading {
+    align-items: flex-start;
+  }
+
+  .topic-group-heading h2 {
+    font-size: 0.96rem;
   }
 
   .topic-arrow {

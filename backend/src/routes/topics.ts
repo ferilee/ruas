@@ -3,6 +3,7 @@ import { drizzle } from 'drizzle-orm/mysql2';
 import { eq, count } from 'drizzle-orm';
 import { topics } from '../db/schema/topics';
 import { questions } from '../db/schema/questions';
+import { educationClasses } from '../db/schema/education-classes';
 import * as schema from '../db/schema/index';
 import type { Pool } from '../db/connection';
 import { z } from 'zod';
@@ -29,6 +30,8 @@ export function topicsRoutes(pool: Pool) {
       .select({
         id: topics.id,
         subject_id: topics.subject_id,
+        class_id: educationClasses.id,
+        class_label: educationClasses.label,
         slug: topics.slug,
         label: topics.label,
         display_order: topics.display_order,
@@ -37,6 +40,8 @@ export function topicsRoutes(pool: Pool) {
       })
       .from(topics)
       .leftJoin(questions, eq(questions.topic_id, topics.id))
+      .leftJoin(schema.subjects, eq(topics.subject_id, schema.subjects.id))
+      .leftJoin(educationClasses, eq(educationClasses.id, schema.subjects.class_id))
       .where(eq(topics.subject_id, parsed.data.subject_id))
       .groupBy(topics.id)
       .orderBy(topics.display_order);
@@ -55,6 +60,8 @@ export function topicsRoutes(pool: Pool) {
       .select({
         id: topics.id,
         subject_id: topics.subject_id,
+        class_id: educationClasses.id,
+        class_label: educationClasses.label,
         slug: topics.slug,
         label: topics.label,
         display_order: topics.display_order,
@@ -63,6 +70,8 @@ export function topicsRoutes(pool: Pool) {
       })
       .from(topics)
       .leftJoin(questions, eq(questions.topic_id, topics.id))
+      .leftJoin(schema.subjects, eq(topics.subject_id, schema.subjects.id))
+      .leftJoin(educationClasses, eq(educationClasses.id, schema.subjects.class_id))
       .where(eq(topics.id, id))
       .groupBy(topics.id)
       .limit(1);

@@ -94,4 +94,19 @@ describe('TopicView', () => {
     expect(wrapper.find('.topic-token-modal').exists()).toBe(true);
     expect(wrapper.find('.topic-token-modal').text()).toContain('Masukkan token');
   });
+
+  it('groups topics by their assigned class', async () => {
+    fetchTopics.mockResolvedValue([
+      { id: 11, subject_id: 7, class_id: 1, class_label: 'Kelas 11 TKJ A', slug: 'barisan-tkj', label: 'Barisan dan Deret', display_order: 1, question_count: 5, requires_token: false },
+      { id: 12, subject_id: 7, class_id: 2, class_label: 'Kelas 11 DPIB', slug: 'barisan-dpib', label: 'Barisan dan Deret', display_order: 2, question_count: 5, requires_token: false },
+    ]);
+    fetchSubjects.mockResolvedValue([{ id: 7, slug: 'matematika', label: 'Matematika', display_order: 1 }]);
+    fetchAssessmentSchedule.mockResolvedValue({ start_at: null, is_open: true, starts_in_seconds: 0 });
+
+    const wrapper = mount(TopicView, { global: { stubs: { RouterLink: RouterLinkStub } } });
+    await vi.waitFor(() => expect(wrapper.findAll('.topic-group').length).toBe(2));
+
+    expect(wrapper.findAll('.topic-group-heading h2').map((heading) => heading.text())).toEqual(['Kelas 11 TKJ A', 'Kelas 11 DPIB']);
+    expect(wrapper.findAll('button.topic-card')).toHaveLength(2);
+  });
 });
