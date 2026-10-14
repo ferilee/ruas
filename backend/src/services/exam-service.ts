@@ -320,10 +320,12 @@ export async function createAttempt(
 
   const assignedSubjectId = await findAssignedSubjectId(db, identityKey, participant.subject_id);
   if (!assignedSubjectId || assignedSubjectId !== input.subject_id) return { assignmentMismatch: true as const };
-  if (!(await canParticipantAccessTopic(db, input.topic_id, identityKey))) return { assignmentMismatch: true as const };
 
   const topicAccess = await getTopicAccess(db, input.topic_id);
   if (!topicAccess) return null;
+  const classAccess = await canParticipantAccessTopic(db, input.topic_id, identityKey);
+  const tokenAccess = topicAccess.requires_token && canAccessTopic(topicAccess, input.topic_access_token);
+  if (!classAccess && !tokenAccess) return { assignmentMismatch: true as const };
   if (!canAccessTopic(topicAccess, input.topic_access_token)) return { tokenRequired: true as const };
 
   const availability = await getAttemptAvailability(db, identityKey, input.subject_id, input.topic_id);

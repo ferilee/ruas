@@ -61,9 +61,13 @@ export function topicsRoutes(pool: Pool) {
     if (!Number.isFinite(id) || id < 1) {
       return c.json({ error: 'invalid_param', message: 'ID topik tidak valid.' }, 400);
     }
-    if (!(await canParticipantAccessTopic(db, id, getParticipantIdentity(c)))) {
+    const access = await getTopicAccess(db, id);
+    if (!access) {
       return c.json({ error: 'not_found', message: 'Topik tidak ditemukan.' }, 404);
     }
+    const classAccess = await canParticipantAccessTopic(db, id, getParticipantIdentity(c));
+    const tokenAccess = access.requires_token && canAccessTopic(access, c.req.header('x-topic-access-token'));
+    if (!classAccess && !tokenAccess) return c.json({ error: 'not_found', message: 'Topik tidak ditemukan.' }, 404);
 
     const [topic] = await db
       .select({
@@ -101,10 +105,12 @@ export function topicsRoutes(pool: Pool) {
 
     const topic = await getTopicAccess(db, id);
     if (!topic) return c.json({ error: 'not_found', message: 'Topik tidak ditemukan.' }, 404);
-    if (!(await canParticipantAccessTopic(db, id, getParticipantIdentity(c)))) {
+    const classAccess = await canParticipantAccessTopic(db, id, getParticipantIdentity(c));
+    const tokenAccess = canAccessTopic(topic, parsed.data.token);
+    if (!classAccess && !tokenAccess) {
       return c.json({ error: 'not_found', message: 'Topik tidak ditemukan.' }, 404);
     }
-    if (!canAccessTopic(topic, parsed.data.token)) {
+    if (!tokenAccess) {
       return c.json({ error: 'invalid_topic_token', message: 'Token topik salah atau sudah tidak berlaku.' }, 403);
     }
     return c.json({ granted: true });
