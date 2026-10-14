@@ -172,7 +172,7 @@
           <div class="question-filters" aria-label="Filter bank soal">
             <button v-for="filter in difficultyFilters" :key="filter.value" type="button" :class="['filter-chip', { active: difficultyFilter === filter.value }]" @click="difficultyFilter = filter.value">{{ filter.label }}</button>
             <RuasSelect v-model="questionTypeFilter" :options="questionTypeFilterOptions" aria-label="Filter tipe soal" />
-            <RuasSelect v-model="questionTopicFilter" :options="questionTopicFilterOptions" aria-label="Filter topik soal" />
+            <RuasSelect v-model="questionTopicFilter" class="topic-filter-select" :options="questionTopicFilterOptions" searchable search-placeholder="Cari topik atau mata pelajaran..." aria-label="Filter topik soal" />
           </div>
 
           <section class="panel topic-access-panel">
@@ -355,7 +355,6 @@ import {
   createAdminQuestion,
   deleteAdminQuestion,
   fetchAdminAuthStatus,
-  fetchAdminCurriculum,
   fetchAdminQuestion,
   fetchAdminQuestions,
   fetchAdminSchedule,
@@ -976,6 +975,7 @@ onUnmounted(() => {
 .toolbar-search .search-input { max-width: 420px; }
 .question-filters { display: flex; flex-wrap: wrap; gap: 7px; margin: 14px 0 16px; }
 .question-filters > .ruas-select { width: min(210px, 100%); }
+.question-filters > .topic-filter-select { width: min(300px, 100%); }
 .topic-access-panel { margin-bottom: 16px; padding: 18px; }
 .topic-access-panel .panel-heading { margin-bottom: 4px; }
 .topic-access-panel .panel-heading p { margin-top: 4px; color: #778899; font-size: .8rem; }
