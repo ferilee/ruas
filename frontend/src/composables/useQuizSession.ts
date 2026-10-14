@@ -39,6 +39,8 @@ export function useQuizSession(options: UseQuizSessionOptions) {
   const subjectId = ref(0);
   const topicLabel = ref('');
   const questionCount = ref(0);
+  const questionCountReady = ref(false);
+  const questionCountError = ref('');
   const autoStart = ref(false);
   const answeredIds = ref<Set<number>>(new Set());
   const sessionResults = ref<SessionResult[]>([]);
@@ -127,14 +129,20 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     const created = await createExamAttempt({ subject_id: subjectId.value, topic_id: options.getTopicId(), total_questions: questionCount.value });
     attemptId.value = created.attempt.id;
     persistedAttempt.value = created.attempt;
+    if (Number.isInteger(created.attempt.total_questions)) {
+      questionCount.value = created.attempt.total_questions;
+      questionCountReady.value = true;
+    }
     syncServerClock(created.server_now);
     startClock();
   }
 
   async function startQuiz() {
     try {
+      if (!questionCountReady.value) throw new Error(questionCountError.value || 'Jumlah soal belum berhasil dimuat. Silakan coba lagi.');
+      if (questionCount.value === 0) throw new Error('Belum ada soal yang tersedia untuk topik ini.');
       await ensureAttempt();
-      if (questionCount.value === 0 || !question.value) {
+      if (!question.value) {
         autoStart.value = true;
         await loadQuestion();
         return;
@@ -219,15 +227,38 @@ export function useQuizSession(options: UseQuizSessionOptions) {
   }
 
   async function loadQuestionCount() {
+    questionCountReady.value = false;
+    questionCountError.value = '';
     try {
       questionCount.value = await fetchQuestionCount(options.getTopicId());
+      questionCountReady.value = true;
     } catch {
+      try {
+        const topic = await fetchTopic(options.getTopicId());
+        if (topic) {
+          questionCount.value = topic.question_count;
+          questionCountReady.value = true;
+          return;
+        }
+      } catch {
+        // Fall through to the user-facing error below.
+      }
       questionCount.value = 0;
+      questionCountError.value = 'Jumlah soal belum dapat dimuat. Periksa jadwal atau akses topik, lalu coba lagi.';
     }
   }
 
   async function retryCurrentState() {
+    if (!attemptId.value) {
+      await initializeSession();
+      return;
+    }
     await Promise.all([loadTopicInfo(), loadQuestionCount()]);
+    if (!questionCountReady.value) {
+      errorMessage.value = questionCountError.value;
+      state.value = 'error';
+      return;
+    }
     await loadQuestion();
   }
 
@@ -315,12 +346,19 @@ export function useQuizSession(options: UseQuizSessionOptions) {
       if (active.attempt) {
         attemptId.value = active.attempt.id;
         persistedAttempt.value = active.attempt;
+        questionCount.value = active.attempt.total_questions;
+        questionCountReady.value = true;
         startClock();
         answeredIds.value = new Set(active.answers.map((answer) => answer.question_id));
         sessionResults.value = active.answers.map((answer) => ({ questionId: answer.question_id, correct: answer.is_correct, elapsed: answer.elapsed_seconds }));
         await loadQuestion();
       } else {
         question.value = null;
+        if (!questionCountReady.value) {
+          errorMessage.value = questionCountError.value;
+          state.value = 'error';
+          return;
+        }
         state.value = 'ready';
       }
     } catch (error) {
@@ -374,6 +412,7 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     topicLabel,
     totalTime,
     canComplete,
+    questionCountReady,
     minimumDurationSeconds,
     minimumTimeRemaining,
   };

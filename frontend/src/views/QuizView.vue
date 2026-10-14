@@ -56,7 +56,7 @@
         <span class="state-kicker">PERSIAPAN UJIAN</span>
         <h2>Siap mengerjakan?</h2>
         <p>{{ questionCount }} soal tersedia. Countdown dimulai setelah kamu menekan tombol mulai.</p>
-        <button class="primary-exam-button" type="button" :disabled="startingCountdown" @click="beginExam">{{ startingCountdown ? 'Bersiap...' : 'Mulai Ujian' }}</button>
+        <button class="primary-exam-button" type="button" :disabled="startingCountdown || !questionCountReady || questionCount === 0" @click="beginExam">{{ startingCountdown ? 'Bersiap...' : 'Mulai Ujian' }}</button>
       </div>
 
       <div v-else-if="state === 'resume'" class="exam-state-card resume-card">
@@ -280,7 +280,7 @@ const {
   accuracy, cancelExit: dismissExitModal, confirmExitState, correctCount, endedByTimeout,
   currentQuestionNumber, errorMessage, examReview, explanationMode, finalTime, finishSession, hasActiveSession,
   incorrectCount, initializeSession, isLastQuestion, nextQuestion, onSelectKeys, question,
-  questionCount, recordIntegrityEvent, resetSession, result, retryCurrentState, selectedKeys, showExitModal,
+  questionCount, questionCountReady, recordIntegrityEvent, resetSession, result, retryCurrentState, selectedKeys, showExitModal,
   startQuiz, state, subjectId, submitAnswer, topicLabel, totalTime, timerRunning, onTime,
   deadlineAt, serverClockOffsetMs, canComplete, minimumTimeRemaining, submittingAnswer,
 } = useQuizSession({

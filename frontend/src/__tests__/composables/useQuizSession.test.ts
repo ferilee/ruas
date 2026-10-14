@@ -109,6 +109,49 @@ describe('useQuizSession', () => {
     expect(session.state.value).toBe('answering');
   });
 
+  it('uses the topic metadata when the count endpoint fails and keeps the next-question flow', async () => {
+    fetchQuestionCount.mockRejectedValue(new Error('Jadwal count tidak tersedia'));
+    fetchTopic.mockResolvedValue({
+      id: 11,
+      subject_id: 7,
+      slug: 'barisan-dan-deret-xi-kkkr',
+      label: 'Barisan dan Deret XI KKKR',
+      display_order: 1,
+      question_count: 2,
+      requires_token: false,
+    });
+    fetchNextAttemptQuestion
+      .mockResolvedValueOnce(firstQuestion)
+      .mockResolvedValueOnce(secondQuestion);
+    saveExamAnswer.mockResolvedValue({
+      correct: true,
+      correct_keys: ['B'],
+      explanation: null,
+      explanation_mode: 'after_answer',
+    });
+
+    const session = useQuizSession({
+      getTopicId: () => 11,
+      getQuerySubjectId: () => 7,
+      getQueryTopicLabel: () => 'Barisan dan Deret XI KKKR',
+    });
+
+    await session.initializeSession();
+    expect(session.questionCount.value).toBe(2);
+    expect(session.state.value).toBe('ready');
+
+    await session.startQuiz();
+    session.onSelectKeys(['B']);
+    session.timerRunning.value = false;
+    session.onTime(20);
+    await session.submitAnswer();
+
+    expect(session.isLastQuestion.value).toBe(false);
+    await session.nextQuestion();
+    expect(session.question.value?.id).toBe(202);
+    expect(session.currentQuestionNumber.value).toBe(2);
+  });
+
   it('submits an answer and moves into reviewing state with summary updated', async () => {
     fetchQuestionCount.mockResolvedValue(1);
     fetchNextAttemptQuestion.mockResolvedValue(firstQuestion);

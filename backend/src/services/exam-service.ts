@@ -324,7 +324,7 @@ export async function createAttempt(
     participant_id: participant.id,
     subject_id: input.subject_id,
     topic_id: input.topic_id,
-    total_questions: input.total_questions,
+    total_questions: order.question_order.length,
     question_order: order.question_order,
     option_order: order.option_order,
     started_at: startedAt,
