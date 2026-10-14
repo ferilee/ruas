@@ -130,11 +130,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
 import { fetchAdminCurriculum, fetchAdminReport, fetchAdminReportDetail, fetchAdminReportResetCount, resetAdminReportData } from '@/api/client';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import RuasSelect from '@/components/RuasSelect.vue';
 import type { AdminReportClassStatistic, AdminReportDetail, AdminReportFilters, AdminReportQuestionStatus, AdminReportRow, AdminReportSummary, CurriculumData } from '@/types';
+import { ADMIN_REALTIME_EVENT, type AdminRealtimeEvent } from '@/lib/admin-realtime';
 
 const emptySummary: AdminReportSummary = { total_attempts: 0, completed_attempts: 0, in_progress_attempts: 0, abandoned_attempts: 0, average_score: 0, average_accuracy: 0, average_time_seconds: 0, total_violations: 0 };
 const curriculum = reactive<CurriculumData>({ classes: [], assessment_types: [], subjects: [] });
@@ -285,6 +286,11 @@ function eventLabel(type: string) {
   return { fullscreen_exit: 'Keluar dari layar penuh', tab_hidden: 'Berpindah tab', window_blur: 'Jendela tidak aktif', blocked_shortcut: 'Shortcut diblokir' }[type] || type;
 }
 
+function handleRealtime(event: Event) {
+  const detail = (event as CustomEvent<AdminRealtimeEvent>).detail;
+  if (detail?.resource === 'attempts' || detail?.resource === 'reports') void Promise.all([loadReport(), loadResetCount()]);
+}
+
 onMounted(async () => {
   try {
     const data = await fetchAdminCurriculum();
@@ -293,7 +299,10 @@ onMounted(async () => {
     errorMessage.value = error instanceof Error ? error.message : 'Gagal memuat filter kurikulum.';
   }
   await Promise.all([loadReport(), loadResetCount()]);
+  window.addEventListener(ADMIN_REALTIME_EVENT, handleRealtime);
 });
+
+onUnmounted(() => window.removeEventListener(ADMIN_REALTIME_EVENT, handleRealtime));
 </script>
 
 <style scoped>

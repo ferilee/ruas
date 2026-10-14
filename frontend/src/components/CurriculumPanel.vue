@@ -143,6 +143,7 @@ import {
   type CurriculumClassInput, type CurriculumItemInput, type CurriculumSubjectInput,
 } from '@/api/client';
 import type { AdminTopic, AdminTopicInput, AssessmentType, CurriculumClass, CurriculumData, Subject } from '@/types';
+import { ADMIN_REALTIME_EVENT, type AdminRealtimeEvent } from '@/lib/admin-realtime';
 
 const curriculum = ref<CurriculumData>({ classes: [], assessment_types: [], subjects: [] });
 const loading = ref(true);
@@ -317,8 +318,13 @@ async function loadData() {
     topics.value = topicRows;
   } catch (error) { showError(error); } finally { loading.value = false; }
 }
+function handleRealtime(event: Event) {
+  const detail = (event as CustomEvent<AdminRealtimeEvent>).detail;
+  if (detail?.resource === 'curriculum' || detail?.resource === 'topics') void loadData();
+}
 onMounted(loadData);
-onUnmounted(dismissToast);
+onMounted(() => window.addEventListener(ADMIN_REALTIME_EVENT, handleRealtime));
+onUnmounted(() => { dismissToast(); window.removeEventListener(ADMIN_REALTIME_EVENT, handleRealtime); });
 </script>
 
 <style scoped>

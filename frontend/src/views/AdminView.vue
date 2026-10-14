@@ -62,7 +62,10 @@
               <h1 class="page-title">{{ currentSectionTitle }}</h1>
               <p class="page-subtitle">{{ currentSectionDescription }}</p>
             </div>
-            <button class="secondary-btn" @click="logout">Keluar</button>
+            <div class="admin-header-actions">
+              <span :class="['realtime-indicator', `realtime-${realtimeStatus}`]" :title="realtimeStatusLabel"><i></i>{{ realtimeStatusLabel }}</span>
+              <button class="secondary-btn" @click="logout">Keluar</button>
+            </div>
           </div>
 
           <section v-if="activeSection === 'overview'" class="overview-section">
@@ -365,6 +368,7 @@ import {
   updateAdminSchedule,
 } from '@/api/client';
 import type { AdminQuestionInput, AdminQuestionListItem, AdminTopic, AssessmentSchedule, ImportSummary } from '@/types';
+import { connectAdminRealtime, dispatchAdminRealtimeEvent, type AdminRealtimeEvent, type AdminRealtimeStatus } from '@/lib/admin-realtime';
 
 const router = useRouter();
 type AdminSection = 'overview' | 'curriculum' | 'questions' | 'schedule' | 'reports' | 'users';
@@ -390,6 +394,8 @@ const password = ref('');
 const loading = ref(false);
 const saving = ref(false);
 const importing = ref(false);
+const realtimeStatus = ref<AdminRealtimeStatus>('disconnected');
+let realtimeCleanup: (() => void) | null = null;
 const errorMessage = ref('');
 const formMessage = ref('');
 const formMessageType = ref<'success' | 'error'>('success');
@@ -589,6 +595,7 @@ async function login() {
     password.value = '';
     isAuthenticated.value = true;
     await loadData();
+    startRealtime();
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Gagal login admin.';
   } finally {
@@ -597,9 +604,37 @@ async function login() {
 }
 
 function logout() {
+  stopRealtime();
   sessionStorage.removeItem('admin_token');
   isAuthenticated.value = false;
   router.replace('/admin');
+}
+
+const realtimeStatusLabel = computed(() => ({ connecting: 'Menghubungkan live', connected: 'Live aktif', disconnected: 'Live terputus' }[realtimeStatus.value]));
+
+function stopRealtime() {
+  realtimeCleanup?.();
+  realtimeCleanup = null;
+}
+
+function startRealtime() {
+  stopRealtime();
+  realtimeCleanup = connectAdminRealtime((event) => void handleRealtimeEvent(event), (status) => { realtimeStatus.value = status; });
+}
+
+async function refreshSchedules() {
+  try {
+    scheduleRows.value = await fetchAdminSchedule();
+    loadScheduleDraft(scheduleRows.value.find((row) => row.topic_id === scheduleTopicId.value) ?? null);
+  } catch {
+    // Keep the current schedule visible if a transient refresh fails.
+  }
+}
+
+async function handleRealtimeEvent(event: AdminRealtimeEvent) {
+  dispatchAdminRealtimeEvent(event);
+  if (event.resource === 'questions' || event.resource === 'topics' || event.resource === 'curriculum') await loadData();
+  if (event.resource === 'schedule') await refreshSchedules();
 }
 
 async function loadQuestions() {
@@ -898,7 +933,10 @@ function applyImport() {
 onMounted(async () => {
   try {
     adminEnabled.value = await fetchAdminAuthStatus();
-    if (adminEnabled.value && isAuthenticated.value) await loadData();
+    if (adminEnabled.value && isAuthenticated.value) {
+      await loadData();
+      startRealtime();
+    }
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Gagal memeriksa akses editor.';
   } finally {
@@ -908,6 +946,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (questionSearchTimer) clearTimeout(questionSearchTimer);
+  stopRealtime();
 });
 </script>
 
@@ -957,6 +996,13 @@ onUnmounted(() => {
 .quick-action-grid strong { color: #24589e; font-size: .84rem; }
 .quick-action-grid span { font-size: .75rem; line-height: 1.45; }
 .admin-header, .toolbar, .panel-heading, .import-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.admin-header-actions { display: flex; align-items: center; gap: 10px; }
+.realtime-indicator { display: inline-flex; align-items: center; gap: 6px; padding: 7px 9px; border-radius: 999px; color: #607693; background: #edf3f9; font-size: .7rem; font-weight: 800; white-space: nowrap; }
+.realtime-indicator i { width: 7px; height: 7px; border-radius: 50%; background: #8b9bae; }
+.realtime-connected { color: #207553; background: #e4f7ed; }.realtime-connected i { background: #2ca673; box-shadow: 0 0 0 3px rgba(44,166,115,.15); }
+.realtime-connecting { color: #8c641f; background: #fff4dc; }.realtime-connecting i { background: #d89d36; animation: realtime-pulse 1.3s infinite; }
+.realtime-disconnected { color: #9a5660; background: #ffedf0; }.realtime-disconnected i { background: #cc6573; }
+@keyframes realtime-pulse { 50% { opacity: .35; } }
 .back-link { color: #556677; text-decoration: none; font-size: 0.9rem; }
 .page-title { color: #1e40af; font-size: 1.8rem; margin-top: 8px; }
 .page-subtitle, .panel-heading p, .login-card p { color: #667788; }

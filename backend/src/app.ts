@@ -19,6 +19,8 @@ import { createRequireAuth } from './middleware/require-auth';
 import { adminUserRoutes } from './routes/admin-users';
 import { requireAdminAuth } from './middleware/require-admin-auth';
 import { adminReportRoutes } from './routes/admin-reports';
+import { adminRealtimeRoutes } from './routes/admin-realtime';
+import { publishRealtimeEvent } from './lib/realtime-events';
 import type { Pool } from './db/connection';
 
 declare module 'hono' {
@@ -55,6 +57,20 @@ export function createApp(config: AppConfig) {
     }),
   );
 
+  app.use('/api/*', async (c, next) => {
+    await next();
+
+    const method = c.req.method;
+    const path = new URL(c.req.url).pathname;
+    const mutating = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
+    const observed = path.startsWith('/api/admin/') || path.startsWith('/api/exam/attempts') || path === '/api/profile';
+    const excluded = path === '/api/admin/auth' || path === '/api/admin/realtime' || path === '/api/auth';
+
+    if (mutating && observed && !excluded && c.res.status >= 200 && c.res.status < 300) {
+      publishRealtimeEvent({ resource: realtimeResource(path), method, path });
+    }
+  });
+
   app.route('/api/auth', authRoutes(config.appUsername ?? '', config.appPassword, config.pool));
   app.route('/api/admin/auth', adminAuthRoutes(config.adminPassword ?? ''));
 
@@ -76,6 +92,7 @@ export function createApp(config: AppConfig) {
   app.use('/api/admin/users', requireAdminAuth);
   app.use('/api/admin/users/*', requireAdminAuth);
   app.use('/api/admin/reports', requireAdminAuth);
+  app.use('/api/admin/realtime', requireAdminAuth);
 
   app.onError((err, c) => {
     const requestId = c.get('requestId') ?? 'unknown';
@@ -104,6 +121,7 @@ export function createApp(config: AppConfig) {
   app.route('/api/admin/curriculum', adminCurriculumRoutes(config.pool));
   app.route('/api/admin/users', adminUserRoutes(config.pool));
   app.route('/api/admin/reports', adminReportRoutes(config.pool));
+  app.route('/api/admin/realtime', adminRealtimeRoutes());
 
   if (process.env.NODE_ENV === 'production') {
     const distDir = '../frontend/dist';
@@ -127,4 +145,15 @@ export function createApp(config: AppConfig) {
   }
 
   return app;
+}
+
+function realtimeResource(path: string) {
+  if (path.startsWith('/api/exam/attempts')) return 'attempts';
+  if (path.startsWith('/api/admin/reports')) return 'reports';
+  if (path.startsWith('/api/admin/users')) return 'users';
+  if (path.startsWith('/api/admin/questions')) return 'questions';
+  if (path.startsWith('/api/admin/topics')) return 'topics';
+  if (path.startsWith('/api/admin/schedule')) return 'schedule';
+  if (path.startsWith('/api/admin/curriculum')) return 'curriculum';
+  return 'data';
 }

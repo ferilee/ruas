@@ -72,6 +72,7 @@ import { assignAdminUsersClass, assignAdminUsersSubject, createAdminUser, delete
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import RuasSelect from '@/components/RuasSelect.vue';
 import type { AdminUser, AdminUserInput, CurriculumClass, Subject, UserImportSummary, UserRole } from '@/types';
+import { ADMIN_REALTIME_EVENT, type AdminRealtimeEvent } from '@/lib/admin-realtime';
 
 const users = ref<AdminUser[]>([]);
 const participantCount = ref(0);
@@ -188,8 +189,15 @@ function applyImport() { if (parsedImport.value === null) return; askConfirmatio
 function roleLabel(role: UserRole) { return { admin: 'Admin', editor: 'Editor', participant: 'Peserta' }[role]; }
 function classLabel(classId: number) { return classes.value.find((item) => item.id === classId)?.label ?? 'Kelas tidak ditemukan'; }
 function subjectLabel(subjectId: number | null) { return subjects.value.find((subject) => subject.id === subjectId)?.label ?? 'Belum ditetapkan'; }
-onMounted(async () => { await Promise.all([loadUsers(), loadParticipantCount(), fetchAdminCurriculum().then((data) => { classes.value = data.classes; subjects.value = data.subjects; }).catch(() => undefined)]); });
+async function handleRealtime(event: Event) {
+  const detail = (event as CustomEvent<AdminRealtimeEvent>).detail;
+  if (detail?.resource === 'users' || detail?.resource === 'curriculum') {
+    await Promise.all([loadUsers(), loadParticipantCount(), fetchAdminCurriculum().then((data) => { classes.value = data.classes; subjects.value = data.subjects; }).catch(() => undefined)]);
+  }
+}
+onMounted(async () => { await Promise.all([loadUsers(), loadParticipantCount(), fetchAdminCurriculum().then((data) => { classes.value = data.classes; subjects.value = data.subjects; }).catch(() => undefined)]); window.addEventListener(ADMIN_REALTIME_EVENT, handleRealtime); });
 onUnmounted(() => { if (searchTimer) clearTimeout(searchTimer); });
+onUnmounted(() => window.removeEventListener(ADMIN_REALTIME_EVENT, handleRealtime));
 </script>
 
 <style scoped>
