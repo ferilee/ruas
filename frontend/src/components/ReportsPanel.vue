@@ -73,7 +73,7 @@
     <section class="panel table-panel report-print-area">
       <div class="panel-heading table-heading">
         <div><h3>Hasil siswa</h3><p>{{ reportGroups.length }} siswa/asesmen · {{ rows.length }} attempts sesuai filter</p></div>
-        <span class="print-note no-print">Ekspor PDF menggunakan dialog cetak browser.</span>
+        <div class="report-table-actions no-print"><label>Urutkan<RuasSelect v-model="reportSort" :options="reportSortOptions" aria-label="Urutkan hasil siswa" /></label><span class="print-note">Ekspor PDF menggunakan dialog cetak browser.</span></div>
       </div>
       <div v-if="loading" class="panel-empty">Memuat laporan...</div>
       <div v-else-if="rows.length === 0" class="panel-empty">Belum ada hasil asesmen sesuai filter.</div>
@@ -179,6 +179,14 @@ const scorePolicyOptions = [
   { value: 'average', label: 'Nilai rata-rata' },
 ];
 const scorePolicyLabel = computed(() => scorePolicyOptions.find((option) => option.value === filters.score_policy)?.label ?? 'Nilai terbaik');
+type ReportSort = 'name_asc' | 'name_desc' | 'score_desc' | 'score_asc';
+const reportSort = ref<ReportSort>('name_asc');
+const reportSortOptions = [
+  { value: 'name_asc', label: 'Nama A–Z' },
+  { value: 'name_desc', label: 'Nama Z–A' },
+  { value: 'score_desc', label: 'Nilai tertinggi' },
+  { value: 'score_asc', label: 'Nilai terendah' },
+];
 const classOptions = computed(() => [{ value: undefined, label: 'Semua kelas' }, ...curriculum.classes.map((item) => ({ value: item.id, label: `${item.label} · ${item.academic_year}` }))]);
 const assessmentTypeOptions = computed(() => [{ value: undefined, label: 'Semua jenis' }, ...curriculum.assessment_types.map((item) => ({ value: item.id, label: item.label }))]);
 
@@ -217,7 +225,7 @@ const reportGroups = computed(() => {
     grouped.set(key, group);
   }
 
-  return [...grouped.entries()].map(([key, attempts]) => {
+  const result = [...grouped.entries()].map(([key, attempts]) => {
     const completed = attempts.filter((attempt) => attempt.status === 'completed');
     const ordered = [...(completed.length ? completed : attempts)].sort((first, second) => new Date(second.completed_at ?? second.started_at).getTime() - new Date(first.completed_at ?? first.started_at).getTime() || second.attempt_id - first.attempt_id);
     const latest = ordered[0];
@@ -228,7 +236,15 @@ const reportGroups = computed(() => {
       official = { ...latest, final_score: average(completed.map((attempt) => attempt.final_score)), accuracy: average(completed.map((attempt) => attempt.accuracy)), total_time_seconds: Math.round(average(completed.map((attempt) => attempt.total_time_seconds))), violation_count: Math.round(average(completed.map((attempt) => attempt.violation_count))) };
     }
     return { key, attempts: [...attempts].sort((first, second) => new Date(second.started_at).getTime() - new Date(first.started_at).getTime()), official };
-  }).sort((first, second) => new Date(second.official.started_at).getTime() - new Date(first.official.started_at).getTime());
+  });
+  return result.sort((first, second) => {
+    if (reportSort.value === 'name_asc' || reportSort.value === 'name_desc') {
+      const direction = reportSort.value === 'name_asc' ? 1 : -1;
+      return direction * first.official.participant_name.localeCompare(second.official.participant_name, 'id', { sensitivity: 'base' }) || first.official.subject_label.localeCompare(second.official.subject_label, 'id');
+    }
+    const direction = reportSort.value === 'score_desc' ? -1 : 1;
+    return direction * (first.official.final_score - second.official.final_score) || first.official.participant_name.localeCompare(second.official.participant_name, 'id', { sensitivity: 'base' });
+  });
 });
 
 async function loadReport() {
@@ -398,7 +414,7 @@ input, select { min-width: 0; width: 100%; padding: 10px 11px; border: 1px solid
 .class-statistics-table th { color: #7890aa; background: #f8fbff; font-size: .68rem; letter-spacing: .04em; text-transform: uppercase; }
 .class-statistics-table td strong { color: #234d87; }
 .class-statistics-table tbody tr:last-child td { border-bottom: 0; }
-.table-heading { padding: 20px; border-bottom: 1px solid #e4ebf3; }
+.table-heading { padding: 20px; border-bottom: 1px solid #e4ebf3; }.report-table-actions { display: flex; align-items: flex-end; gap: 12px; }.report-table-actions label { min-width: 145px; color: #607693; font-size: .68rem; }.report-table-actions :deep(.ruas-select) { margin-top: 5px; }
 .print-note { color: #8495a9; font-size: .73rem; }
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; min-width: 820px; }
@@ -415,7 +431,7 @@ td strong, td small { display: block; }.report-row { cursor: pointer; }.report-r
 .detail-meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 14px; }.detail-meta span { padding: 6px 9px; border-radius: 7px; color: #38649a; background: #edf5ff; font-size: .73rem; }.detail-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }.detail-stats div { padding: 13px; border-radius: 10px; background: #f2f7fc; text-align: center; }.detail-stats strong, .detail-stats small { display: block; }.detail-stats strong { color: #166bc0; font-size: 1.15rem; }.detail-stats small { margin-top: 3px; color: #7c90aa; font-size: .7rem; }.detail-columns { display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; margin-top: 22px; }.detail-columns h4 { margin-bottom: 9px; color: #315987; font-size: .85rem; }.event-list { display: flex; flex-direction: column; gap: 7px; padding: 0; list-style: none; }.event-list li { display: flex; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: 7px; background: #fff4e2; color: #946321; font-size: .75rem; }.event-list small { color: #b1844c; font-size: .68rem; }
 .analysis-summary { margin-top: 22px; padding-top: 18px; border-top: 1px solid #e6edf5; }.analysis-summary-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }.analysis-summary-heading h4 { color: #315987; font-size: .9rem; }.analysis-summary-heading p { margin-top: 4px; color: #8294aa; font-size: .75rem; }.analysis-summary-heading :deep(.ruas-select) { width: 145px; flex: 0 0 auto; }.analysis-counts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0; }.analysis-count { min-width: 0; padding: 10px; border-radius: 10px; background: #f4f8fc; }.analysis-count strong, .analysis-count span, .analysis-count small { display: block; }.analysis-count strong { font-size: 1.1rem; }.analysis-count span { margin-top: 2px; font-size: .72rem; font-weight: 800; }.analysis-count small { overflow: hidden; margin-top: 6px; color: #7c90aa; font-size: .68rem; text-overflow: ellipsis; white-space: nowrap; }.analysis-count.correct { border-left: 3px solid #2fa474; }.analysis-count.correct strong, .analysis-count.correct span { color: #21815e; }.analysis-count.incorrect { border-left: 3px solid #d56b6b; }.analysis-count.incorrect strong, .analysis-count.incorrect span { color: #b24b55; }.analysis-count.unanswered { border-left: 3px solid #d79a3b; }.analysis-count.unanswered strong, .analysis-count.unanswered span { color: #a86d1b; }.question-analysis-list { display: flex; flex-direction: column; gap: 8px; max-height: 330px; overflow: auto; padding-right: 3px; }.question-analysis-item { padding: 11px 12px; border: 1px solid #e2eaf3; border-left: 3px solid #b8c7d9; border-radius: 9px; background: #fbfdff; }.question-analysis-item.analysis-correct { border-left-color: #2fa474; }.question-analysis-item.analysis-incorrect { border-left-color: #d56b6b; }.question-analysis-item.analysis-unanswered { border-left-color: #d79a3b; }.question-analysis-title { display: flex; align-items: center; gap: 7px; }.question-analysis-title strong { color: #254d83; font-size: .77rem; }.question-analysis-title span { overflow: hidden; color: #8294aa; font-size: .68rem; text-overflow: ellipsis; white-space: nowrap; }.question-analysis-title b { margin-left: auto; padding: 3px 6px; border-radius: 999px; color: #55718f; background: #edf3f9; font-size: .62rem; white-space: nowrap; }.analysis-correct .question-analysis-title b { color: #21815e; background: #e2f7ed; }.analysis-incorrect .question-analysis-title b { color: #b24b55; background: #ffebeb; }.analysis-unanswered .question-analysis-title b { color: #a86d1b; background: #fff3d9; }.question-analysis-item p { margin: 8px 0; color: #405a76; font-size: .77rem; line-height: 1.45; }.answer-comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }.answer-comparison span { padding: 7px 8px; border-radius: 7px; color: #405a76; background: #f1f6fb; font-size: .7rem; }.answer-comparison small { display: block; margin-bottom: 3px; color: #8497ad; font-size: .63rem; font-weight: 700; }
 @media (max-width: 900px) { .filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 620px) { .report-toolbar { align-items: flex-start; flex-direction: column; }.toolbar-actions { width: 100%; }.toolbar-actions button { flex: 1; }.filters-panel .panel-heading { align-items: flex-start; }.filter-toggle { width: 100%; }.filters-panel .panel-heading { flex-direction: column; }.filter-grid { grid-template-columns: 1fr; }.search-field { grid-column: auto; }.filter-reset { width: 100%; }.summary-grid { grid-template-columns: 1fr 1fr; }.summary-card { min-height: 98px; padding: 13px; }.summary-card strong { font-size: 1.3rem; }.detail-stats { grid-template-columns: 1fr 1fr; }.detail-columns { grid-template-columns: 1fr; }.analysis-summary-heading { flex-direction: column; }.analysis-summary-heading :deep(.ruas-select) { width: 100%; }.analysis-counts { grid-template-columns: 1fr; }.answer-comparison { grid-template-columns: 1fr; } }
+@media (max-width: 620px) { .report-toolbar { align-items: flex-start; flex-direction: column; }.toolbar-actions { width: 100%; }.toolbar-actions button { flex: 1; }.filters-panel .panel-heading { align-items: flex-start; }.filter-toggle { width: 100%; }.filters-panel .panel-heading { flex-direction: column; }.filter-grid { grid-template-columns: 1fr; }.search-field { grid-column: auto; }.filter-reset { width: 100%; }.summary-grid { grid-template-columns: 1fr 1fr; }.summary-card { min-height: 98px; padding: 13px; }.summary-card strong { font-size: 1.3rem; }.detail-stats { grid-template-columns: 1fr 1fr; }.detail-columns { grid-template-columns: 1fr; }.analysis-summary-heading { flex-direction: column; }.analysis-summary-heading :deep(.ruas-select) { width: 100%; }.analysis-counts { grid-template-columns: 1fr; }.answer-comparison { grid-template-columns: 1fr; }.table-heading { align-items: flex-start; flex-direction: column; }.report-table-actions { width: 100%; align-items: stretch; flex-direction: column; }.report-table-actions label { width: 100%; }.report-table-actions .print-note { display: none; } }
 @media print {
   :global(body) { background: #fff !important; }
   :global(.admin-view) { padding: 0 !important; }
