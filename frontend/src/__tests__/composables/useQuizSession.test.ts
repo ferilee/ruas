@@ -177,6 +177,34 @@ describe('useQuizSession', () => {
     expect(session.state.value).toBe('ready');
   });
 
+  it('keeps the topic question count when a legacy active attempt reports zero', async () => {
+    fetchQuestionCount.mockResolvedValue(10);
+    fetchActiveExamAttempt.mockResolvedValue({
+      attempt: {
+        id: 501,
+        total_questions: 0,
+        minimum_duration_minutes: 0,
+        started_at: new Date().toISOString(),
+        deadline_at: null,
+      } as never,
+      answers: [],
+      server_now: new Date().toISOString(),
+    });
+    fetchNextAttemptQuestion.mockResolvedValue(firstQuestion);
+
+    const session = useQuizSession({
+      getTopicId: () => 11,
+      getQuerySubjectId: () => 7,
+      getQueryTopicLabel: () => 'Barisan dan Deret XI KKKR',
+    });
+
+    await session.initializeSession();
+
+    expect(session.questionCount.value).toBe(10);
+    expect(session.question.value?.id).toBe(101);
+    expect(session.state.value).toBe('ready');
+  });
+
   it('does not apply minimum duration between questions', async () => {
     fetchQuestionCount.mockResolvedValue(2);
     fetchNextAttemptQuestion

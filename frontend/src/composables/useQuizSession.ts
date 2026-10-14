@@ -359,7 +359,8 @@ export function useQuizSession(options: UseQuizSessionOptions) {
       if (active.attempt) {
         attemptId.value = active.attempt.id;
         persistedAttempt.value = active.attempt;
-        questionCount.value = active.attempt.total_questions;
+        const activeQuestionCount = Number(active.attempt.total_questions);
+        if (activeQuestionCount > 0) questionCount.value = activeQuestionCount;
         questionCountReady.value = true;
         startClock();
         answeredIds.value = new Set(active.answers.map((answer) => answer.question_id));

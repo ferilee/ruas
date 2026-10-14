@@ -123,13 +123,21 @@ async function buildAttemptOrder(db: ExamDb, topicId: number, settings: ExamSett
 }
 
 async function ensureAttemptOrder(db: ExamDb, attempt: typeof examAttempts.$inferSelect): Promise<AttemptOrder> {
-  if (Array.isArray(attempt.question_order) && attempt.option_order && typeof attempt.option_order === 'object') {
-    return { question_order: attempt.question_order, option_order: attempt.option_order };
+  if (Array.isArray(attempt.question_order) && attempt.question_order.length > 0 && attempt.option_order && typeof attempt.option_order === 'object') {
+    const order = { question_order: attempt.question_order, option_order: attempt.option_order };
+    if (attempt.total_questions !== order.question_order.length) {
+      await db.update(examAttempts)
+        .set({ total_questions: order.question_order.length })
+        .where(eq(examAttempts.id, attempt.id));
+    }
+    return order;
   }
 
   const settings = await getSubjectExamSettings(db, attempt.subject_id);
   const order = await buildAttemptOrder(db, attempt.topic_id, settings);
-  await db.update(examAttempts).set(order).where(eq(examAttempts.id, attempt.id));
+  await db.update(examAttempts)
+    .set({ ...order, total_questions: order.question_order.length })
+    .where(eq(examAttempts.id, attempt.id));
   return order;
 }
 
@@ -253,7 +261,15 @@ export async function findActiveAttempt(db: ExamDb, topicId: number, identityKey
     .where(and(eq(examAttempts.topic_id, topicId), eq(examAttempts.status, 'in_progress'), eq(participantProfiles.identity_key, identityKey)))
     .orderBy(asc(examAttempts.started_at))
     .limit(1);
-  return attempt?.attempt ?? null;
+  if (!attempt?.attempt) return null;
+
+  const order = await ensureAttemptOrder(db, attempt.attempt);
+  return {
+    ...attempt.attempt,
+    total_questions: order.question_order.length,
+    question_order: order.question_order,
+    option_order: order.option_order,
+  };
 }
 
 export async function findAttemptAnswers(db: ExamDb, attemptId: number, identityKey: string) {
