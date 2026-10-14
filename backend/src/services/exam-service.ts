@@ -1,4 +1,4 @@
-import { and, asc, count, eq, inArray } from 'drizzle-orm';
+import { and, asc, count, eq, inArray, lte } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/mysql2';
 import { randomInt } from 'node:crypto';
 import { subjects } from '@/db/schema/subjects';
@@ -12,8 +12,10 @@ import { questionOptions } from '@/db/schema/question-options';
 import type { Pool } from '@/db/connection';
 import { users } from '@/db/schema/users';
 import { canAccessTopic, getTopicAccess } from '@/services/topic-access-service';
+import { publishRealtimeEvent } from '@/lib/realtime-events';
 
 type ExamDb = ReturnType<typeof drizzle>;
+let expiryRun: Promise<number> | null = null;
 
 export function createExamDb(pool: Pool) {
   return drizzle(pool, { schema: { examAnswers, examAttempts, examIntegrityEvents, participantProfiles, questionOptions, questions, subjects, topics, users }, mode: 'default' });
@@ -65,6 +67,32 @@ export async function getSubjectExamSettings(db: ExamDb, subjectId: number): Pro
 
 export function isAttemptExpired(attempt: typeof examAttempts.$inferSelect, now = new Date()) {
   return Boolean(attempt.deadline_at && new Date(attempt.deadline_at).getTime() <= now.getTime());
+}
+
+export function expireOverdueAttempts(db: ExamDb, now = new Date()) {
+  if (expiryRun) return expiryRun;
+
+  expiryRun = (async () => {
+    const overdueAttempts = await db
+      .select({ id: examAttempts.id, identity_key: participantProfiles.identity_key })
+      .from(examAttempts)
+      .innerJoin(participantProfiles, eq(examAttempts.participant_id, participantProfiles.id))
+      .where(and(eq(examAttempts.status, 'in_progress'), lte(examAttempts.deadline_at, now)));
+
+    let completedCount = 0;
+    for (const overdue of overdueAttempts) {
+      const completed = await completeAttempt(db, overdue.id, overdue.identity_key, { force: true });
+      if (completed && 'status' in completed && completed.status === 'completed') {
+        completedCount += 1;
+        publishRealtimeEvent({ resource: 'attempts', method: 'SYSTEM', path: `/api/exam/attempts/${overdue.id}/expire` });
+      }
+    }
+    return completedCount;
+  })().finally(() => {
+    expiryRun = null;
+  });
+
+  return expiryRun;
 }
 
 async function buildAttemptOrder(db: ExamDb, topicId: number, settings: ExamSettings): Promise<AttemptOrder> {

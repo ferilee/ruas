@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import type { Pool } from '@/db/connection';
+import { createExamDb, expireOverdueAttempts } from '@/services/exam-service';
 import { countReportAttempts, createReportDb, getReportDetail, listReportAttempts, resetAllReportData, summarizeReport, summarizeReportByClass } from '@/services/report-service';
 
 const querySchema = z.object({
@@ -21,6 +22,7 @@ function parseId(value: string) {
 
 export function adminReportRoutes(pool: Pool) {
   const db = createReportDb(pool);
+  let examDb: ReturnType<typeof createExamDb> | null = null;
   const app = new Hono();
 
   app.get('/reset/summary', async (c) => c.json({ attempts: await countReportAttempts(db) }));
@@ -47,6 +49,8 @@ export function adminReportRoutes(pool: Pool) {
     if (parsed.data.from && parsed.data.to && parsed.data.from > parsed.data.to) {
       return c.json({ error: 'invalid_query', message: 'Tanggal mulai harus sebelum tanggal selesai.' }, 400);
     }
+    examDb ??= createExamDb(pool);
+    await expireOverdueAttempts(examDb);
     const rows = await listReportAttempts(db, parsed.data);
     return c.json({ filters: parsed.data, summary: summarizeReport(rows, parsed.data.score_policy), class_statistics: summarizeReportByClass(rows, parsed.data.score_policy), rows });
   });
