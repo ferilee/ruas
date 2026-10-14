@@ -67,7 +67,12 @@ export function topicsRoutes(pool: Pool) {
     }
     const classAccess = await canParticipantAccessTopic(db, id, getParticipantIdentity(c));
     const tokenAccess = access.requires_token && canAccessTopic(access, c.req.header('x-topic-access-token'));
-    if (!classAccess && !tokenAccess) return c.json({ error: 'not_found', message: 'Topik tidak ditemukan.' }, 404);
+    if (!classAccess && !tokenAccess) {
+      if (access.requires_token) {
+        return c.json({ error: 'topic_token_required', message: 'Masukkan token topik sebelum mengakses topik.' }, 403);
+      }
+      return c.json({ error: 'not_found', message: 'Topik tidak ditemukan.' }, 404);
+    }
 
     const [topic] = await db
       .select({
@@ -108,6 +113,9 @@ export function topicsRoutes(pool: Pool) {
     const classAccess = await canParticipantAccessTopic(db, id, getParticipantIdentity(c));
     const tokenAccess = canAccessTopic(topic, parsed.data.token);
     if (!classAccess && !tokenAccess) {
+      if (topic.requires_token) {
+        return c.json({ error: 'invalid_topic_token', message: 'Token topik salah atau sudah tidak berlaku.' }, 403);
+      }
       return c.json({ error: 'not_found', message: 'Topik tidak ditemukan.' }, 404);
     }
     if (!tokenAccess) {

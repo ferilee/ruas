@@ -222,7 +222,7 @@ export async function fetchQuestionCount(topicId: number): Promise<number> {
 }
 
 export async function fetchTopic(topicId: number): Promise<Topic> {
-  const data = await request<{ topic: Topic }>(`/topics/${topicId}`);
+  const data = await request<{ topic: Topic }>(`/topics/${topicId}`, { headers: topicAccessHeaders(topicId) });
   return data.topic;
 }
 
