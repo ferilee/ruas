@@ -19,7 +19,9 @@ describe('questionsRoutes', () => {
         if (shape && typeof shape === 'object' && 'start_at' in (shape as Record<string, unknown>)) {
           return {
             from: () => ({
-              where: () => ({ limit: async () => [] }),
+              leftJoin: () => ({
+                where: () => ({ limit: async () => [] }),
+              }),
             }),
           };
         }
@@ -55,7 +57,9 @@ describe('questionsRoutes', () => {
         if (shape && typeof shape === 'object' && 'start_at' in (shape as Record<string, unknown>)) {
           return {
             from: () => ({
-              where: () => ({ limit: async () => [{ start_at: startAt }] }),
+              leftJoin: () => ({
+                where: () => ({ limit: async () => [{ start_at: startAt }] }),
+              }),
             }),
           };
         }
@@ -88,7 +92,9 @@ describe('questionsRoutes', () => {
         if (shape && typeof shape === 'object' && 'start_at' in (shape as Record<string, unknown>)) {
           return {
             from: () => ({
-              where: () => ({ limit: async () => [] }),
+              leftJoin: () => ({
+                where: () => ({ limit: async () => [] }),
+              }),
             }),
           };
         }
@@ -172,7 +178,9 @@ describe('questionsRoutes', () => {
         if (shape && typeof shape === 'object' && 'start_at' in (shape as Record<string, unknown>)) {
           return {
             from: () => ({
-              where: () => ({ limit: async () => [] }),
+              leftJoin: () => ({
+                where: () => ({ limit: async () => [] }),
+              }),
             }),
           };
         }

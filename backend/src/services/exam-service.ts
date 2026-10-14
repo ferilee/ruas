@@ -12,13 +12,15 @@ import { questionOptions } from '@/db/schema/question-options';
 import type { Pool } from '@/db/connection';
 import { users } from '@/db/schema/users';
 import { canAccessTopic, getTopicAccess } from '@/services/topic-access-service';
+import { canParticipantAccessTopic } from '@/services/topic-access-service';
 import { publishRealtimeEvent } from '@/lib/realtime-events';
+import { topicClasses } from '@/db/schema/topic-classes';
 
 type ExamDb = ReturnType<typeof drizzle>;
 let expiryRun: Promise<number> | null = null;
 
 export function createExamDb(pool: Pool) {
-  return drizzle(pool, { schema: { examAnswers, examAttempts, examIntegrityEvents, participantProfiles, questionOptions, questions, subjects, topics, users }, mode: 'default' });
+  return drizzle(pool, { schema: { examAnswers, examAttempts, examIntegrityEvents, participantProfiles, questionOptions, questions, subjects, topics, topicClasses, users }, mode: 'default' });
 }
 
 export interface ExamSettings {
@@ -202,6 +204,7 @@ export async function getAttemptAvailability(db: ExamDb, identityKey: string, su
     .limit(1);
   const assignedSubjectId = profile ? await findAssignedSubjectId(db, identityKey, profile.subject_id) : null;
   if (!assignedSubjectId || assignedSubjectId !== subjectId) return null;
+  if (!(await canParticipantAccessTopic(db, topicId, identityKey))) return null;
 
   const [subject] = await db
     .select({ id: subjects.id, max_attempts: subjects.max_attempts })
@@ -301,6 +304,7 @@ export async function createAttempt(
 
   const assignedSubjectId = await findAssignedSubjectId(db, identityKey, participant.subject_id);
   if (!assignedSubjectId || assignedSubjectId !== input.subject_id) return { assignmentMismatch: true as const };
+  if (!(await canParticipantAccessTopic(db, input.topic_id, identityKey))) return { assignmentMismatch: true as const };
 
   const topicAccess = await getTopicAccess(db, input.topic_id);
   if (!topicAccess) return null;

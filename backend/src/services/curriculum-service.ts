@@ -8,13 +8,14 @@ import { questionOptions } from '@/db/schema/question-options';
 import { questions } from '@/db/schema/questions';
 import { subjects } from '@/db/schema/subjects';
 import { topics } from '@/db/schema/topics';
+import { topicClasses } from '@/db/schema/topic-classes';
 import type { Pool } from '@/db/connection';
 
 type CurriculumDb = ReturnType<typeof drizzle>;
 
 export function createCurriculumDb(pool: Pool) {
   return drizzle(pool, {
-    schema: { assessmentTypes, educationClasses, examAttempts, participantProfiles, questionOptions, questions, subjects, topics },
+    schema: { assessmentTypes, educationClasses, examAttempts, participantProfiles, questionOptions, questions, subjects, topics, topicClasses },
     mode: 'default',
   });
 }
@@ -44,8 +45,8 @@ export async function findSubject(db: CurriculumDb, id: number) {
   return row ?? null;
 }
 
-export async function countSubjectsForClass(db: CurriculumDb, id: number) {
-  const [row] = await db.select({ total: count() }).from(subjects).where(eq(subjects.class_id, id));
+export async function countTopicMappingsForClass(db: CurriculumDb, id: number) {
+  const [row] = await db.select({ total: count() }).from(topicClasses).where(eq(topicClasses.class_id, id));
   return Number(row?.total ?? 0);
 }
 
@@ -80,7 +81,10 @@ export async function deleteSubjectWithContent(db: CurriculumDb, id: number) {
   await db.transaction(async (tx) => {
     if (questionIds.length > 0) await tx.delete(questionOptions).where(inArray(questionOptions.question_id, questionIds));
     if (questionIds.length > 0) await tx.delete(questions).where(inArray(questions.id, questionIds));
-    if (topicIds.length > 0) await tx.delete(topics).where(inArray(topics.id, topicIds));
+    if (topicIds.length > 0) {
+      await tx.delete(topicClasses).where(inArray(topicClasses.topic_id, topicIds));
+      await tx.delete(topics).where(inArray(topics.id, topicIds));
+    }
     await tx.delete(subjects).where(eq(subjects.id, id));
   });
 

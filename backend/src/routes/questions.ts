@@ -25,7 +25,8 @@ import {
   validateSelectedKeys,
 } from '../validators/question-validator';
 import { getAssessmentScheduleStatusFromDb } from '@/services/assessment-schedule-service';
-import { canAccessTopic, getTopicAccess, verifyTopicAccess } from '@/services/topic-access-service';
+import { canAccessTopic, canParticipantAccessTopic, getTopicAccess, verifyTopicAccess } from '@/services/topic-access-service';
+import { getParticipantIdentity } from '@/lib/participant-identity';
 
 type QuestionsDb = ReturnType<typeof createQuestionsDb>;
 
@@ -46,6 +47,9 @@ async function requireAssessmentOpen(c: Context, db: QuestionsDb, topicId?: numb
 }
 
 async function requireTopicAccess(c: Context, db: QuestionsDb, topicId: number) {
+  if (!(await canParticipantAccessTopic(db, topicId, getParticipantIdentity(c)))) {
+    return c.json({ error: 'not_found', message: 'Topik tidak ditemukan.' }, 404);
+  }
   const access = await getTopicAccess(db, topicId);
   if (!access) return c.json({ error: 'not_found', message: 'Topik tidak ditemukan.' }, 404);
   if (!canAccessTopic(access, c.req.header('x-topic-access-token'))) {

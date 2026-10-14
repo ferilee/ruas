@@ -1,13 +1,15 @@
 import { Hono } from 'hono';
 import { drizzle } from 'drizzle-orm/mysql2';
-import { eq, count } from 'drizzle-orm';
+import { and, countDistinct, eq, isNull, or } from 'drizzle-orm';
 import { topics } from '../db/schema/topics';
 import { questions } from '../db/schema/questions';
+import { topicClasses } from '../db/schema/topic-classes';
 import { educationClasses } from '../db/schema/education-classes';
 import * as schema from '../db/schema/index';
 import type { Pool } from '../db/connection';
 import { z } from 'zod';
-import { canAccessTopic, getTopicAccess } from '@/services/topic-access-service';
+import { getParticipantClassId, canParticipantAccessTopic, canAccessTopic, getTopicAccess } from '@/services/topic-access-service';
+import { getParticipantIdentity } from '@/lib/participant-identity';
 
 const querySchema = z.object({
   subject_id: z.coerce.number().int().positive(),
@@ -26,23 +28,27 @@ export function topicsRoutes(pool: Pool) {
       return c.json({ error: 'invalid_query', message: 'subject_id harus berupa angka positif.' }, 400);
     }
 
+    const classId = await getParticipantClassId(db, getParticipantIdentity(c));
+    const conditions = [eq(topics.subject_id, parsed.data.subject_id)];
+    if (classId !== null) conditions.push(or(isNull(topicClasses.topic_id), eq(topicClasses.class_id, classId))!);
+
     const rows = await db
       .select({
         id: topics.id,
         subject_id: topics.subject_id,
-        class_id: educationClasses.id,
+        class_id: topicClasses.class_id,
         class_label: educationClasses.label,
         slug: topics.slug,
         label: topics.label,
         display_order: topics.display_order,
         requires_token: topics.requires_token,
-        question_count: count(questions.id),
+        question_count: countDistinct(questions.id),
       })
       .from(topics)
       .leftJoin(questions, eq(questions.topic_id, topics.id))
-      .leftJoin(schema.subjects, eq(topics.subject_id, schema.subjects.id))
-      .leftJoin(educationClasses, eq(educationClasses.id, schema.subjects.class_id))
-      .where(eq(topics.subject_id, parsed.data.subject_id))
+      .leftJoin(topicClasses, eq(topicClasses.topic_id, topics.id))
+      .leftJoin(educationClasses, eq(educationClasses.id, topicClasses.class_id))
+      .where(and(...conditions))
       .groupBy(topics.id)
       .orderBy(topics.display_order);
 
@@ -55,23 +61,26 @@ export function topicsRoutes(pool: Pool) {
     if (!Number.isFinite(id) || id < 1) {
       return c.json({ error: 'invalid_param', message: 'ID topik tidak valid.' }, 400);
     }
+    if (!(await canParticipantAccessTopic(db, id, getParticipantIdentity(c)))) {
+      return c.json({ error: 'not_found', message: 'Topik tidak ditemukan.' }, 404);
+    }
 
     const [topic] = await db
       .select({
         id: topics.id,
         subject_id: topics.subject_id,
-        class_id: educationClasses.id,
+        class_id: topicClasses.class_id,
         class_label: educationClasses.label,
         slug: topics.slug,
         label: topics.label,
         display_order: topics.display_order,
-        question_count: count(questions.id),
+        question_count: countDistinct(questions.id),
         requires_token: topics.requires_token,
       })
       .from(topics)
       .leftJoin(questions, eq(questions.topic_id, topics.id))
-      .leftJoin(schema.subjects, eq(topics.subject_id, schema.subjects.id))
-      .leftJoin(educationClasses, eq(educationClasses.id, schema.subjects.class_id))
+      .leftJoin(topicClasses, eq(topicClasses.topic_id, topics.id))
+      .leftJoin(educationClasses, eq(educationClasses.id, topicClasses.class_id))
       .where(eq(topics.id, id))
       .groupBy(topics.id)
       .limit(1);
@@ -92,6 +101,9 @@ export function topicsRoutes(pool: Pool) {
 
     const topic = await getTopicAccess(db, id);
     if (!topic) return c.json({ error: 'not_found', message: 'Topik tidak ditemukan.' }, 404);
+    if (!(await canParticipantAccessTopic(db, id, getParticipantIdentity(c)))) {
+      return c.json({ error: 'not_found', message: 'Topik tidak ditemukan.' }, 404);
+    }
     if (!canAccessTopic(topic, parsed.data.token)) {
       return c.json({ error: 'invalid_topic_token', message: 'Token topik salah atau sudah tidak berlaku.' }, 403);
     }

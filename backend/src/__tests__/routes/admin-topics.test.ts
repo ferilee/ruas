@@ -48,7 +48,7 @@ describe('adminTopicsRoutes CRUD', () => {
 
     expect(response.status).toBe(201);
     await expect(response.json()).resolves.toEqual({ id: 7 });
-    expect(createAdminTopicMock).toHaveBeenCalledWith({}, { subject_id: 2, slug: 'barisan-dan-deret', label: 'Barisan dan Deret', display_order: 1 });
+    expect(createAdminTopicMock).toHaveBeenCalledWith({}, { subject_id: 2, slug: 'barisan-dan-deret', label: 'Barisan dan Deret', display_order: 1, class_ids: [] });
   });
 
   it('rejects slugs that are not URL-safe', async () => {

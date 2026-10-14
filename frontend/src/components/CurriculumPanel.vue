@@ -42,7 +42,6 @@
           <label class="checkbox-field"><input v-model="subjectForm.show_correct_answer_on_wrong" type="checkbox" /><span>Tampilkan jawaban benar saat siswa salah</span></label>
           <label class="checkbox-field"><input v-model="subjectForm.shuffle_questions" type="checkbox" /><span>Acak urutan soal</span></label>
           <label class="checkbox-field"><input v-model="subjectForm.shuffle_options" type="checkbox" /><span>Acak pilihan jawaban</span></label>
-          <label><span>Kelas</span><RuasSelect v-model="subjectForm.class_id" :options="classOptions" aria-label="Kelas mata pelajaran" /></label>
           <label><span>Jenis asesmen</span><RuasSelect v-model="subjectForm.assessment_type_id" :options="assessmentTypeOptions" aria-label="Jenis asesmen mata pelajaran" /></label>
           <div class="form-actions"><button class="primary-btn" type="submit">{{ editingSubjectId ? 'Perbarui' : 'Tambah' }}</button><button class="secondary-btn" type="button" @click="closeMobileForm">Batal</button></div>
         </form>
@@ -50,6 +49,14 @@
           <label><span>Mata pelajaran</span><RuasSelect v-model="topicForm.subject_id" :options="subjectOptions" placeholder="Pilih mata pelajaran" aria-label="Mata pelajaran topik" /></label>
           <label><span>Nama topik</span><input v-model.trim="topicForm.label" placeholder="Contoh: Barisan dan Deret" required /></label>
           <label><span>Slug import</span><input v-model.trim="topicForm.slug" placeholder="Contoh: barisan-dan-deret" required /><small>Gunakan slug ini pada field topic_slug JSON.</small></label>
+          <div class="topic-class-field">
+            <span>Kelas tujuan</span>
+            <div class="topic-class-picker">
+              <label class="topic-class-option topic-class-all"><input type="checkbox" :checked="topicForm.class_ids.length === 0" @change="toggleAllTopicClasses" /><span>Semua kelas</span></label>
+              <label v-for="item in curriculum.classes" :key="item.id" class="topic-class-option"><input type="checkbox" :checked="topicForm.class_ids.includes(item.id)" @change="toggleTopicClass(item.id, $event)" /><span>{{ item.label }}</span></label>
+            </div>
+            <small>Kosongkan pilihan kelas untuk membuat topik tersedia untuk semua kelas.</small>
+          </div>
           <label><span>Urutan tampil</span><input v-model.number="topicForm.display_order" type="number" min="1" placeholder="1" required /></label>
           <div class="form-actions"><button class="primary-btn" type="submit">{{ editingTopicId ? 'Perbarui' : 'Tambah' }}</button><button class="secondary-btn" type="button" @click="closeMobileForm">Batal</button></div>
         </form>
@@ -120,7 +127,7 @@
         <div class="curriculum-group-heading"><h3>Topik</h3><button class="curriculum-add-btn" type="button" @click="openTopicForm">＋ Tambah</button></div>
         <div class="curriculum-items">
           <div v-for="item in visibleTopics" :key="item.id" class="curriculum-item">
-            <div><strong>{{ item.label }}</strong><small>{{ item.slug }} · {{ item.subject_label }} · {{ item.token_configured ? 'Token aktif' : 'Tanpa token' }}</small></div>
+            <div><strong>{{ item.label }}</strong><small>{{ item.slug }} · {{ item.subject_label }} · {{ item.class_labels.length ? item.class_labels.join(', ') : 'Semua kelas' }} · {{ item.token_configured ? 'Token aktif' : 'Tanpa token' }}</small></div>
             <div class="item-actions"><button type="button" @click="editTopic(item)">Edit</button><button type="button" class="delete-action" @click="removeTopic(item.id)">Hapus</button></div>
           </div>
           <p v-if="visibleTopics.length === 0" class="curriculum-empty">Belum ada topik yang sesuai filter.</p>
@@ -175,13 +182,12 @@ const mobileTabs: Array<{ value: MobileCurriculumTab; label: string }> = [
 const classForm = reactive<CurriculumClassInput>({ slug: '', label: '', academic_year: '2026/2027', grade: 10, program: '', section: null, display_order: 1 });
 const typeForm = reactive<CurriculumItemInput>({ slug: '', label: '', display_order: 1 });
 const subjectForm = reactive<CurriculumSubjectInput>({ slug: '', label: '', display_order: 1, max_attempts: 1, duration_minutes: 0, minimum_duration_minutes: 0, explanation_mode: 'hidden', show_correct_answer_on_wrong: false, shuffle_questions: false, shuffle_options: false, class_id: null, assessment_type_id: null });
-const topicForm = reactive<AdminTopicInput>({ subject_id: 0, slug: '', label: '', display_order: 1 });
+const topicForm = reactive<AdminTopicInput>({ subject_id: 0, slug: '', label: '', display_order: 1, class_ids: [] });
 const explanationModeOptions = [
   { value: 'after_answer', label: 'Setelah menjawab' },
   { value: 'after_exam', label: 'Setelah asesmen selesai' },
   { value: 'hidden', label: 'Jangan tampilkan' },
 ];
-const classOptions = computed(() => [{ value: null, label: 'Semua kelas' }, ...curriculum.value.classes.map((item) => ({ value: item.id, label: `${item.label} · ${item.academic_year}` }))]);
 const assessmentTypeOptions = computed(() => [{ value: null, label: 'Semua jenis asesmen' }, ...curriculum.value.assessment_types.map((item) => ({ value: item.id, label: item.label }))]);
 const subjectOptions = computed(() => curriculum.value.subjects.map((item) => ({ value: item.id, label: `${item.label} · ${item.slug}` })));
 const selectedClassId = ref<number | null>(null);
@@ -246,7 +252,7 @@ function clearForm(form: CurriculumItemInput) { form.slug = ''; form.label = '';
 function resetClass() { editingClassId.value = null; classForm.slug = ''; classForm.label = ''; classForm.academic_year = '2026/2027'; classForm.grade = 10; classForm.program = ''; classForm.section = null; classForm.display_order = 1; mobileFormOpen.value = false; }
 function resetType() { editingTypeId.value = null; clearForm(typeForm); mobileFormOpen.value = false; }
 function resetSubject() { editingSubjectId.value = null; subjectForm.slug = ''; subjectForm.label = ''; subjectForm.display_order = 1; subjectForm.max_attempts = 1; subjectForm.duration_minutes = 0; subjectForm.minimum_duration_minutes = 0; subjectForm.explanation_mode = 'hidden'; subjectForm.show_correct_answer_on_wrong = false; subjectForm.shuffle_questions = false; subjectForm.shuffle_options = false; subjectForm.class_id = null; subjectForm.assessment_type_id = null; mobileFormOpen.value = false; }
-function resetTopic() { editingTopicId.value = null; topicForm.subject_id = 0; topicForm.slug = ''; topicForm.label = ''; topicForm.display_order = 1; mobileFormOpen.value = false; }
+function resetTopic() { editingTopicId.value = null; topicForm.subject_id = 0; topicForm.slug = ''; topicForm.label = ''; topicForm.display_order = 1; topicForm.class_ids = []; mobileFormOpen.value = false; }
 function openClassForm() { resetClass(); mobileTab.value = 'classes'; formModal.value = 'class'; mobileFormOpen.value = true; }
 function openTypeForm() { resetType(); mobileTab.value = 'types'; formModal.value = 'type'; mobileFormOpen.value = true; }
 function openSubjectForm() { resetSubject(); mobileTab.value = 'subjects'; formModal.value = 'subject'; mobileFormOpen.value = true; }
@@ -258,7 +264,16 @@ async function runConfirmation() { const action = pendingConfirmation.value; clo
 function editClass(item: CurriculumClass) { editingClassId.value = item.id; Object.assign(classForm, item); mobileTab.value = 'classes'; formModal.value = 'class'; mobileFormOpen.value = true; }
 function editType(item: AssessmentType) { editingTypeId.value = item.id; Object.assign(typeForm, item); mobileTab.value = 'types'; formModal.value = 'type'; mobileFormOpen.value = true; }
 function editSubject(item: Subject) { editingSubjectId.value = item.id; Object.assign(subjectForm, { slug: item.slug, label: item.label, display_order: item.display_order, max_attempts: item.max_attempts ?? 1, duration_minutes: item.duration_minutes ?? 0, minimum_duration_minutes: item.minimum_duration_minutes ?? 0, explanation_mode: item.explanation_mode ?? 'hidden', show_correct_answer_on_wrong: item.show_correct_answer_on_wrong ?? false, shuffle_questions: item.shuffle_questions ?? false, shuffle_options: item.shuffle_options ?? false, class_id: item.class_id ?? null, assessment_type_id: item.assessment_type_id ?? null }); mobileTab.value = 'subjects'; formModal.value = 'subject'; mobileFormOpen.value = true; }
-function editTopic(item: AdminTopic) { editingTopicId.value = item.id; Object.assign(topicForm, { subject_id: item.subject_id, slug: item.slug, label: item.label, display_order: item.display_order }); mobileTab.value = 'topics'; formModal.value = 'topic'; mobileFormOpen.value = true; }
+function editTopic(item: AdminTopic) { editingTopicId.value = item.id; Object.assign(topicForm, { subject_id: item.subject_id, slug: item.slug, label: item.label, display_order: item.display_order, class_ids: [...item.class_ids] }); mobileTab.value = 'topics'; formModal.value = 'topic'; mobileFormOpen.value = true; }
+function toggleTopicClass(classId: number, event: Event) {
+  const checked = (event.target as HTMLInputElement).checked;
+  topicForm.class_ids = checked
+    ? [...new Set([...topicForm.class_ids, classId])]
+    : topicForm.class_ids.filter((id) => id !== classId);
+}
+function toggleAllTopicClasses(event: Event) {
+  if ((event.target as HTMLInputElement).checked) topicForm.class_ids = [];
+}
 
 async function saveClass() {
   try {
@@ -281,7 +296,7 @@ async function saveAssessmentType() {
 }
 
 async function saveSubject() {
-  const input = { ...subjectForm, class_id: subjectForm.class_id ? Number(subjectForm.class_id) : null, assessment_type_id: subjectForm.assessment_type_id ? Number(subjectForm.assessment_type_id) : null };
+  const input = { ...subjectForm, class_id: null, assessment_type_id: subjectForm.assessment_type_id ? Number(subjectForm.assessment_type_id) : null };
   try {
     if (editingSubjectId.value) await updateAdminSubject(editingSubjectId.value, input);
     else await createAdminSubject(input);
@@ -304,7 +319,7 @@ function removeClass(id: number) { askConfirmation('Hapus kelas?', 'Kelas ini ak
 function removeType(id: number) { askConfirmation('Hapus jenis asesmen?', 'Jenis asesmen ini akan dihapus dari struktur asesmen.', async () => { try { await deleteAdminAssessmentType(id); await loadData(); showSuccess('Jenis asesmen berhasil dihapus.'); } catch (error) { showError(error); } }); }
 function removeSubject(id: number) { askConfirmation('Hapus mata pelajaran?', 'Mata pelajaran beserta topik dan soal yang terkait akan dihapus. Tindakan ini tidak dapat dibatalkan.', async () => { try { await deleteAdminSubject(id); await loadData(); showSuccess('Mata pelajaran beserta topik dan soal terkait berhasil dihapus.'); } catch (error) { showError(error); } }); }
 function removeTopic(id: number) { askConfirmation('Hapus topik?', 'Topik beserta soal yang terkait akan dihapus jika belum pernah dipakai dalam asesmen.', async () => { try { await deleteAdminTopic(id); await loadData(); emit('topicsUpdated'); showSuccess('Topik dan soal terkait berhasil dihapus.'); } catch (error) { showToast(error instanceof Error ? error.message : 'Topik gagal dihapus.'); } }); }
-function scopeLabel(subject: Subject) { const classLabel = curriculum.value.classes.find((item) => item.id === subject.class_id)?.label ?? 'Semua kelas'; const typeLabel = curriculum.value.assessment_types.find((item) => item.id === subject.assessment_type_id)?.label ?? 'Semua jenis'; return `${classLabel} · ${typeLabel}`; }
+function scopeLabel(subject: Subject) { const typeLabel = curriculum.value.assessment_types.find((item) => item.id === subject.assessment_type_id)?.label ?? 'Semua jenis'; return `Semua kelas · ${typeLabel}`; }
 function attemptsLabel(value: number) { return value === 0 ? 'Attempts tak terbatas' : `${value} attempt${value === 1 ? '' : 's'}`; }
 function durationLabel(value: number) { return value === 0 ? 'Tanpa batas waktu' : `${value} menit`; }
 function minimumDurationLabel(value: number) { return value > 0 ? `Minimum ${value} menit` : 'Boleh kumpul kapan saja'; }
@@ -360,6 +375,13 @@ onUnmounted(() => { dismissToast(); window.removeEventListener(ADMIN_REALTIME_EV
 .checkbox-field input { width: 16px; height: 16px; flex: 0 0 16px; accent-color: #246bc5; }
 .checkbox-field span { line-height: 1.35; }
 .curriculum-form > label small { color: #8292a6; font-size: .66rem; font-weight: 400; }
+.topic-class-field { display: flex; min-width: 0; flex-direction: column; gap: 6px; color: #496482; font-size: .7rem; font-weight: 700; }
+.topic-class-picker { display: flex; max-height: 132px; flex-wrap: wrap; gap: 7px; overflow-y: auto; padding: 8px; border: 1px solid #d4dde6; border-radius: 8px; background: #fff; }
+.topic-class-option { display: inline-flex; min-height: 32px; align-items: center; gap: 7px; padding: 6px 8px; border: 1px solid #dce8f4; border-radius: 7px; color: #496482; background: #f8fbff; font-size: .72rem; font-weight: 600; cursor: pointer; }
+.topic-class-option input { width: 15px; height: 15px; flex: 0 0 15px; padding: 0; accent-color: #246bc5; }
+.topic-class-all { color: #1e5ec8; background: #edf5ff; }
+.topic-class-field > small { color: #8292a6; font-size: .66rem; font-weight: 400; line-height: 1.35; }
+.curriculum-modal .topic-class-field { grid-column: 1 / -1; }
 .curriculum-form input, .curriculum-form select { min-width: 0; width: 100%; padding: 9px 10px; border: 1px solid #d4dde6; border-radius: 8px; background: #fff; color: #334b68; font: inherit; font-size: .82rem; font-weight: 400; }
 .form-actions { display: flex; align-self: end; gap: 6px; }
 .form-actions .primary-btn, .form-actions .secondary-btn { padding: 9px 12px; font-size: .78rem; }

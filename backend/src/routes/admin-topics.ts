@@ -20,6 +20,7 @@ const topicSchema = z.object({
   slug: z.string().trim().min(1).max(50).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Slug hanya boleh berisi huruf kecil, angka, dan tanda hubung.'),
   label: z.string().trim().min(1).max(100),
   display_order: z.coerce.number().int().positive(),
+  class_ids: z.array(z.coerce.number().int().positive()).default([]).transform((ids) => [...new Set(ids)]),
 });
 
 function parseId(value: string) {
@@ -38,7 +39,8 @@ export function adminTopicsRoutes(pool: Pool) {
     if (!parsed.success) return c.json({ error: 'invalid_body', message: 'Data topik tidak valid.' }, 400);
     try {
       const id = await createAdminTopic(db, parsed.data);
-      if (id === null) return c.json({ error: 'invalid_reference', message: 'Mata pelajaran tidak ditemukan.' }, 400);
+      if (id === 'invalid_subject') return c.json({ error: 'invalid_reference', message: 'Mata pelajaran tidak ditemukan.' }, 400);
+      if (id === 'invalid_class') return c.json({ error: 'invalid_reference', message: 'Salah satu kelas topik tidak ditemukan.' }, 400);
       return c.json({ id }, 201);
     } catch (error) {
       if (isDuplicateKeyError(error)) return c.json({ error: 'duplicate_slug', message: 'Slug topik sudah digunakan.' }, 409);
@@ -54,6 +56,7 @@ export function adminTopicsRoutes(pool: Pool) {
       const result = await updateAdminTopic(db, id, parsed.data);
       if (result === 'not_found') return c.json({ error: 'not_found', message: 'Topik tidak ditemukan.' }, 404);
       if (result === 'invalid_subject') return c.json({ error: 'invalid_reference', message: 'Mata pelajaran tidak ditemukan.' }, 400);
+      if (result === 'invalid_class') return c.json({ error: 'invalid_reference', message: 'Salah satu kelas topik tidak ditemukan.' }, 400);
       return c.json({ updated: true });
     } catch (error) {
       if (isDuplicateKeyError(error)) return c.json({ error: 'duplicate_slug', message: 'Slug topik sudah digunakan.' }, 409);

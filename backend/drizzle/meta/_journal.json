@@ -127,6 +127,13 @@
       "when": 1791875474490,
       "tag": "0017_add_demo_mode",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "5",
+      "when": 1791957000000,
+      "tag": "0018_topic_class_mapping",
+      "breakpoints": true
     }
   ]
 }

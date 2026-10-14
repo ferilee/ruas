@@ -436,9 +436,12 @@ const importModeOptions = [
   { value: 'insert', label: 'Tambah baru saja' },
   { value: 'upsert', label: 'Tambah atau perbarui berdasarkan ID' },
 ];
-const topicOptions = computed(() => topics.value.map((topic) => ({ value: topic.id, label: `${topic.subject_label} — ${topic.label}` })));
+function topicScopeLabel(topic: AdminTopic) {
+  return topic.class_labels.length > 0 ? topic.class_labels.join(', ') : 'Semua kelas';
+}
+const topicOptions = computed(() => topics.value.map((topic) => ({ value: topic.id, label: `${topic.subject_label} — ${topic.label} · ${topicScopeLabel(topic)}` })));
 const questionTypeFilterOptions = [{ value: 'all', label: 'Semua tipe soal' }, ...questionTypeOptions];
-const questionTopicFilterOptions = computed(() => [{ value: null, label: 'Semua topik' }, ...topics.value.map((topic) => ({ value: topic.id, label: `${topic.subject_label} · ${topic.label}` }))]);
+const questionTopicFilterOptions = computed(() => [{ value: null, label: 'Semua topik' }, ...topics.value.map((topic) => ({ value: topic.id, label: `${topic.subject_label} · ${topic.label} · ${topicScopeLabel(topic)}` }))]);
 const questionPageSizeOptions = [25, 50, 100].map((value) => ({ value, label: `${value} soal` }));
 const questionRangeStart = computed(() => questionTotal.value === 0 ? 0 : (questionPage.value - 1) * questionPageSize.value + 1);
 const questionRangeEnd = computed(() => Math.min(questionTotal.value, questionPage.value * questionPageSize.value));
@@ -461,7 +464,7 @@ const scheduleRows = ref<AssessmentSchedule[]>([]);
 const scheduleSaving = ref(false);
 const scheduleMessage = ref('');
 const scheduleMessageType = ref<'success' | 'error'>('success');
-const scheduleTopicOptions = computed(() => topics.value.map((item) => ({ value: item.id, label: `${item.subject_label} — ${item.label}` })));
+const scheduleTopicOptions = computed(() => topics.value.map((item) => ({ value: item.id, label: `${item.subject_label} — ${item.label} · ${topicScopeLabel(item)}` })));
 const scheduleGroups = computed(() => [
   { key: 'open', label: 'Sedang Berlangsung', rows: scheduleRows.value.filter((row) => row.state === 'open') },
   { key: 'upcoming', label: 'Akan Datang', rows: scheduleRows.value.filter((row) => row.state === 'upcoming') },

@@ -1,9 +1,39 @@
 import { eq } from 'drizzle-orm';
 import type { drizzle } from 'drizzle-orm/mysql2';
 import { topics } from '@/db/schema/topics';
+import { topicClasses } from '@/db/schema/topic-classes';
+import { users } from '@/db/schema/users';
 import { matchesTopicToken } from '@/lib/topic-token';
 
 type TopicAccessDb = ReturnType<typeof drizzle>;
+
+async function findAccountClassId(db: TopicAccessDb, identityKey?: string | null) {
+  if (!identityKey) return null;
+  const [account] = await db
+    .select({ class_id: users.class_id })
+    .from(users)
+    .where(eq(users.username, identityKey))
+    .limit(1);
+  return account?.class_id ?? null;
+}
+
+export async function canParticipantAccessTopic(db: TopicAccessDb, topicId: number, identityKey?: string | null) {
+  const mappings = await db
+    .select({ class_id: topicClasses.class_id })
+    .from(topicClasses)
+    .where(eq(topicClasses.topic_id, topicId));
+
+  if (mappings.length === 0) return true;
+
+  const classId = await findAccountClassId(db, identityKey);
+  if (!identityKey) return true;
+  if (classId === null) return false;
+  return mappings.some((mapping) => mapping.class_id === classId);
+}
+
+export async function getParticipantClassId(db: TopicAccessDb, identityKey?: string | null) {
+  return findAccountClassId(db, identityKey);
+}
 
 export async function getTopicAccess(db: TopicAccessDb, topicId: number) {
   const [topic] = await db

@@ -240,7 +240,29 @@ export async function listAdminTopics(db: AdminDb) {
     .innerJoin(schema.subjects, eq(topics.subject_id, schema.subjects.id))
     .orderBy(schema.subjects.display_order, topics.display_order);
 
-  return rows.map(({ token_hash, ...topic }) => ({ ...topic, token_configured: Boolean(token_hash) }));
+  const mappings = rows.length > 0
+    ? await db
+      .select({ topic_id: schema.topicClasses.topic_id, class_id: schema.topicClasses.class_id, class_label: schema.educationClasses.label })
+      .from(schema.topicClasses)
+      .innerJoin(schema.educationClasses, eq(schema.topicClasses.class_id, schema.educationClasses.id))
+      .where(inArray(schema.topicClasses.topic_id, rows.map((row) => row.id)))
+    : [];
+  const mappingsByTopic = new Map<number, Array<{ class_id: number; class_label: string }>>();
+  for (const mapping of mappings) {
+    const current = mappingsByTopic.get(mapping.topic_id) ?? [];
+    current.push({ class_id: mapping.class_id, class_label: mapping.class_label });
+    mappingsByTopic.set(mapping.topic_id, current);
+  }
+
+  return rows.map(({ token_hash, ...topic }) => {
+    const classMappings = mappingsByTopic.get(topic.id) ?? [];
+    return {
+      ...topic,
+      class_ids: classMappings.map((mapping) => mapping.class_id),
+      class_labels: classMappings.map((mapping) => mapping.class_label),
+      token_configured: Boolean(token_hash),
+    };
+  });
 }
 
 export interface AdminTopicInput {
@@ -248,6 +270,7 @@ export interface AdminTopicInput {
   slug: string;
   label: string;
   display_order: number;
+  class_ids: number[];
 }
 
 async function subjectExists(db: AdminDb, subjectId: number) {
@@ -255,19 +278,60 @@ async function subjectExists(db: AdminDb, subjectId: number) {
   return Boolean(subject);
 }
 
-export async function createAdminTopic(db: AdminDb, input: AdminTopicInput): Promise<number | null> {
-  if (!(await subjectExists(db, input.subject_id))) return null;
-  const [result] = await db.insert(topics).values(input);
+async function classesExist(db: AdminDb, classIds: number[]) {
+  if (classIds.length === 0) return true;
+  const rows = await db
+    .select({ id: schema.educationClasses.id })
+    .from(schema.educationClasses)
+    .where(inArray(schema.educationClasses.id, classIds));
+  return rows.length === classIds.length;
+}
+
+function normalizedClassIds(classIds: number[]) {
+  return [...new Set(classIds)];
+}
+
+export type CreateAdminTopicResult = number | 'invalid_subject' | 'invalid_class';
+
+export async function createAdminTopic(db: AdminDb, input: AdminTopicInput): Promise<CreateAdminTopicResult> {
+  if (!(await subjectExists(db, input.subject_id))) return 'invalid_subject';
+  const classIds = normalizedClassIds(input.class_ids);
+  if (!(await classesExist(db, classIds))) return 'invalid_class';
+  const [result] = await db.transaction(async (tx) => {
+    const [inserted] = await tx.insert(topics).values({
+      subject_id: input.subject_id,
+      slug: input.slug,
+      label: input.label,
+      display_order: input.display_order,
+    });
+    if (classIds.length > 0) {
+      await tx.insert(schema.topicClasses).values(classIds.map((classId) => ({ topic_id: Number(inserted.insertId), class_id: classId })));
+    }
+    return [inserted] as const;
+  });
   return Number(result.insertId);
 }
 
-export type UpdateAdminTopicResult = 'updated' | 'not_found' | 'invalid_subject';
+export type UpdateAdminTopicResult = 'updated' | 'not_found' | 'invalid_subject' | 'invalid_class';
 
 export async function updateAdminTopic(db: AdminDb, topicId: number, input: AdminTopicInput): Promise<UpdateAdminTopicResult> {
   const [topic] = await db.select({ id: topics.id }).from(topics).where(eq(topics.id, topicId)).limit(1);
   if (!topic) return 'not_found';
   if (!(await subjectExists(db, input.subject_id))) return 'invalid_subject';
-  await db.update(topics).set(input).where(eq(topics.id, topicId));
+  const classIds = normalizedClassIds(input.class_ids);
+  if (!(await classesExist(db, classIds))) return 'invalid_class';
+  await db.transaction(async (tx) => {
+    await tx.update(topics).set({
+      subject_id: input.subject_id,
+      slug: input.slug,
+      label: input.label,
+      display_order: input.display_order,
+    }).where(eq(topics.id, topicId));
+    await tx.delete(schema.topicClasses).where(eq(schema.topicClasses.topic_id, topicId));
+    if (classIds.length > 0) {
+      await tx.insert(schema.topicClasses).values(classIds.map((classId) => ({ topic_id: topicId, class_id: classId })));
+    }
+  });
   return 'updated';
 }
 
@@ -289,6 +353,7 @@ export async function deleteAdminTopic(db: AdminDb, topicId: number): Promise<De
   await db.transaction(async (tx) => {
     if (questionIds.length > 0) await tx.delete(questionOptions).where(inArray(questionOptions.question_id, questionIds));
     if (questionIds.length > 0) await tx.delete(questions).where(inArray(questions.id, questionIds));
+    await tx.delete(schema.topicClasses).where(eq(schema.topicClasses.topic_id, topicId));
     await tx.delete(topics).where(eq(topics.id, topicId));
   });
 

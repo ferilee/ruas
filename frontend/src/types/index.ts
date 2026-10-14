@@ -142,6 +142,8 @@ export interface AdminTopic {
   id: number;
   subject_id: number;
   subject_label: string;
+  class_ids: number[];
+  class_labels: string[];
   slug: string;
   label: string;
   display_order: number;
@@ -154,6 +156,7 @@ export interface AdminTopicInput {
   slug: string;
   label: string;
   display_order: number;
+  class_ids: number[];
 }
 
 export interface AdminQuestionInput {
