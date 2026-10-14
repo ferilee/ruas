@@ -16,6 +16,7 @@ import type { CheckResult, ExamAttempt, ExamReviewItem, ExplanationMode, Questio
 export type QuizState = 'loading' | 'ready' | 'answering' | 'reviewing' | 'resume' | 'error';
 
 interface SessionResult {
+  questionId: number;
   correct: boolean;
   elapsed: number;
 }
@@ -48,6 +49,7 @@ export function useQuizSession(options: UseQuizSessionOptions) {
   const examReview = ref<ExamReviewItem[]>([]);
   const explanationMode = ref<ExplanationMode | null>(null);
   const endedByTimeout = ref(false);
+  const submittingAnswer = ref(false);
   const clockTick = ref(Date.now());
   let clockInterval: ReturnType<typeof setInterval> | null = null;
   let finishing = false;
@@ -57,22 +59,22 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     return answeredIds.value.size + 1;
   });
 
-  const correctCount = computed(() => sessionResults.value.filter((entry) => entry.correct).length);
-  const incorrectCount = computed(() => sessionResults.value.filter((entry) => !entry.correct).length);
+  const completedAttempt = computed(() => persistedAttempt.value?.status === 'completed' ? persistedAttempt.value : null);
+  const correctCount = computed(() => completedAttempt.value?.correct_count ?? sessionResults.value.filter((entry) => entry.correct).length);
+  const incorrectCount = computed(() => completedAttempt.value?.incorrect_count ?? sessionResults.value.filter((entry) => !entry.correct).length);
   const totalTime = computed(() => {
-    const total = sessionResults.value.reduce((sum, entry) => sum + entry.elapsed, 0);
+    const total = completedAttempt.value?.total_time_seconds ?? sessionResults.value.reduce((sum, entry) => sum + entry.elapsed, 0);
     const m = Math.floor(total / 60);
     const s = total % 60;
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   });
   const accuracy = computed(() => {
-    if (sessionResults.value.length === 0) return 0;
-    return Math.round((correctCount.value / sessionResults.value.length) * 100);
+    return completedAttempt.value?.accuracy ?? (sessionResults.value.length === 0 ? 0 : Math.round((correctCount.value / sessionResults.value.length) * 100));
   });
   const isLastQuestion = computed(() => answeredIds.value.size >= questionCount.value);
   const minimumDurationSeconds = computed(() => (persistedAttempt.value?.minimum_duration_minutes ?? 0) * 60);
   const minimumTimeRemaining = computed(() => {
-    clockTick.value;
+    void clockTick.value;
     if (!persistedAttempt.value || minimumDurationSeconds.value === 0) return 0;
     const startedAt = new Date(persistedAttempt.value.started_at).getTime();
     const now = Date.now() + serverClockOffsetMs.value;
@@ -161,8 +163,9 @@ export function useQuizSession(options: UseQuizSessionOptions) {
   }
 
   async function submitAnswer() {
-    if (!question.value || selectedKeys.value.length === 0) return;
+    if (submittingAnswer.value || !question.value || selectedKeys.value.length === 0) return;
 
+    submittingAnswer.value = true;
     finalTime.value = elapsedTime.value;
     timerRunning.value = false;
 
@@ -175,11 +178,16 @@ export function useQuizSession(options: UseQuizSessionOptions) {
       });
       result.value = checkResult;
       answeredIds.value.add(question.value.id);
-      sessionResults.value.push({ correct: checkResult.correct, elapsed: finalTime.value });
+      const nextResult = { questionId: question.value.id, correct: checkResult.correct, elapsed: finalTime.value };
+      const existingResultIndex = sessionResults.value.findIndex((entry) => entry.questionId === nextResult.questionId);
+      if (existingResultIndex >= 0) sessionResults.value[existingResultIndex] = nextResult;
+      else sessionResults.value.push(nextResult);
       state.value = 'reviewing';
     } catch (error) {
       errorMessage.value = error instanceof Error ? error.message : 'Gagal memeriksa jawaban.';
       state.value = 'error';
+    } finally {
+      submittingAnswer.value = false;
     }
   }
 
@@ -309,7 +317,7 @@ export function useQuizSession(options: UseQuizSessionOptions) {
         persistedAttempt.value = active.attempt;
         startClock();
         answeredIds.value = new Set(active.answers.map((answer) => answer.question_id));
-        sessionResults.value = active.answers.map((answer) => ({ correct: answer.is_correct, elapsed: answer.elapsed_seconds }));
+        sessionResults.value = active.answers.map((answer) => ({ questionId: answer.question_id, correct: answer.is_correct, elapsed: answer.elapsed_seconds }));
         await loadQuestion();
       } else {
         question.value = null;
@@ -359,6 +367,7 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     state,
     subjectId,
     submitAnswer,
+    submittingAnswer,
     timerRunning,
     deadlineAt: computed(() => persistedAttempt.value?.deadline_at ?? null),
     serverClockOffsetMs,

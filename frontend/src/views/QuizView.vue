@@ -165,8 +165,8 @@
           <button class="nav-button nav-doubt" :class="{ active: isDoubtful }" type="button" @click="isDoubtful = !isDoubtful">
             <span>□</span> {{ isDoubtful ? 'Ragu-ragu ditandai' : 'Tandai ragu-ragu' }}
           </button>
-          <button v-if="state === 'answering'" class="nav-button nav-primary" type="button" :disabled="selectedKeys.length === 0" @click="submitAnswer">
-            Simpan jawaban <span>›</span>
+          <button v-if="state === 'answering'" class="nav-button nav-primary" type="button" :disabled="selectedKeys.length === 0 || submittingAnswer" @click="submitAnswer">
+            {{ submittingAnswer ? 'Menyimpan...' : 'Simpan jawaban' }} <span>›</span>
           </button>
           <button v-else class="nav-button nav-primary" type="button" :disabled="isLastQuestion && !canComplete" @click="goToNextStep">
             {{ isLastQuestion ? canComplete ? 'Lihat hasil' : `Tunggu ${formatDuration(minimumTimeRemaining)}` : 'Soal berikutnya' }} <span>›</span>
@@ -282,7 +282,7 @@ const {
   incorrectCount, initializeSession, isLastQuestion, nextQuestion, onSelectKeys, question,
   questionCount, recordIntegrityEvent, resetSession, result, retryCurrentState, selectedKeys, showExitModal,
   startQuiz, state, subjectId, submitAnswer, topicLabel, totalTime, timerRunning, onTime,
-  deadlineAt, serverClockOffsetMs, canComplete, minimumTimeRemaining,
+  deadlineAt, serverClockOffsetMs, canComplete, minimumTimeRemaining, submittingAnswer,
 } = useQuizSession({
   getTopicId,
   getQuerySubjectId: () => Number(route.query.subject_id),

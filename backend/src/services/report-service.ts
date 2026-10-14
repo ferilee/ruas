@@ -90,6 +90,18 @@ function parseQuestionOrder(value: unknown): number[] {
   return [];
 }
 
+export function normalizeSelectedKeys(value: unknown): string[] {
+  if (Array.isArray(value)) return value.filter((item): item is string => typeof item === 'string' && item.length > 0);
+  if (typeof value !== 'string' || value.trim().length === 0) return [];
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? normalizeSelectedKeys(parsed) : typeof parsed === 'string' ? [parsed] : [];
+  } catch {
+    return [value.trim()];
+  }
+}
+
 function inDateRange(value: Date | string | null, from?: string, to?: string) {
   if (!value) return false;
   const timestamp = new Date(value).getTime();
@@ -191,7 +203,10 @@ export async function getReportDetail(db: ReportDb, attemptId: number) {
   ]);
 
   const storedQuestionOrder = parseQuestionOrder(attempt.question_order);
-  const answeredQuestionIds = answers.map((answer) => answer.question_id);
+  const uniqueAnswersByQuestion = new Map<number, (typeof answers)[number]>();
+  for (const answer of answers) uniqueAnswersByQuestion.set(answer.question_id, answer);
+  const uniqueAnswers = [...uniqueAnswersByQuestion.values()];
+  const answeredQuestionIds = uniqueAnswers.map((answer) => answer.question_id);
   const orderedQuestionIds = storedQuestionOrder.length ? storedQuestionOrder : answeredQuestionIds;
   const questionRows = orderedQuestionIds.length
     ? await db.select({ id: questions.id, topic_id: questions.topic_id, topic_label: topics.label, question_text: questions.question_text })
@@ -213,12 +228,12 @@ export async function getReportDetail(db: ReportDb, attemptId: number) {
     options.push(option);
     optionsByQuestion.set(option.question_id, options);
   }
-  const answerByQuestion = new Map(answers.map((answer) => [answer.question_id, answer]));
+  const answerByQuestion = new Map(uniqueAnswers.map((answer) => [answer.question_id, answer]));
   const questionAnalysis = orderedQuestionIds.map((questionId, index) => {
     const question = questionById.get(questionId);
     const answer = answerByQuestion.get(questionId);
     const options = optionsByQuestion.get(questionId) ?? [];
-    const selectedKeys = Array.isArray(answer?.selected_keys) ? answer.selected_keys as string[] : [];
+    const selectedKeys = normalizeSelectedKeys(answer?.selected_keys);
     const correctKeys = options.filter((option) => option.is_correct).map((option) => option.option_key);
     const status = answer ? (answer.is_correct ? 'correct' : 'incorrect') : 'unanswered';
     return {
@@ -239,7 +254,7 @@ export async function getReportDetail(db: ReportDb, attemptId: number) {
 
   return {
     ...attempt,
-    answers: answers.map((answer) => ({ ...answer, answered_at: toIso(answer.answered_at) })),
+    answers: uniqueAnswers.map((answer) => ({ ...answer, selected_keys: normalizeSelectedKeys(answer.selected_keys), answered_at: toIso(answer.answered_at) })),
     integrity_events: events.map((event) => ({ ...event, occurred_at: toIso(event.occurred_at) })),
     question_analysis: questionAnalysis,
     correct_question_numbers: questionAnalysis.filter((question) => question.status === 'correct').map((question) => question.question_number),

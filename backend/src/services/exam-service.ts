@@ -324,7 +324,10 @@ export async function completeAttempt(db: ExamDb, attemptId: number, identityKey
   const attempt = await findAttempt(db, attemptId, identityKey);
   if (!attempt) return null;
   if (attempt.status !== 'in_progress') return attempt;
-  const answers = await db.select().from(examAnswers).where(eq(examAnswers.attempt_id, attemptId));
+  const answerRows = await db.select().from(examAnswers).where(eq(examAnswers.attempt_id, attemptId));
+  const answersByQuestion = new Map<number, (typeof answerRows)[number]>();
+  for (const answer of answerRows) answersByQuestion.set(answer.question_id, answer);
+  const answers = [...answersByQuestion.values()];
   const events = await db.select({ total: count() }).from(examIntegrityEvents).where(eq(examIntegrityEvents.attempt_id, attemptId));
   const correctCount = answers.filter((answer) => answer.is_correct).length;
   const completedAt = new Date();

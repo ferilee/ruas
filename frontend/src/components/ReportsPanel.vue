@@ -115,7 +115,7 @@
             <article v-for="question in filteredAnalysis" :key="question.question_id" :class="['question-analysis-item', `analysis-${question.status}`]">
               <div class="question-analysis-title"><strong>Soal {{ question.question_number }}</strong><span>{{ question.topic_label }}</span><b>{{ analysisStatusLabel(question.status) }}</b></div>
               <p>{{ question.question_text }}</p>
-              <div class="answer-comparison"><span><small>Jawaban siswa</small>{{ question.selected_texts.length ? question.selected_texts.join(', ') : 'Tidak dijawab' }}</span><span><small>Kunci jawaban</small>{{ question.correct_texts.join(', ') || question.correct_keys.join(', ') || '—' }}</span></div>
+              <div class="answer-comparison"><span><small>Jawaban siswa</small>{{ question.selected_texts.length ? question.selected_texts.join(', ') : question.selected_keys.length ? question.selected_keys.join(', ') : 'Tidak dijawab' }}</span><span><small>Kunci jawaban</small>{{ question.correct_texts.join(', ') || question.correct_keys.join(', ') || '—' }}</span></div>
             </article>
           </div>
           <p v-else class="muted">Tidak ada soal pada filter ini.</p>
