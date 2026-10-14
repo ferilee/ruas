@@ -229,20 +229,33 @@ export function useQuizSession(options: UseQuizSessionOptions) {
   async function loadQuestionCount() {
     questionCountReady.value = false;
     questionCountError.value = '';
+    let endpointCount: number | null = null;
     try {
-      questionCount.value = await fetchQuestionCount(options.getTopicId());
-      questionCountReady.value = true;
-    } catch {
-      try {
-        const topic = await fetchTopic(options.getTopicId());
-        if (topic) {
-          questionCount.value = topic.question_count;
-          questionCountReady.value = true;
-          return;
-        }
-      } catch {
-        // Fall through to the user-facing error below.
+      endpointCount = await fetchQuestionCount(options.getTopicId());
+      if (endpointCount > 0) {
+        questionCount.value = endpointCount;
+        questionCountReady.value = true;
+        return;
       }
+    } catch {
+      // Use the topic metadata below when the count endpoint is unavailable.
+    }
+
+    try {
+      const topic = await fetchTopic(options.getTopicId());
+      if (topic) {
+        questionCount.value = topic.question_count;
+        questionCountReady.value = true;
+        return;
+      }
+    } catch {
+      // Fall through to the user-facing error below.
+    }
+
+    if (endpointCount !== null) {
+      questionCount.value = endpointCount;
+      questionCountReady.value = true;
+    } else {
       questionCount.value = 0;
       questionCountError.value = 'Jumlah soal belum dapat dimuat. Periksa jadwal atau akses topik, lalu coba lagi.';
     }

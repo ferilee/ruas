@@ -152,6 +152,31 @@ describe('useQuizSession', () => {
     expect(session.currentQuestionNumber.value).toBe(2);
   });
 
+  it('uses the topic metadata when the count endpoint returns zero', async () => {
+    fetchQuestionCount.mockResolvedValue(0);
+    fetchTopic.mockResolvedValue({
+      id: 11,
+      subject_id: 7,
+      slug: 'barisan-dan-deret-xi-kkkr',
+      label: 'Barisan dan Deret XI KKKR',
+      display_order: 1,
+      question_count: 10,
+      requires_token: false,
+    });
+
+    const session = useQuizSession({
+      getTopicId: () => 11,
+      getQuerySubjectId: () => 7,
+      getQueryTopicLabel: () => 'Barisan dan Deret XI KKKR',
+    });
+
+    await session.initializeSession();
+
+    expect(session.questionCount.value).toBe(10);
+    expect(session.questionCountReady.value).toBe(true);
+    expect(session.state.value).toBe('ready');
+  });
+
   it('submits an answer and moves into reviewing state with summary updated', async () => {
     fetchQuestionCount.mockResolvedValue(1);
     fetchNextAttemptQuestion.mockResolvedValue(firstQuestion);
