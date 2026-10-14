@@ -21,6 +21,7 @@
       </div>
       <div v-show="filtersOpen" class="filter-grid">
         <label>Status<RuasSelect v-model="filters.status" :options="statusOptions" aria-label="Status laporan" @change="loadReport" /></label>
+        <label>Kebijakan nilai<RuasSelect v-model="filters.score_policy" :options="scorePolicyOptions" aria-label="Kebijakan nilai laporan" @change="loadReport" /></label>
         <label>Kelas<RuasSelect v-model="filters.class_id" :options="classOptions" aria-label="Filter kelas" @change="loadReport" /></label>
         <label>Jenis asesmen<RuasSelect v-model="filters.assessment_type_id" :options="assessmentTypeOptions" aria-label="Filter jenis asesmen" @change="loadReport" /></label>
         <label>Mata pelajaran<RuasSelect v-model="filters.subject_id" :options="subjectOptions" aria-label="Filter mata pelajaran" @change="loadReport" /></label>
@@ -41,7 +42,7 @@
     <p v-if="successMessage" class="success-text no-print">{{ successMessage }}</p>
 
     <section class="summary-grid">
-      <article class="summary-card blue"><span>Total hasil</span><strong>{{ summary.total_attempts }}</strong><small>{{ summary.completed_attempts }} selesai</small></article>
+      <article class="summary-card blue"><span>Total attempts</span><strong>{{ summary.total_attempts }}</strong><small>{{ summary.completed_attempts }} selesai</small></article>
       <article class="summary-card green"><span>Rata-rata skor</span><strong>{{ summary.average_score }}</strong><small>Skor akhir asesmen</small></article>
       <article class="summary-card purple"><span>Rata-rata akurasi</span><strong>{{ summary.average_accuracy }}%</strong><small>Jawaban benar</small></article>
       <article class="summary-card orange"><span>Pelanggaran tercatat</span><strong>{{ summary.total_violations }}</strong><small>Semua hasil selesai</small></article>
@@ -71,26 +72,40 @@
 
     <section class="panel table-panel report-print-area">
       <div class="panel-heading table-heading">
-        <div><h3>Hasil siswa</h3><p>{{ rows.length }} hasil sesuai filter</p></div>
+        <div><h3>Hasil siswa</h3><p>{{ reportGroups.length }} siswa/asesmen · {{ rows.length }} attempts sesuai filter</p></div>
         <span class="print-note no-print">Ekspor PDF menggunakan dialog cetak browser.</span>
       </div>
       <div v-if="loading" class="panel-empty">Memuat laporan...</div>
       <div v-else-if="rows.length === 0" class="panel-empty">Belum ada hasil asesmen sesuai filter.</div>
       <div v-else class="table-wrap">
         <table>
-          <thead><tr><th>Siswa</th><th>Asesmen</th><th>Skor</th><th>Akurasi</th><th class="no-print">Durasi</th><th class="no-print">Mulai</th><th class="no-print">Selesai</th><th>Anti-cheat</th><th>Status</th></tr></thead>
+          <thead><tr><th>Siswa</th><th>Asesmen</th><th>Nilai resmi</th><th>Akurasi</th><th class="no-print">Durasi</th><th class="no-print">Mulai</th><th class="no-print">Selesai</th><th>Anti-cheat</th><th>Status</th></tr></thead>
           <tbody>
-            <tr v-for="row in rows" :key="row.attempt_id" class="report-row" @click="openDetail(row.attempt_id)">
-              <td><strong>{{ row.participant_name }}</strong><small>{{ row.username }} · {{ row.participant_code }}</small></td>
-              <td><strong>{{ row.subject_label }}</strong><small>{{ row.topic_label || 'Semua topik' }} · {{ row.class_label || 'Tanpa kelas' }}</small></td>
-              <td class="score-cell">{{ row.final_score }}</td>
-              <td>{{ row.accuracy }}%</td>
-              <td class="no-print">{{ formatDuration(row.total_time_seconds) }}</td>
-              <td class="no-print">{{ formatDateTime(row.started_at) }}</td>
-              <td class="no-print">{{ formatDateTime(row.completed_at) }}</td>
-              <td><span :class="['violation-badge', { clean: row.violation_count === 0 }]">{{ row.violation_count }} aktivitas</span></td>
-              <td><span :class="['status-badge', `status-${row.status}`]">{{ statusLabel(row.status) }}</span></td>
-            </tr>
+            <template v-for="group in reportGroups" :key="group.key">
+              <tr class="report-row" @click="openReportGroup(group)">
+                <td><strong>{{ group.official.participant_name }}</strong><small>{{ group.official.username }} · {{ group.official.participant_code }}</small><span v-if="group.attempts.length > 1" class="attempt-count">{{ group.attempts.length }} attempts · klik untuk riwayat</span></td>
+                <td><strong>{{ group.official.subject_label }}</strong><small>{{ group.official.topic_label || 'Semua topik' }} · {{ group.official.class_label || 'Tanpa kelas' }}</small></td>
+                <td class="score-cell">{{ group.official.final_score }}<small>{{ scorePolicyLabel }}</small></td>
+                <td>{{ group.official.accuracy }}%</td>
+                <td class="no-print">{{ formatDuration(group.official.total_time_seconds) }}</td>
+                <td class="no-print">{{ formatDateTime(group.official.started_at) }}</td>
+                <td class="no-print">{{ formatDateTime(group.official.completed_at) }}</td>
+                <td><span :class="['violation-badge', { clean: group.official.violation_count === 0 }]">{{ group.official.violation_count }} aktivitas</span></td>
+                <td><span :class="['status-badge', `status-${group.official.status}`]">{{ statusLabel(group.official.status) }}</span></td>
+              </tr>
+              <tr v-if="expandedGroups[group.key]" class="history-row">
+                <td colspan="9">
+                  <div class="attempt-history">
+                    <strong>Riwayat attempts {{ group.official.participant_name }}</strong>
+                    <div class="attempt-history-list">
+                      <button v-for="attempt in group.attempts" :key="attempt.attempt_id" type="button" @click.stop="openDetail(attempt.attempt_id)">
+                        <span>Attempt #{{ attempt.attempt_id }} · {{ formatDateTime(attempt.started_at) }}</span><b>{{ attempt.final_score }}</b><small>{{ statusLabel(attempt.status) }} · Lihat detail</small>
+                      </button>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </template>
           </tbody>
         </table>
       </div>
@@ -139,7 +154,7 @@ import { ADMIN_REALTIME_EVENT, type AdminRealtimeEvent } from '@/lib/admin-realt
 
 const emptySummary: AdminReportSummary = { total_attempts: 0, completed_attempts: 0, in_progress_attempts: 0, abandoned_attempts: 0, average_score: 0, average_accuracy: 0, average_time_seconds: 0, total_violations: 0 };
 const curriculum = reactive<CurriculumData>({ classes: [], assessment_types: [], subjects: [] });
-const filters = reactive<AdminReportFilters>({ status: 'completed', search: '' });
+const filters = reactive<AdminReportFilters>({ status: 'completed', score_policy: 'best', search: '' });
 const rows = ref<AdminReportRow[]>([]);
 const summary = ref<AdminReportSummary>({ ...emptySummary });
 const classStatistics = ref<AdminReportClassStatistic[]>([]);
@@ -158,6 +173,12 @@ const statusOptions = [
   { value: 'in_progress', label: 'Sedang berjalan' },
   { value: 'abandoned', label: 'Ditinggalkan' },
 ];
+const scorePolicyOptions = [
+  { value: 'best', label: 'Nilai terbaik' },
+  { value: 'latest', label: 'Nilai terakhir' },
+  { value: 'average', label: 'Nilai rata-rata' },
+];
+const scorePolicyLabel = computed(() => scorePolicyOptions.find((option) => option.value === filters.score_policy)?.label ?? 'Nilai terbaik');
 const classOptions = computed(() => [{ value: undefined, label: 'Semua kelas' }, ...curriculum.classes.map((item) => ({ value: item.id, label: `${item.label} · ${item.academic_year}` }))]);
 const assessmentTypeOptions = computed(() => [{ value: undefined, label: 'Semua jenis' }, ...curriculum.assessment_types.map((item) => ({ value: item.id, label: item.label }))]);
 
@@ -176,6 +197,7 @@ const activeFilterLabels = computed(() => {
   if (filters.from) labels.push(`Dari: ${filters.from}`);
   if (filters.to) labels.push(`Sampai: ${filters.to}`);
   if (filters.search) labels.push(`Cari: ${filters.search}`);
+  labels.push(`Kebijakan: ${scorePolicyLabel.value}`);
   return labels;
 });
 const analysisFilterOptions = [
@@ -185,6 +207,29 @@ const analysisFilterOptions = [
   { value: 'unanswered', label: 'Tidak dijawab' },
 ];
 const filteredAnalysis = computed(() => detail.value?.question_analysis.filter((question) => analysisFilter.value === 'all' || question.status === analysisFilter.value) ?? []);
+const expandedGroups = reactive<Record<string, boolean>>({});
+const reportGroups = computed(() => {
+  const grouped = new Map<string, AdminReportRow[]>();
+  for (const row of rows.value) {
+    const key = `${row.participant_id}:${row.subject_id}:${row.topic_id ?? 'none'}`;
+    const group = grouped.get(key) ?? [];
+    group.push(row);
+    grouped.set(key, group);
+  }
+
+  return [...grouped.entries()].map(([key, attempts]) => {
+    const completed = attempts.filter((attempt) => attempt.status === 'completed');
+    const ordered = [...(completed.length ? completed : attempts)].sort((first, second) => new Date(second.completed_at ?? second.started_at).getTime() - new Date(first.completed_at ?? first.started_at).getTime() || second.attempt_id - first.attempt_id);
+    const latest = ordered[0];
+    let official = latest;
+    if (filters.score_policy === 'best' && completed.length) official = [...completed].sort((first, second) => second.final_score - first.final_score || new Date(second.completed_at ?? second.started_at).getTime() - new Date(first.completed_at ?? first.started_at).getTime())[0];
+    if (filters.score_policy === 'average' && completed.length) {
+      const average = (values: number[]) => Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 10) / 10;
+      official = { ...latest, final_score: average(completed.map((attempt) => attempt.final_score)), accuracy: average(completed.map((attempt) => attempt.accuracy)), total_time_seconds: Math.round(average(completed.map((attempt) => attempt.total_time_seconds))), violation_count: Math.round(average(completed.map((attempt) => attempt.violation_count))) };
+    }
+    return { key, attempts: [...attempts].sort((first, second) => new Date(second.started_at).getTime() - new Date(first.started_at).getTime()), official };
+  }).sort((first, second) => new Date(second.official.started_at).getTime() - new Date(first.official.started_at).getTime());
+});
 
 async function loadReport() {
   loading.value = true;
@@ -258,9 +303,17 @@ function analysisStatusLabel(status: AdminReportQuestionStatus) {
 }
 
 function resetFilters() {
-  Object.assign(filters, { status: 'completed', subject_id: undefined, class_id: undefined, assessment_type_id: undefined, from: undefined, to: undefined, search: '' });
+  Object.assign(filters, { status: 'completed', score_policy: 'best', subject_id: undefined, class_id: undefined, assessment_type_id: undefined, from: undefined, to: undefined, search: '' });
   filtersOpen.value = false;
   void loadReport();
+}
+
+function openReportGroup(group: (typeof reportGroups.value)[number]) {
+  if (group.attempts.length === 1) {
+    void openDetail(group.attempts[0].attempt_id);
+    return;
+  }
+  expandedGroups[group.key] = !expandedGroups[group.key];
 }
 
 function exportPdf() {
@@ -352,7 +405,8 @@ table { width: 100%; border-collapse: collapse; min-width: 820px; }
 th, td { padding: 13px 16px; border-bottom: 1px solid #edf2f7; color: #47617f; font-size: .78rem; text-align: left; vertical-align: middle; }
 th { color: #7890aa; background: #f8fbff; font-size: .7rem; letter-spacing: .04em; text-transform: uppercase; }
 td strong, td small { display: block; }.report-row { cursor: pointer; }.report-row:hover td { background: #f2f7ff; }.report-row td strong { color: #234d87; font-size: .82rem; }.report-row td small { margin-top: 3px; color: #8498b1; font-size: .7rem; }
-.score-cell { color: #176cc2; font-size: 1rem; font-weight: 800; }
+.score-cell { color: #176cc2; font-size: 1rem; font-weight: 800; }.score-cell small { margin-top: 3px; color: #7890aa; font-size: .62rem; font-weight: 600; }.attempt-count { display: block; margin-top: 5px; color: #286fc2; font-size: .66rem; font-weight: 700; }
+.history-row td { padding: 0 16px 13px; background: #f8fbff; }.attempt-history { padding: 13px; border: 1px solid #dce8f5; border-radius: 10px; background: #fff; }.attempt-history > strong { color: #315987; font-size: .75rem; }.attempt-history-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 9px; }.attempt-history-list button { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; min-width: 220px; padding: 9px 10px; border: 1px solid #d9e6f3; border-radius: 8px; color: #496785; background: #f7fbff; font: inherit; font-size: .68rem; text-align: left; cursor: pointer; }.attempt-history-list button:hover { border-color: #8bb9e9; background: #edf6ff; }.attempt-history-list button b { grid-row: span 2; align-self: center; color: #176cc2; font-size: .95rem; }.attempt-history-list button small { color: #8294aa; font-size: .63rem; }
 .violation-badge, .status-badge { display: inline-block; padding: 5px 8px; border-radius: 999px; font-size: .68rem; font-weight: 700; white-space: nowrap; }.violation-badge { color: #ad6c13; background: #fff3d9; }.violation-badge.clean { color: #247b59; background: #e2f7ed; }.status-completed { color: #247b59; background: #e2f7ed; }.status-in_progress { color: #2563a9; background: #e6f1ff; }.status-abandoned { color: #a34b4b; background: #ffebeb; }
 .panel-empty { padding: 28px 20px; color: #77899f; text-align: center; }
 .detail-backdrop { position: fixed; z-index: 20; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(16, 39, 73, .42); }

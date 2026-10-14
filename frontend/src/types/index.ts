@@ -266,9 +266,11 @@ export interface ExamAnswerRecord {
 }
 
 export type ReportStatus = 'all' | 'in_progress' | 'completed' | 'abandoned';
+export type ReportScorePolicy = 'best' | 'latest' | 'average';
 
 export interface AdminReportFilters {
   status: ReportStatus;
+  score_policy: ReportScorePolicy;
   subject_id?: number;
   class_id?: number;
   assessment_type_id?: number;

@@ -15,9 +15,11 @@ import { users } from '@/db/schema/users';
 import type { Pool } from '@/db/connection';
 
 export type ReportStatus = 'all' | 'in_progress' | 'completed' | 'abandoned';
+export type ReportScorePolicy = 'best' | 'latest' | 'average';
 
 export interface ReportFilters {
   status: ReportStatus;
+  score_policy?: ReportScorePolicy;
   subject_id?: number;
   class_id?: number;
   assessment_type_id?: number;
@@ -263,22 +265,62 @@ export async function getReportDetail(db: ReportDb, attemptId: number) {
   };
 }
 
-export function summarizeReport(rows: Awaited<ReturnType<typeof listReportAttempts>>) {
+type ReportRow = Awaited<ReturnType<typeof listReportAttempts>>[number];
+
+function average(values: number[]) {
+  return values.length ? Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 10) / 10 : 0;
+}
+
+function attemptTimestamp(row: ReportRow) {
+  const value = row.completed_at ?? row.started_at;
+  return value ? new Date(value).getTime() || row.attempt_id : row.attempt_id;
+}
+
+function attemptGroupKey(row: ReportRow) {
+  return `${row.participant_id}:${row.subject_id}:${row.topic_id ?? 'none'}`;
+}
+
+function policyRows(rows: ReportRow[], policy: ReportScorePolicy = 'best') {
+  const groups = new Map<string, ReportRow[]>();
+  for (const row of rows.filter((item) => item.status === 'completed')) {
+    const group = groups.get(attemptGroupKey(row)) ?? [];
+    group.push(row);
+    groups.set(attemptGroupKey(row), group);
+  }
+
+  return [...groups.values()].map((group) => {
+    const ordered = [...group].sort((first, second) => attemptTimestamp(second) - attemptTimestamp(first) || second.attempt_id - first.attempt_id);
+    if (policy === 'latest') return ordered[0];
+    if (policy === 'best') return [...ordered].sort((first, second) => second.final_score - first.final_score || attemptTimestamp(second) - attemptTimestamp(first))[0];
+
+    const latest = ordered[0];
+    return {
+      ...latest,
+      final_score: average(group.map((row) => row.final_score)),
+      accuracy: average(group.map((row) => row.accuracy)),
+      total_time_seconds: Math.round(average(group.map((row) => row.total_time_seconds))),
+      violation_count: Math.round(average(group.map((row) => row.violation_count))),
+      integrity_penalty: Math.round(average(group.map((row) => row.integrity_penalty))),
+    };
+  });
+}
+
+export function summarizeReport(rows: Awaited<ReturnType<typeof listReportAttempts>>, policy: ReportScorePolicy = 'best') {
   const completed = rows.filter((row) => row.status === 'completed');
-  const average = (values: number[]) => values.length ? Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 10) / 10 : 0;
+  const officialRows = policyRows(rows, policy);
   return {
     total_attempts: rows.length,
     completed_attempts: completed.length,
     in_progress_attempts: rows.filter((row) => row.status === 'in_progress').length,
     abandoned_attempts: rows.filter((row) => row.status === 'abandoned').length,
-    average_score: average(completed.map((row) => row.final_score)),
-    average_accuracy: average(completed.map((row) => row.accuracy)),
-    average_time_seconds: Math.round(average(completed.map((row) => row.total_time_seconds))),
-    total_violations: completed.reduce((total, row) => total + row.violation_count, 0),
+    average_score: average(officialRows.map((row) => row.final_score)),
+    average_accuracy: average(officialRows.map((row) => row.accuracy)),
+    average_time_seconds: Math.round(average(officialRows.map((row) => row.total_time_seconds))),
+    total_violations: officialRows.reduce((total, row) => total + row.violation_count, 0),
   };
 }
 
-export function summarizeReportByClass(rows: Awaited<ReturnType<typeof listReportAttempts>>) {
+export function summarizeReportByClass(rows: Awaited<ReturnType<typeof listReportAttempts>>, policy: ReportScorePolicy = 'best') {
   const groups = new Map<string, {
     class_id: number | null;
     class_label: string;
@@ -296,14 +338,11 @@ export function summarizeReportByClass(rows: Awaited<ReturnType<typeof listRepor
     groups.set(key, group);
   }
 
-  const average = (values: number[]) => values.length
-    ? Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 10) / 10
-    : 0;
-
   return [...groups.values()]
     .sort((first, second) => first.class_label.localeCompare(second.class_label, 'id'))
     .map(({ class_id, class_label, rows: classRows }) => {
       const completed = classRows.filter((row) => row.status === 'completed');
+      const officialRows = policyRows(classRows, policy);
       const participants = new Set(classRows.map((row) => row.participant_id));
       return {
         class_id,
@@ -311,10 +350,10 @@ export function summarizeReportByClass(rows: Awaited<ReturnType<typeof listRepor
         participant_count: participants.size,
         total_attempts: classRows.length,
         completed_attempts: completed.length,
-        average_score: average(completed.map((row) => row.final_score)),
-        average_accuracy: average(completed.map((row) => row.accuracy)),
-        average_time_seconds: Math.round(average(completed.map((row) => row.total_time_seconds))),
-        total_violations: completed.reduce((total, row) => total + row.violation_count, 0),
+        average_score: average(officialRows.map((row) => row.final_score)),
+        average_accuracy: average(officialRows.map((row) => row.accuracy)),
+        average_time_seconds: Math.round(average(officialRows.map((row) => row.total_time_seconds))),
+        total_violations: officialRows.reduce((total, row) => total + row.violation_count, 0),
       };
     });
 }

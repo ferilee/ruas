@@ -5,6 +5,7 @@ import { countReportAttempts, createReportDb, getReportDetail, listReportAttempt
 
 const querySchema = z.object({
   status: z.enum(['all', 'in_progress', 'completed', 'abandoned']).default('completed'),
+  score_policy: z.enum(['best', 'latest', 'average']).default('best'),
   subject_id: z.coerce.number().int().positive().optional(),
   class_id: z.coerce.number().int().positive().optional(),
   assessment_type_id: z.coerce.number().int().positive().optional(),
@@ -47,7 +48,7 @@ export function adminReportRoutes(pool: Pool) {
       return c.json({ error: 'invalid_query', message: 'Tanggal mulai harus sebelum tanggal selesai.' }, 400);
     }
     const rows = await listReportAttempts(db, parsed.data);
-    return c.json({ filters: parsed.data, summary: summarizeReport(rows), class_statistics: summarizeReportByClass(rows), rows });
+    return c.json({ filters: parsed.data, summary: summarizeReport(rows, parsed.data.score_policy), class_statistics: summarizeReportByClass(rows, parsed.data.score_policy), rows });
   });
 
   app.get('/:id', async (c) => {
