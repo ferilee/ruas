@@ -45,6 +45,7 @@ export function useQuizSession(options: UseQuizSessionOptions) {
   const questionCountError = ref('');
   const autoStart = ref(false);
   const answeredIds = ref<Set<number>>(new Set());
+  const answeredQuestionNumbers = ref<Set<number>>(new Set());
   const questionOrder = ref<number[]>([]);
   const doubtfulQuestionIds = ref<Set<number>>(new Set());
   const sessionResults = ref<SessionResult[]>([]);
@@ -88,6 +89,28 @@ export function useQuizSession(options: UseQuizSessionOptions) {
   });
   const canComplete = computed(() => isLastQuestion.value && minimumTimeRemaining.value === 0);
 
+  function normalizeQuestionOrder(value: unknown): number[] {
+    if (Array.isArray(value)) return value.map(Number).filter((id) => Number.isInteger(id) && id > 0);
+    if (typeof value !== 'string') return [];
+    try {
+      return normalizeQuestionOrder(JSON.parse(value));
+    } catch {
+      return [];
+    }
+  }
+
+  function setQuestionIdAtNumber(number: number, questionId: number) {
+    if (number < 1 || questionId < 1) return;
+    const nextOrder = [...questionOrder.value];
+    nextOrder[number - 1] = questionId;
+    questionOrder.value = nextOrder;
+  }
+
+  function hasCompleteQuestionOrder() {
+    return questionOrder.value.length >= questionCount.value
+      && questionOrder.value.slice(0, questionCount.value).every((questionId) => Number.isInteger(questionId) && questionId > 0);
+  }
+
   function startClock() {
     if (!clockInterval) clockInterval = setInterval(() => { clockTick.value = Date.now(); }, 1000);
   }
@@ -111,6 +134,7 @@ export function useQuizSession(options: UseQuizSessionOptions) {
       question.value = nextQuestion;
       const orderIndex = questionOrder.value.indexOf(nextQuestion.id);
       currentQuestionNumber.value = orderIndex >= 0 ? orderIndex + 1 : answeredIds.value.size + 1;
+      setQuestionIdAtNumber(currentQuestionNumber.value, nextQuestion.id);
       if (autoStart.value) {
         autoStart.value = false;
         timerRunning.value = true;
@@ -141,7 +165,10 @@ export function useQuizSession(options: UseQuizSessionOptions) {
       }
       question.value = loaded.question;
       currentQuestionNumber.value = loaded.question_number;
+      setQuestionIdAtNumber(loaded.question_number, loaded.question.id);
       selectedKeys.value = loaded.selected_keys;
+      if (loaded.answered) answeredQuestionNumbers.value.add(loaded.question_number);
+      else answeredQuestionNumbers.value.delete(loaded.question_number);
       if (loaded.is_doubtful) doubtfulQuestionIds.value.add(loaded.question.id);
       else doubtfulQuestionIds.value.delete(loaded.question.id);
       timerRunning.value = true;
@@ -165,7 +192,7 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     const created = await createExamAttempt({ subject_id: subjectId.value, topic_id: options.getTopicId(), total_questions: questionCount.value });
     attemptId.value = created.attempt.id;
     persistedAttempt.value = created.attempt;
-    questionOrder.value = created.attempt.question_order ?? [];
+    questionOrder.value = normalizeQuestionOrder(created.attempt.question_order);
     doubtfulQuestionIds.value = new Set(created.attempt.doubtful_question_ids ?? []);
     if (Number.isInteger(created.attempt.total_questions)) {
       questionCount.value = created.attempt.total_questions;
@@ -196,7 +223,7 @@ export function useQuizSession(options: UseQuizSessionOptions) {
 
   async function nextQuestion() {
     if (questionNavigationLoading.value) return;
-    if (questionOrder.value.length > 0) {
+    if (hasCompleteQuestionOrder()) {
       const nextUnanswered = questionOrder.value.findIndex((questionId, index) => index + 1 > currentQuestionNumber.value && !answeredIds.value.has(questionId));
       const firstUnanswered = questionOrder.value.findIndex((questionId) => !answeredIds.value.has(questionId));
       const target = nextUnanswered >= 0 ? nextUnanswered + 1 : firstUnanswered >= 0 ? firstUnanswered + 1 : 0;
@@ -205,6 +232,12 @@ export function useQuizSession(options: UseQuizSessionOptions) {
         return;
       }
     }
+
+    if (currentQuestionNumber.value < questionCount.value) {
+      await loadQuestionNumber(currentQuestionNumber.value + 1);
+      return;
+    }
+
     questionNavigationLoading.value = true;
     try {
       autoStart.value = true;
@@ -238,6 +271,7 @@ export function useQuizSession(options: UseQuizSessionOptions) {
   }
 
   function isQuestionAnswered(number: number) {
+    if (answeredQuestionNumbers.value.has(number)) return true;
     const questionId = questionOrder.value[number - 1];
     return questionId ? answeredIds.value.has(questionId) : false;
   }
@@ -272,6 +306,7 @@ export function useQuizSession(options: UseQuizSessionOptions) {
       });
       result.value = checkResult;
       answeredIds.value.add(question.value.id);
+      answeredQuestionNumbers.value.add(currentQuestionNumber.value);
       const nextResult = { questionId: question.value.id, correct: checkResult.correct, elapsed: finalTime.value };
       const existingResultIndex = sessionResults.value.findIndex((entry) => entry.questionId === nextResult.questionId);
       if (existingResultIndex >= 0) sessionResults.value[existingResultIndex] = nextResult;
@@ -415,6 +450,7 @@ export function useQuizSession(options: UseQuizSessionOptions) {
 
   function resetSession() {
     answeredIds.value = new Set();
+    answeredQuestionNumbers.value = new Set();
     questionOrder.value = [];
     doubtfulQuestionIds.value = new Set();
     sessionResults.value = [];
@@ -462,13 +498,20 @@ export function useQuizSession(options: UseQuizSessionOptions) {
       if (active.attempt) {
         attemptId.value = active.attempt.id;
         persistedAttempt.value = active.attempt;
-        questionOrder.value = active.attempt.question_order ?? [];
+        questionOrder.value = normalizeQuestionOrder(active.attempt.question_order);
         doubtfulQuestionIds.value = new Set(active.attempt.doubtful_question_ids ?? []);
         const activeQuestionCount = Number(active.attempt.total_questions);
         if (activeQuestionCount > 0) questionCount.value = activeQuestionCount;
         questionCountReady.value = true;
         startClock();
         answeredIds.value = new Set(active.answers.map((answer) => answer.question_id));
+        answeredQuestionNumbers.value = new Set(
+          hasCompleteQuestionOrder()
+            ? active.answers
+              .map((answer) => questionOrder.value.indexOf(answer.question_id) + 1)
+              .filter((number) => number > 0)
+            : [],
+        );
         sessionResults.value = active.answers.map((answer) => ({ questionId: answer.question_id, correct: answer.is_correct, elapsed: answer.elapsed_seconds }));
         const nextNumber = questionOrder.value.findIndex((questionId) => !answeredIds.value.has(questionId)) + 1;
         if (nextNumber > 0) currentQuestionNumber.value = nextNumber;
@@ -493,6 +536,7 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     accuracy,
     attemptId,
     answeredIds,
+    answeredQuestionNumbers,
     cancelExit,
     confirmExitState,
     correctCount,

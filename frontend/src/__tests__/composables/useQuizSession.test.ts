@@ -131,6 +131,14 @@ describe('useQuizSession', () => {
     fetchNextAttemptQuestion
       .mockResolvedValueOnce(firstQuestion)
       .mockResolvedValueOnce(secondQuestion);
+    fetchAttemptQuestion.mockResolvedValue({
+      question: secondQuestion,
+      question_number: 2,
+      total_questions: 2,
+      selected_keys: [],
+      answered: false,
+      is_doubtful: false,
+    });
     saveExamAnswer.mockResolvedValue({
       correct: true,
       correct_keys: ['B'],
@@ -235,6 +243,14 @@ describe('useQuizSession', () => {
     fetchNextAttemptQuestion
       .mockResolvedValueOnce(firstQuestion)
       .mockResolvedValueOnce(secondQuestion);
+    fetchAttemptQuestion.mockResolvedValue({
+      question: secondQuestion,
+      question_number: 2,
+      total_questions: 2,
+      selected_keys: [],
+      answered: false,
+      is_doubtful: false,
+    });
     createExamAttempt.mockResolvedValue({
       attempt: {
         id: 501,
@@ -312,6 +328,7 @@ describe('useQuizSession', () => {
     expect(session.totalTime.value).toBe('00:42');
     expect(session.accuracy.value).toBe(100);
     expect(session.isLastQuestion.value).toBe(true);
+    expect(session.isQuestionAnswered(1)).toBe(true);
   });
 
   it('ignores a duplicate submit while the first answer is still being saved', async () => {
@@ -385,6 +402,18 @@ describe('useQuizSession', () => {
     fetchNextAttemptQuestion
       .mockResolvedValueOnce(firstQuestion)
       .mockResolvedValueOnce(secondQuestion);
+    createExamAttempt.mockResolvedValue({
+      attempt: { id: 501, deadline_at: null, question_order: [101, 202] } as never,
+      server_now: new Date().toISOString(),
+    });
+    fetchAttemptQuestion.mockResolvedValue({
+      question: secondQuestion,
+      question_number: 2,
+      total_questions: 2,
+      selected_keys: [],
+      answered: false,
+      is_doubtful: false,
+    });
     saveExamAnswer.mockResolvedValue({
       correct: false,
       correct_keys: ['B'],
@@ -407,7 +436,7 @@ describe('useQuizSession', () => {
     await session.nextQuestion();
 
     expect(fetchNextAttemptQuestion).toHaveBeenNthCalledWith(1, 501);
-    expect(fetchNextAttemptQuestion).toHaveBeenNthCalledWith(2, 501);
+    expect(fetchAttemptQuestion).toHaveBeenCalledWith(501, 2);
     expect(session.question.value?.id).toBe(202);
     expect(session.state.value).toBe('answering');
     expect(session.currentQuestionNumber.value).toBe(2);
@@ -425,9 +454,16 @@ describe('useQuizSession', () => {
     });
 
     let releaseQuestion!: () => void;
-    fetchNextAttemptQuestion.mockImplementationOnce(() => new Promise((resolve) => {
-      releaseQuestion = () => resolve(secondQuestion);
-    }));
+    fetchAttemptQuestion.mockImplementationOnce(() => new Promise((resolve) => {
+      releaseQuestion = () => resolve({
+        question: secondQuestion,
+        question_number: 2,
+        total_questions: 2,
+        selected_keys: [],
+        answered: false,
+        is_doubtful: false,
+      });
+    }) as never);
 
     const session = useQuizSession({
       getTopicId: () => 11,
@@ -445,7 +481,7 @@ describe('useQuizSession', () => {
     const firstNavigation = session.nextQuestion();
     const duplicateNavigation = session.nextQuestion();
     expect(session.questionNavigationLoading.value).toBe(true);
-    expect(fetchNextAttemptQuestion).toHaveBeenCalledTimes(2);
+    expect(fetchAttemptQuestion).toHaveBeenCalledTimes(1);
 
     releaseQuestion();
     await Promise.all([firstNavigation, duplicateNavigation]);
