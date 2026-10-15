@@ -27,6 +27,8 @@ import {
 import { getAssessmentScheduleStatusFromDb } from '@/services/assessment-schedule-service';
 import { canAccessTopic, canParticipantAccessTopic, getTopicAccess, verifyTopicAccess } from '@/services/topic-access-service';
 import { getParticipantIdentity } from '@/lib/participant-identity';
+import type { MediaStorage } from '@/services/media-storage';
+import { listQuestionMedia } from '@/services/question-media-service';
 
 type QuestionsDb = ReturnType<typeof createQuestionsDb>;
 
@@ -61,7 +63,7 @@ async function requireTopicAccess(c: Context, db: QuestionsDb, topicId: number) 
   return null;
 }
 
-export function questionsRoutes(pool: Pool) {
+export function questionsRoutes(pool: Pool, mediaStorage: MediaStorage | null = null) {
   const db = createQuestionsDb(pool);
   const app = new Hono();
 
@@ -103,7 +105,8 @@ export function questionsRoutes(pool: Pool) {
     }
 
     const options = await findQuestionOptions(db, question.id);
-    return c.json(mapRandomQuestionResponse(question, options));
+    const media = await listQuestionMedia(db, question.id, mediaStorage);
+    return c.json(mapRandomQuestionResponse(question, options, media));
   });
 
   app.post('/:id/check', async (c) => {

@@ -1,6 +1,8 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
+import { eq } from 'drizzle-orm';
 import type { Context } from 'hono';
+import { questionMedia } from '@/db/schema/question-media';
 import type { Pool } from '@/db/connection';
 import { adminQuestionSchema, importPayloadSchema, importRequestSchema } from '@/validators/admin-question-validator';
 import { parseQuestionIdParam } from '@/validators/question-validator';
@@ -13,6 +15,8 @@ import {
   listAdminQuestions,
   updateAdminQuestion,
 } from '@/services/admin-question-service';
+import { findQuestionMediaRecord, listQuestionMedia } from '@/services/question-media-service';
+import type { MediaStorage } from '@/services/media-storage';
 
 const questionListQuerySchema = z.object({
   search: z.string().trim().max(200).optional(),
@@ -31,7 +35,20 @@ async function readJson(c: Context) {
   }
 }
 
-export function adminQuestionRoutes(pool: Pool) {
+const mediaUploadSchema = z.object({
+  alt_text: z.string().trim().max(255).optional(),
+  caption: z.string().trim().max(1000).optional(),
+});
+
+const allowedMediaTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+const mediaExtensions: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+};
+
+export function adminQuestionRoutes(pool: Pool, mediaStorage: MediaStorage | null = null) {
   const db = createAdminDb(pool);
   const app = new Hono();
 
@@ -47,7 +64,66 @@ export function adminQuestionRoutes(pool: Pool) {
 
     const question = await findAdminQuestion(db, id);
     if (!question) return c.json({ error: 'not_found', message: 'Soal tidak ditemukan.' }, 404);
-    return c.json({ question });
+    const media = await listQuestionMedia(db, id, mediaStorage);
+    return c.json({ question: { ...question, media } });
+  });
+
+  app.post('/:id/media', async (c) => {
+    if (!mediaStorage) return c.json({ error: 'media_storage_unavailable', message: 'Penyimpanan gambar belum dikonfigurasi.' }, 503);
+
+    const questionId = parseQuestionIdParam(c.req.param('id'));
+    if (questionId === null) return c.json({ error: 'invalid_param', message: 'ID soal tidak valid.' }, 400);
+    const question = await findAdminQuestion(db, questionId);
+    if (!question) return c.json({ error: 'not_found', message: 'Soal tidak ditemukan.' }, 404);
+
+    const body = await c.req.parseBody();
+    const fileValue = body.file;
+    const file = fileValue instanceof File ? fileValue : null;
+    if (!file) return c.json({ error: 'invalid_body', message: 'File gambar wajib dipilih.' }, 400);
+    if (!allowedMediaTypes.has(file.type)) return c.json({ error: 'invalid_file_type', message: 'Format gambar harus JPG, PNG, WEBP, atau GIF.' }, 400);
+    if (file.size <= 0 || file.size > 10 * 1024 * 1024) return c.json({ error: 'invalid_file_size', message: 'Ukuran gambar maksimal 10 MB.' }, 400);
+
+    const metadata = mediaUploadSchema.safeParse({ alt_text: body.alt_text, caption: body.caption });
+    if (!metadata.success) return c.json({ error: 'invalid_body', message: metadata.error.issues[0]?.message ?? 'Keterangan gambar tidak valid.' }, 400);
+
+    const originalName = file.name.trim().slice(0, 255) || `gambar.${mediaExtensions[file.type]}`;
+    const altText = metadata.data.alt_text || originalName.replace(/\.[^.]+$/, '').slice(0, 255);
+    const objectKey = `questions/${questionId}/${crypto.randomUUID()}.${mediaExtensions[file.type]}`;
+
+    try {
+      await mediaStorage.upload(objectKey, new Uint8Array(await file.arrayBuffer()), file.type);
+      const [inserted] = await db.insert(questionMedia).values({
+        question_id: questionId,
+        object_key: objectKey,
+        original_name: originalName,
+        mime_type: file.type,
+        file_size: file.size,
+        alt_text: altText,
+        caption: metadata.data.caption || null,
+        display_order: 0,
+      });
+      const mediaId = Number(inserted.insertId);
+      const media = await listQuestionMedia(db, questionId, mediaStorage);
+      return c.json({ media: media.find((item) => item.id === mediaId) ?? null }, 201);
+    } catch (error) {
+      await mediaStorage.remove(objectKey).catch(() => undefined);
+      throw error;
+    }
+  });
+
+  app.delete('/:id/media/:mediaId', async (c) => {
+    if (!mediaStorage) return c.json({ error: 'media_storage_unavailable', message: 'Penyimpanan gambar belum dikonfigurasi.' }, 503);
+
+    const questionId = parseQuestionIdParam(c.req.param('id'));
+    const mediaId = parseQuestionIdParam(c.req.param('mediaId'));
+    if (questionId === null || mediaId === null) return c.json({ error: 'invalid_param', message: 'ID media tidak valid.' }, 400);
+
+    const media = await findQuestionMediaRecord(db, questionId, mediaId);
+    if (!media) return c.json({ error: 'not_found', message: 'Gambar tidak ditemukan.' }, 404);
+
+    await mediaStorage.remove(media.object_key);
+    await db.delete(questionMedia).where(eq(questionMedia.id, mediaId));
+    return c.json({ deleted: true });
   });
 
   app.post('/', async (c) => {
@@ -75,7 +151,7 @@ export function adminQuestionRoutes(pool: Pool) {
     const id = parseQuestionIdParam(c.req.param('id'));
     if (id === null) return c.json({ error: 'invalid_param', message: 'ID soal tidak valid.' }, 400);
 
-    const result = await deleteAdminQuestion(db, id);
+    const result = await deleteAdminQuestion(db, id, mediaStorage);
     if (result === 'not_found') return c.json({ error: 'not_found', message: 'Soal tidak ditemukan.' }, 404);
     if (result === 'in_use') {
       return c.json({

@@ -100,12 +100,21 @@ export interface QuestionOption {
   text: string;
 }
 
+export interface QuestionMedia {
+  id: number;
+  url: string | null;
+  alt_text: string;
+  caption: string | null;
+  display_order: number;
+}
+
 export interface Question {
   id: number;
   type: 'single_choice' | 'multiple_response' | 'true_false';
   difficulty: 'easy' | 'medium' | 'hard';
   question_text: string;
   options: QuestionOption[];
+  media: QuestionMedia[];
 }
 
 export interface AdminQuestionOption extends QuestionOption {
@@ -136,6 +145,7 @@ export interface AdminQuestionPage {
 export interface AdminQuestion extends AdminQuestionListItem {
   explanation_text: string;
   options: AdminQuestionOption[];
+  media: QuestionMedia[];
 }
 
 export interface AdminTopic {
@@ -226,6 +236,7 @@ export interface ExamReviewItem {
   explanation: string;
   is_correct: boolean;
   elapsed_seconds: number;
+  media: QuestionMedia[];
 }
 
 export interface ExamReviewResponse {

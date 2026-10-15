@@ -59,6 +59,7 @@ NPM → app:3000
 participant_profiles  ──<  exam_attempts  ──<  exam_answers
                                       └──<  exam_integrity_events
 subjects  ──<  topics  ──<  questions  ──<  question_options
+                         └──<  question_media  ── RustFS object
 ```
 
 12 tabel digunakan. Data akun pengguna, profil peserta, percobaan ujian, jawaban, dan aktivitas
@@ -142,6 +143,25 @@ tanggal lahir, dan token sesi setelah login pertama.
 | option_text | text | Teks opsi |
 | is_correct | boolean | Kunci jawaban |
 | display_order | int | |
+
+### question_media
+
+| Kolom | Tipe | Keterangan |
+|---|---|---|
+| id | int auto_increment | PK |
+| question_id | int FK | → questions.id; cascade saat soal dihapus |
+| object_key | varchar(500) unique | Key object pada bucket RustFS |
+| original_name | varchar(255) | Nama file asli |
+| mime_type | varchar(100) | JPG, PNG, WEBP, atau GIF |
+| file_size | int | Ukuran file dalam byte |
+| alt_text | varchar(255) | Teks alternatif gambar |
+| caption | text nullable | Keterangan gambar |
+| display_order | int | Urutan tampil |
+| created_at | timestamp | |
+
+File gambar tidak disimpan di database. Database hanya menyimpan metadata dan
+object key. Backend membuat presigned URL sementara dari RustFS ketika soal
+ditampilkan.
 
 ---
 

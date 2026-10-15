@@ -10,6 +10,7 @@ import { checkAnswer } from '@/lib/scoring';
 import { mapCheckAnswerResponse } from '@/mappers/question-response';
 import { createExamDb, abandonAttempt, completeAttempt, createAttempt, findActiveAttempt, findAttempt, findAttemptAnswers, getAttemptAvailability, getAttemptQuestion, getExamReview, getNextAttemptQuestion, getQuestionExplanationMode, getSubjectExamSettings, isAttemptExpired, saveAnswer, saveIntegrityEvent, updateAttemptQuestionFlag } from '@/services/exam-service';
 import { getAssessmentScheduleStatusFromDb } from '@/services/assessment-schedule-service';
+import type { MediaStorage } from '@/services/media-storage';
 
 const attemptSchema = z.object({ subject_id: z.coerce.number().int().positive(), topic_id: z.coerce.number().int().positive(), total_questions: z.coerce.number().int().nonnegative(), topic_access_token: z.string().trim().max(100).optional() });
 const answerSchema = z.object({ question_id: z.coerce.number().int().positive(), selected_keys: z.array(z.string().min(1)).min(1), elapsed_seconds: z.coerce.number().int().nonnegative() });
@@ -21,7 +22,7 @@ function parseId(value: string) {
   return Number.isInteger(id) && id > 0 ? id : null;
 }
 
-export function examAttemptRoutes(pool: Pool) {
+export function examAttemptRoutes(pool: Pool, mediaStorage: MediaStorage | null = null) {
   const db = createExamDb(pool);
   const app = new Hono();
 
@@ -73,7 +74,7 @@ export function examAttemptRoutes(pool: Pool) {
     const attempt = await findAttempt(db, attemptId, identityKey);
     if (!attempt) return c.json({ error: 'not_found', message: 'Sesi ujian tidak ditemukan.' }, 404);
     if (attempt.status !== 'in_progress') return c.json({ error: 'attempt_closed', message: 'Sesi ujian sudah ditutup.' }, 409);
-    return c.json(await getNextAttemptQuestion(db, attemptId, identityKey));
+    return c.json(await getNextAttemptQuestion(db, attemptId, identityKey, mediaStorage));
   });
 
   app.get('/:id/questions/:number', async (c) => {
@@ -83,7 +84,7 @@ export function examAttemptRoutes(pool: Pool) {
     if (!identityKey || !attemptId || !questionNumber) return c.json({ error: 'invalid_param', message: 'Nomor soal tidak valid.' }, 400);
     const attempt = await findAttempt(db, attemptId, identityKey);
     if (!attempt || attempt.status !== 'in_progress') return c.json({ error: 'attempt_closed', message: 'Sesi ujian sudah ditutup.' }, 409);
-    const result = await getAttemptQuestion(db, attemptId, identityKey, questionNumber);
+    const result = await getAttemptQuestion(db, attemptId, identityKey, questionNumber, mediaStorage);
     if (!result) return c.json({ error: 'not_found', message: 'Soal tidak ditemukan.' }, 404);
     return c.json(result);
   });
@@ -137,7 +138,7 @@ export function examAttemptRoutes(pool: Pool) {
     const identityKey = getParticipantIdentity(c);
     const attemptId = parseId(c.req.param('id'));
     if (!identityKey || !attemptId) return c.json({ error: 'invalid_param', message: 'Sesi ujian tidak valid.' }, 400);
-    const review = await getExamReview(db, attemptId, identityKey);
+    const review = await getExamReview(db, attemptId, identityKey, mediaStorage);
     if (!review) return c.json({ error: 'not_found', message: 'Sesi ujian tidak ditemukan.' }, 404);
     return c.json(review);
   });

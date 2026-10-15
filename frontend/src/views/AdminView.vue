@@ -273,6 +273,25 @@
               <MathText :text="draft.question_text" />
             </div>
 
+            <fieldset class="question-media-fieldset">
+              <legend>Gambar pertanyaan</legend>
+              <p class="field-hint">Simpan soal terlebih dahulu sebelum mengunggah gambar. Format JPG, PNG, WEBP, atau GIF, maksimal 10 MB.</p>
+              <QuestionMediaGallery :media="questionMedia" />
+              <div v-for="media in questionMedia" :key="media.id" class="question-media-admin-row">
+                <span>{{ media.alt_text }}</span>
+                <button type="button" class="remove-option" @click="removeQuestionMedia(media.id)">Hapus</button>
+              </div>
+              <div v-if="editingId !== null" class="media-upload-fields">
+                <input v-model="mediaAltText" placeholder="Teks alternatif gambar" maxlength="255" />
+                <input v-model="mediaCaption" placeholder="Keterangan gambar (opsional)" maxlength="1000" />
+                <label class="media-file-picker">
+                  <span>{{ mediaUploading ? 'Mengunggah...' : 'Pilih gambar' }}</span>
+                  <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" :disabled="mediaUploading" @change="uploadQuestionImage" />
+                </label>
+              </div>
+              <p v-else class="field-hint">Setelah soal disimpan, buka kembali soal ini untuk menambahkan gambar.</p>
+            </fieldset>
+
             <fieldset>
               <legend>Opsi Jawaban</legend>
               <div v-for="(option, index) in draft.options" :key="index" class="option-editor">
@@ -359,6 +378,7 @@ import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import MathText from '@/components/MathText.vue';
+import QuestionMediaGallery from '@/components/QuestionMediaGallery.vue';
 import CurriculumPanel from '@/components/CurriculumPanel.vue';
 import ReportsPanel from '@/components/ReportsPanel.vue';
 import RuasSelect from '@/components/RuasSelect.vue';
@@ -372,12 +392,14 @@ import {
   fetchAdminQuestions,
   fetchAdminSchedule,
   fetchAdminTopics,
+  deleteAdminQuestionMedia,
   importAdminQuestions,
+  uploadAdminQuestionMedia,
   updateAdminTopicAccess,
   updateAdminQuestion,
   updateAdminSchedule,
 } from '@/api/client';
-import type { AdminQuestionInput, AdminQuestionListItem, AdminTopic, AssessmentSchedule, ImportSummary } from '@/types';
+import type { AdminQuestionInput, AdminQuestionListItem, AdminTopic, AssessmentSchedule, ImportSummary, QuestionMedia } from '@/types';
 import { connectAdminRealtime, dispatchAdminRealtimeEvent, type AdminRealtimeEvent, type AdminRealtimeStatus } from '@/lib/admin-realtime';
 
 const router = useRouter();
@@ -425,6 +447,10 @@ const questionTotal = ref(0);
 const questionTotalPages = ref(1);
 const questionFormOpen = ref(false);
 const importFormOpen = ref(false);
+const questionMedia = ref<QuestionMedia[]>([]);
+const mediaAltText = ref('');
+const mediaCaption = ref('');
+const mediaUploading = ref(false);
 let questionSearchTimer: ReturnType<typeof setTimeout> | null = null;
 const difficultyFilters: Array<{ value: AdminQuestionListItem['difficulty'] | 'all'; label: string }> = [
   { value: 'all', label: 'Semua' },
@@ -562,6 +588,9 @@ function setDraft(input: AdminQuestionInput) {
 
 function resetDraft() {
   setDraft(createDraft());
+  questionMedia.value = [];
+  mediaAltText.value = '';
+  mediaCaption.value = '';
   editingId.value = null;
   formMessage.value = '';
 }
@@ -818,6 +847,9 @@ async function editQuestion(id: number) {
       explanation_text: question.explanation_text,
       options: question.options,
     });
+    questionMedia.value = question.media ?? [];
+    mediaAltText.value = '';
+    mediaCaption.value = '';
     editingId.value = id;
     formMessage.value = '';
     questionFormOpen.value = true;
@@ -837,6 +869,43 @@ function addOption() {
 
 function removeOption(index: number) {
   draft.options.splice(index, 1);
+}
+
+async function uploadQuestionImage(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = '';
+  if (!file || editingId.value === null) return;
+
+  mediaUploading.value = true;
+  try {
+    const media = await uploadAdminQuestionMedia(editingId.value, file, mediaAltText.value, mediaCaption.value);
+    questionMedia.value.push(media);
+    mediaAltText.value = '';
+    mediaCaption.value = '';
+    formMessageType.value = 'success';
+    formMessage.value = 'Gambar berhasil diunggah.';
+  } catch (error) {
+    formMessageType.value = 'error';
+    formMessage.value = error instanceof Error ? error.message : 'Gagal mengunggah gambar.';
+  } finally {
+    mediaUploading.value = false;
+  }
+}
+
+function removeQuestionMedia(mediaId: number) {
+  if (editingId.value === null) return;
+  askConfirmation('Hapus gambar?', 'Gambar ini akan dihapus dari soal.', async () => {
+    try {
+      await deleteAdminQuestionMedia(editingId.value as number, mediaId);
+      questionMedia.value = questionMedia.value.filter((media) => media.id !== mediaId);
+      formMessageType.value = 'success';
+      formMessage.value = 'Gambar berhasil dihapus.';
+    } catch (error) {
+      formMessageType.value = 'error';
+      formMessage.value = error instanceof Error ? error.message : 'Gagal menghapus gambar.';
+    }
+  }, 'Hapus');
 }
 
 async function saveQuestion() {
@@ -1091,6 +1160,11 @@ legend { padding: 0 6px; color: #445566; font-weight: 600; }
 .topic-mapping-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; max-height: 210px; overflow-y: auto; padding: 2px; }
 .topic-mapping-option { display: flex; flex-direction: row; align-items: flex-start; gap: 8px; padding: 9px 10px; border: 1px solid #dbe6f2; border-radius: 8px; color: #445566; font-size: .82rem; font-weight: 600; cursor: pointer; }
 .topic-mapping-option input { flex: 0 0 auto; margin-top: 2px; accent-color: #2454be; }
+.question-media-fieldset .question-media-gallery { margin: 8px 0; }
+.question-media-admin-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border: 1px solid #dbe6f2; border-radius: 8px; color: #445566; font-size: .82rem; }
+.media-upload-fields { display: grid; gap: 8px; }
+.media-file-picker { display: inline-flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px dashed #a9c3df; border-radius: 8px; color: #2454be; background: #f5f9ff; cursor: pointer; }
+.media-file-picker input { max-width: 220px; font-size: .75rem; }
 .option-editor { display: flex; align-items: center; gap: 8px; }
 .option-key-input { width: 54px; padding: 8px; border: 1px solid #d4dde6; border-radius: 6px; }
 .option-text-input { min-width: 0; flex: 1; padding: 8px; border: 1px solid #d4dde6; border-radius: 6px; }

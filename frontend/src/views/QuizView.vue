@@ -97,6 +97,7 @@
             <article v-for="item in examReview" :key="item.question_id" class="review-item">
               <div class="review-item-heading"><strong>Soal nomor {{ item.question_number }}</strong><span :class="item.is_correct ? 'review-correct' : 'review-incorrect'">{{ item.is_correct ? 'Benar' : 'Salah' }}</span></div>
               <MathText :text="item.question_text" />
+              <QuestionMediaGallery :media="item.media" />
               <div class="review-explanation"><strong>Pembahasan</strong><MathText :text="item.explanation" /></div>
             </article>
           </template>
@@ -120,7 +121,7 @@
               </div>
               <span class="question-type-label">{{ questionTypeLabel }}</span>
             </div>
-            <div class="pane-scroll question-scroll"><MathText :text="question.question_text" /></div>
+            <div class="pane-scroll question-scroll"><MathText :text="question.question_text" /><QuestionMediaGallery :media="question.media" /></div>
           </section>
 
           <section class="exam-pane answer-pane">
@@ -258,6 +259,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router';
 import MathText from '@/components/MathText.vue';
+import QuestionMediaGallery from '@/components/QuestionMediaGallery.vue';
 import OptionList from '@/components/OptionList.vue';
 import ExplanationPanel from '@/components/ExplanationPanel.vue';
 import TimerBar from '@/components/TimerBar.vue';

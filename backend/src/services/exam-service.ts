@@ -16,12 +16,15 @@ import { canParticipantAccessTopic } from '@/services/topic-access-service';
 import { publishRealtimeEvent } from '@/lib/realtime-events';
 import { topicClasses } from '@/db/schema/topic-classes';
 import { topicQuestions } from '@/db/schema/topic-questions';
+import { questionMedia } from '@/db/schema/question-media';
+import type { MediaStorage } from '@/services/media-storage';
+import { listQuestionMedia } from '@/services/question-media-service';
 
 type ExamDb = ReturnType<typeof drizzle>;
 let expiryRun: Promise<number> | null = null;
 
 export function createExamDb(pool: Pool) {
-  return drizzle(pool, { schema: { examAnswers, examAttempts, examIntegrityEvents, participantProfiles, questionOptions, questions, subjects, topics, topicClasses, topicQuestions, users }, mode: 'default' });
+  return drizzle(pool, { schema: { examAnswers, examAttempts, examIntegrityEvents, participantProfiles, questionMedia, questionOptions, questions, subjects, topics, topicClasses, topicQuestions, users }, mode: 'default' });
 }
 
 export interface ExamSettings {
@@ -231,7 +234,7 @@ export async function getQuestionExplanationMode(db: ExamDb, questionId: number)
   return row?.explanation_mode ?? 'hidden';
 }
 
-export async function getNextAttemptQuestion(db: ExamDb, attemptId: number, identityKey: string) {
+export async function getNextAttemptQuestion(db: ExamDb, attemptId: number, identityKey: string, mediaStorage: MediaStorage | null = null) {
   const attempt = await findAttempt(db, attemptId, identityKey);
   if (!attempt) return null;
   if (isAttemptExpired(attempt)) {
@@ -262,10 +265,11 @@ export async function getNextAttemptQuestion(db: ExamDb, attemptId: number, iden
     .sort((left, right) => (optionPosition.get(left.key) ?? left.display_order) - (optionPosition.get(right.key) ?? right.display_order))
     .map(({ key, text }) => ({ key, text }));
 
-  return { question: { ...question, options } };
+  const media = await listQuestionMedia(db, nextQuestionId, mediaStorage);
+  return { question: { ...question, options, media } };
 }
 
-export async function getAttemptQuestion(db: ExamDb, attemptId: number, identityKey: string, questionNumber: number) {
+export async function getAttemptQuestion(db: ExamDb, attemptId: number, identityKey: string, questionNumber: number, mediaStorage: MediaStorage | null = null) {
   const attempt = await findAttempt(db, attemptId, identityKey);
   if (!attempt || isAttemptExpired(attempt)) {
     if (attempt && isAttemptExpired(attempt)) await completeAttempt(db, attemptId, identityKey);
@@ -298,8 +302,9 @@ export async function getAttemptQuestion(db: ExamDb, attemptId: number, identity
     .where(and(eq(examAnswers.attempt_id, attemptId), eq(examAnswers.question_id, questionId)))
     .limit(1);
 
+  const media = await listQuestionMedia(db, questionId, mediaStorage);
   return {
-    question: { ...question, options },
+    question: { ...question, options, media },
     question_number: questionNumber,
     total_questions: order.question_order.length,
     selected_keys: parseSelectedKeys(answer?.selected_keys),
@@ -415,7 +420,7 @@ export async function findAttemptAnswers(db: ExamDb, attemptId: number, identity
   return answers.map((answer) => ({ ...answer, selected_keys: parseSelectedKeys(answer.selected_keys) }));
 }
 
-export async function getExamReview(db: ExamDb, attemptId: number, identityKey: string) {
+export async function getExamReview(db: ExamDb, attemptId: number, identityKey: string, mediaStorage: MediaStorage | null = null) {
   const attempt = await findAttempt(db, attemptId, identityKey);
   if (!attempt) return null;
 
@@ -443,8 +448,12 @@ export async function getExamReview(db: ExamDb, attemptId: number, identityKey: 
     .orderBy(asc(examAnswers.id));
 
   const items = orderExamReviewItems(rows, order.question_order);
+  const mediaByQuestion = new Map<number, Awaited<ReturnType<typeof listQuestionMedia>>>();
+  await Promise.all([...new Set(items.map((item) => item.question_id))].map(async (questionId) => {
+    mediaByQuestion.set(questionId, await listQuestionMedia(db, questionId, mediaStorage));
+  }));
 
-  return { mode, items };
+  return { mode, items: items.map((item) => ({ ...item, media: mediaByQuestion.get(item.question_id) ?? [] })) };
 }
 
 export async function createAttempt(

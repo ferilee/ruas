@@ -76,7 +76,7 @@ describe('examAttemptRoutes next question', () => {
         options: [{ key: 'A', text: 'Pilihan A' }],
       },
     });
-    expect(getNextAttemptQuestionMock).toHaveBeenCalledWith({}, 7, 'siswa-01');
+    expect(getNextAttemptQuestionMock).toHaveBeenCalledWith({}, 7, 'siswa-01', null);
   });
 
   it('blocks manual submission before the minimum duration', async () => {
@@ -109,7 +109,7 @@ describe('examAttemptRoutes next question', () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({ question_number: 2, is_doubtful: true });
-    expect(getAttemptQuestionMock).toHaveBeenCalledWith({}, 7, 'siswa-01', 2);
+    expect(getAttemptQuestionMock).toHaveBeenCalledWith({}, 7, 'siswa-01', 2, null);
   });
 
   it('saves the doubtful status for a question', async () => {

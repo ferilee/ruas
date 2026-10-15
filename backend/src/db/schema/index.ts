@@ -4,6 +4,7 @@ export { topicClasses } from './topic-classes';
 export { topicQuestions } from './topic-questions';
 export { questions } from './questions';
 export { questionOptions } from './question-options';
+export { questionMedia } from './question-media';
 export { assessmentSchedule } from './assessment-schedule';
 export { educationClasses } from './education-classes';
 export { assessmentTypes } from './assessment-types';

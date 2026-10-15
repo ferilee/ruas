@@ -22,6 +22,7 @@ import { adminReportRoutes } from './routes/admin-reports';
 import { adminRealtimeRoutes } from './routes/admin-realtime';
 import { publishRealtimeEvent } from './lib/realtime-events';
 import type { Pool } from './db/connection';
+import type { MediaStorage } from './services/media-storage';
 
 declare module 'hono' {
   interface ContextVariableMap {
@@ -37,6 +38,7 @@ interface AppConfig {
   appPassword: string;
   adminPassword?: string;
   examExitPassword?: string;
+  mediaStorage?: MediaStorage | null;
 }
 
 export function createApp(config: AppConfig) {
@@ -109,15 +111,15 @@ export function createApp(config: AppConfig) {
 
   app.route('/api/subjects', subjectsRoutes(config.pool));
   app.route('/api/topics', topicsRoutes(config.pool));
-  app.route('/api/questions', questionsRoutes(config.pool));
-  app.route('/api/admin/questions', adminQuestionRoutes(config.pool));
+  app.route('/api/questions', questionsRoutes(config.pool, config.mediaStorage ?? null));
+  app.route('/api/admin/questions', adminQuestionRoutes(config.pool, config.mediaStorage ?? null));
   app.route('/api/admin/topics', adminTopicsRoutes(config.pool));
   app.route('/api/schedule', assessmentScheduleRoutes(config.pool));
   app.route('/api/admin/schedule', adminScheduleRoutes(config.pool));
   app.route('/api/exam/exit', examExitRoutes(config.examExitPassword ?? config.adminPassword ?? ''));
   app.route('/api/curriculum', curriculumRoutes(config.pool));
   app.route('/api/profile', participantProfileRoutes(config.pool));
-  app.route('/api/exam/attempts', examAttemptRoutes(config.pool));
+  app.route('/api/exam/attempts', examAttemptRoutes(config.pool, config.mediaStorage ?? null));
   app.route('/api/admin/curriculum', adminCurriculumRoutes(config.pool));
   app.route('/api/admin/users', adminUserRoutes(config.pool));
   app.route('/api/admin/reports', adminReportRoutes(config.pool));

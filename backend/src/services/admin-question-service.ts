@@ -9,6 +9,8 @@ import type { Pool } from '@/db/connection';
 import type { QuestionType } from '@/lib/scoring';
 import { hashTopicToken, normalizeTopicToken } from '@/lib/topic-token';
 import type { AdminQuestionInput, ImportQuestion } from '@/validators/admin-question-validator';
+import type { MediaStorage } from '@/services/media-storage';
+import { listQuestionMediaRecords } from '@/services/question-media-service';
 
 type AdminDb = ReturnType<typeof drizzle>;
 type InsertDb = Pick<AdminDb, 'insert'>;
@@ -262,7 +264,7 @@ export async function updateAdminQuestion(
 
 export type DeleteAdminQuestionResult = 'deleted' | 'not_found' | 'in_use';
 
-export async function deleteAdminQuestion(db: AdminDb, questionId: number): Promise<DeleteAdminQuestionResult> {
+export async function deleteAdminQuestion(db: AdminDb, questionId: number, mediaStorage: MediaStorage | null = null): Promise<DeleteAdminQuestionResult> {
   const existing = await findAdminQuestion(db, questionId);
   if (!existing) return 'not_found';
 
@@ -273,11 +275,19 @@ export async function deleteAdminQuestion(db: AdminDb, questionId: number): Prom
 
   if (Number(answerCount?.total ?? 0) > 0) return 'in_use';
 
+  const media = mediaStorage ? await listQuestionMediaRecords(db, questionId) : [];
+
   await db.transaction(async (tx) => {
     await tx.delete(schema.topicQuestions).where(eq(schema.topicQuestions.question_id, questionId));
     await tx.delete(questionOptions).where(eq(questionOptions.question_id, questionId));
     await tx.delete(questions).where(eq(questions.id, questionId));
   });
+
+  if (mediaStorage) {
+    await Promise.all(media.map((item) => mediaStorage.remove(item.object_key).catch((error) => {
+      console.error(`[media] Failed to remove deleted question object ${item.object_key}`, error);
+    })));
+  }
 
   return 'deleted';
 }

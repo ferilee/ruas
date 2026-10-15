@@ -173,6 +173,7 @@ describe('questionsRoutes', () => {
           { key: 'A', text: 'Opsi A' },
           { key: 'B', text: 'Opsi B' },
         ],
+        media: [],
       },
     });
     randomSpy.mockRestore();

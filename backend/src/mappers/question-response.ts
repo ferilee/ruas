@@ -1,4 +1,5 @@
 import type { QuestionType } from '@/lib/scoring';
+import type { QuestionMediaResponse } from '@/services/question-media-service';
 
 interface QuestionOptionResponse {
   key: string;
@@ -24,6 +25,7 @@ interface CheckAnswerResult {
 export function mapRandomQuestionResponse(
   question: QuestionRow,
   options: QuestionOptionResponse[],
+  media: QuestionMediaResponse[] = [],
 ) {
   return {
     question: {
@@ -32,6 +34,7 @@ export function mapRandomQuestionResponse(
       difficulty: question.difficulty,
       question_text: question.question_text,
       options,
+      media,
     },
   };
 }

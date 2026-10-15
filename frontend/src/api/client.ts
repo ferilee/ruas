@@ -23,6 +23,7 @@ import type {
   ParticipantProfile,
   ParticipantProfileInput,
   Question,
+  QuestionMedia,
   Subject,
   Topic,
 } from '@/types';
@@ -90,7 +91,8 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
 
 async function adminRequest<T>(url: string, options?: RequestInit): Promise<T> {
   const token = sessionStorage.getItem('admin_token');
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const headers: Record<string, string> = {};
+  if (!(options?.body instanceof FormData)) headers['Content-Type'] = 'application/json';
   if (token) headers['x-admin-token'] = token;
 
   const mergedHeaders = { ...headers, ...(options?.headers as Record<string, string>) };
@@ -273,6 +275,19 @@ export async function fetchAdminQuestions(filters: { search?: string; topic_id?:
 export async function fetchAdminQuestion(id: number): Promise<AdminQuestion> {
   const data = await adminRequest<{ question: AdminQuestion }>(`/admin/questions/${id}`);
   return data.question;
+}
+
+export async function uploadAdminQuestionMedia(questionId: number, file: File, altText = '', caption = ''): Promise<QuestionMedia> {
+  const form = new FormData();
+  form.append('file', file);
+  if (altText.trim()) form.append('alt_text', altText.trim());
+  if (caption.trim()) form.append('caption', caption.trim());
+  const data = await adminRequest<{ media: QuestionMedia }>(`/admin/questions/${questionId}/media`, { method: 'POST', body: form });
+  return data.media;
+}
+
+export async function deleteAdminQuestionMedia(questionId: number, mediaId: number): Promise<void> {
+  await adminRequest(`/admin/questions/${questionId}/media/${mediaId}`, { method: 'DELETE' });
 }
 
 export async function fetchAdminTopics(): Promise<AdminTopic[]> {

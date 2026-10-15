@@ -18,6 +18,12 @@ export interface AppConfig {
   DB_USER: string;
   DB_PASSWORD: string;
   DB_NAME: string;
+  RUSTFS_ENDPOINT: string;
+  RUSTFS_PUBLIC_ENDPOINT: string;
+  RUSTFS_ACCESS_KEY: string;
+  RUSTFS_SECRET_KEY: string;
+  RUSTFS_BUCKET: string;
+  RUSTFS_REGION: string;
 }
 
 let cachedConfig: AppConfig | null = null;
@@ -74,6 +80,12 @@ export function loadConfig(): AppConfig {
     DB_USER: getEnvValue(process.env.DB_USER, fileEnv.DB_USER, 'root'),
     DB_PASSWORD: getEnvValue(process.env.DB_PASSWORD, fileEnv.DB_PASSWORD, ''),
     DB_NAME: getEnvValue(process.env.DB_NAME, fileEnv.DB_NAME, 'ruas_belajar'),
+    RUSTFS_ENDPOINT: getEnvValue(process.env.RUSTFS_ENDPOINT, fileEnv.RUSTFS_ENDPOINT, ''),
+    RUSTFS_PUBLIC_ENDPOINT: getEnvValue(process.env.RUSTFS_PUBLIC_ENDPOINT, fileEnv.RUSTFS_PUBLIC_ENDPOINT, ''),
+    RUSTFS_ACCESS_KEY: getEnvValue(process.env.RUSTFS_ACCESS_KEY, fileEnv.RUSTFS_ACCESS_KEY, ''),
+    RUSTFS_SECRET_KEY: getEnvValue(process.env.RUSTFS_SECRET_KEY, fileEnv.RUSTFS_SECRET_KEY, ''),
+    RUSTFS_BUCKET: getEnvValue(process.env.RUSTFS_BUCKET, fileEnv.RUSTFS_BUCKET, 'ruas-media'),
+    RUSTFS_REGION: getEnvValue(process.env.RUSTFS_REGION, fileEnv.RUSTFS_REGION, 'us-east-1'),
   };
 
   return cachedConfig;
