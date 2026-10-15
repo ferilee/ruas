@@ -55,6 +55,8 @@ access key atau secret key ke frontend.
 
 Buat bucket `ruas-media` melalui RustFS Console atau API S3. Bucket dapat tetap
 private karena RUAS memberikan presigned URL sementara untuk setiap gambar.
+Gambar soal yang diunggah dalam format JPG, PNG, WEBP, atau GIF dikonversi oleh
+backend menjadi WebP dengan kualitas 80 sebelum disimpan ke bucket.
 API S3 RustFS menggunakan port `9000`, sedangkan Console menggunakan port
 `9001`.
 

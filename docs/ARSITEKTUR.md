@@ -152,7 +152,7 @@ tanggal lahir, dan token sesi setelah login pertama.
 | question_id | int FK | → questions.id; cascade saat soal dihapus |
 | object_key | varchar(500) unique | Key object pada bucket RustFS |
 | original_name | varchar(255) | Nama file asli |
-| mime_type | varchar(100) | JPG, PNG, WEBP, atau GIF |
+| mime_type | varchar(100) | `image/webp` setelah konversi kualitas 80 |
 | file_size | int | Ukuran file dalam byte |
 | alt_text | varchar(255) | Teks alternatif gambar |
 | caption | text nullable | Keterangan gambar |

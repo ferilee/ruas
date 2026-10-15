@@ -16,6 +16,7 @@ import {
   updateAdminQuestion,
 } from '@/services/admin-question-service';
 import { findQuestionMediaRecord, listQuestionMedia } from '@/services/question-media-service';
+import { convertQuestionImageToWebp } from '@/services/image-processor';
 import type { MediaStorage } from '@/services/media-storage';
 
 const questionListQuerySchema = z.object({
@@ -41,12 +42,6 @@ const mediaUploadSchema = z.object({
 });
 
 const allowedMediaTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
-const mediaExtensions: Record<string, string> = {
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-  'image/gif': 'gif',
-};
 
 export function adminQuestionRoutes(pool: Pool, mediaStorage: MediaStorage | null = null) {
   const db = createAdminDb(pool);
@@ -86,18 +81,25 @@ export function adminQuestionRoutes(pool: Pool, mediaStorage: MediaStorage | nul
     const metadata = mediaUploadSchema.safeParse({ alt_text: body.alt_text, caption: body.caption });
     if (!metadata.success) return c.json({ error: 'invalid_body', message: metadata.error.issues[0]?.message ?? 'Keterangan gambar tidak valid.' }, 400);
 
-    const originalName = file.name.trim().slice(0, 255) || `gambar.${mediaExtensions[file.type]}`;
+    const originalName = file.name.trim().slice(0, 255) || 'gambar';
     const altText = metadata.data.alt_text || originalName.replace(/\.[^.]+$/, '').slice(0, 255);
-    const objectKey = `questions/${questionId}/${crypto.randomUUID()}.${mediaExtensions[file.type]}`;
+    let convertedImage;
+    try {
+      convertedImage = await convertQuestionImageToWebp(new Uint8Array(await file.arrayBuffer()));
+    } catch {
+      return c.json({ error: 'invalid_image', message: 'Isi file gambar tidak dapat diproses.' }, 400);
+    }
+
+    const objectKey = `questions/${questionId}/${crypto.randomUUID()}.webp`;
 
     try {
-      await mediaStorage.upload(objectKey, new Uint8Array(await file.arrayBuffer()), file.type);
+      await mediaStorage.upload(objectKey, convertedImage.body, convertedImage.contentType);
       const [inserted] = await db.insert(questionMedia).values({
         question_id: questionId,
         object_key: objectKey,
         original_name: originalName,
-        mime_type: file.type,
-        file_size: file.size,
+        mime_type: convertedImage.contentType,
+        file_size: convertedImage.fileSize,
         alt_text: altText,
         caption: metadata.data.caption || null,
         display_order: 0,

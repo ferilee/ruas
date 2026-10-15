@@ -244,9 +244,11 @@
               <legend>Paket/topik yang menyertakan soal</legend>
               <p class="field-hint">Satu soal dapat digunakan di beberapa topik. Topik utama di atas selalu disertakan.</p>
               <div class="topic-mapping-grid">
-                <label v-for="topic in topics" :key="topic.id" class="topic-mapping-option">
-                  <input v-model="draft.topic_ids" type="checkbox" :value="topic.id" />
-                  <span>{{ topic.subject_label }} · {{ topic.label }}</span>
+                <label v-for="topic in topics" :key="topic.id" :class="['topic-mapping-option', { selected: draft.topic_ids.includes(topic.id) }]">
+                  <input v-model="draft.topic_ids" class="topic-mapping-checkbox" type="checkbox" :value="topic.id" />
+                  <span class="topic-mapping-icon" aria-hidden="true">▦</span>
+                  <span class="topic-mapping-copy"><strong>{{ topic.label }}</strong><small>{{ topic.subject_label || 'Tanpa mata pelajaran' }}</small></span>
+                  <span class="topic-mapping-check" aria-hidden="true">✓</span>
                 </label>
               </div>
             </fieldset>
@@ -275,7 +277,7 @@
 
             <fieldset class="question-media-fieldset">
               <legend>Gambar pertanyaan</legend>
-              <p class="field-hint">Simpan soal terlebih dahulu sebelum mengunggah gambar. Format JPG, PNG, WEBP, atau GIF, maksimal 10 MB.</p>
+              <p class="field-hint">Simpan soal terlebih dahulu sebelum mengunggah gambar. JPG, PNG, WEBP, atau GIF maksimal 10 MB akan dikonversi ke WebP kualitas 80.</p>
               <QuestionMediaGallery :media="questionMedia" />
               <div v-for="media in questionMedia" :key="media.id" class="question-media-admin-row">
                 <span>{{ media.alt_text }}</span>
@@ -1158,8 +1160,16 @@ fieldset { border: 1px solid #d4dde6; border-radius: 8px; padding: 12px; display
 legend { padding: 0 6px; color: #445566; font-weight: 600; }
 .topic-mapping-fieldset { gap: 10px; }
 .topic-mapping-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; max-height: 210px; overflow-y: auto; padding: 2px; }
-.topic-mapping-option { display: flex; flex-direction: row; align-items: flex-start; gap: 8px; padding: 9px 10px; border: 1px solid #dbe6f2; border-radius: 8px; color: #445566; font-size: .82rem; font-weight: 600; cursor: pointer; }
-.topic-mapping-option input { flex: 0 0 auto; margin-top: 2px; accent-color: #2454be; }
+.topic-mapping-option { position: relative; display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center; gap: 9px; min-width: 0; padding: 12px; border: 1px solid #dbe6f2; border-radius: 12px; color: #445566; background: #fbfdff; font-size: .82rem; font-weight: 600; cursor: pointer; transition: border-color .16s ease, background .16s ease, box-shadow .16s ease, transform .16s ease; }
+.topic-mapping-option:hover { border-color: #8db8e8; background: #f5f9ff; transform: translateY(-1px); }
+.topic-mapping-option.selected { border-color: #4f83d9; background: linear-gradient(135deg, #f1f7ff, #fff); box-shadow: 0 5px 12px rgba(53, 111, 200, .1); }
+.topic-mapping-checkbox { width: 18px !important; height: 18px; flex: 0 0 auto; margin: 0; padding: 0 !important; accent-color: #2454be; cursor: pointer; }
+.topic-mapping-icon { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 9px; color: #2b6dc2; background: #e7f1ff; font-size: .9rem; }
+.topic-mapping-copy { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.topic-mapping-copy strong { overflow: hidden; color: #274d7f; font-size: .79rem; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
+.topic-mapping-copy small { overflow: hidden; color: #7b91aa; font-size: .68rem; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.topic-mapping-check { display: grid; width: 21px; height: 21px; place-items: center; border-radius: 50%; color: transparent; background: #e9eff6; font-size: .72rem; font-weight: 800; }
+.topic-mapping-option.selected .topic-mapping-check { color: #fff; background: #2e6ed0; }
 .question-media-fieldset .question-media-gallery { margin: 8px 0; }
 .question-media-admin-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border: 1px solid #dbe6f2; border-radius: 8px; color: #445566; font-size: .82rem; }
 .media-upload-fields { display: grid; gap: 8px; }
