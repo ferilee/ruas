@@ -39,6 +39,37 @@ interface PreviousAttemptOrder {
   option_order: Record<string, string[]>;
 }
 
+export function normalizeAttemptOrder(questionOrderValue: unknown, optionOrderValue: unknown): AttemptOrder | null {
+  let questionOrder: unknown = questionOrderValue;
+  if (typeof questionOrder === 'string') {
+    try {
+      questionOrder = JSON.parse(questionOrder);
+    } catch {
+      return null;
+    }
+  }
+  if (!Array.isArray(questionOrder)) return null;
+
+  let optionOrder: unknown = optionOrderValue;
+  if (typeof optionOrder === 'string') {
+    try {
+      optionOrder = JSON.parse(optionOrder);
+    } catch {
+      return null;
+    }
+  }
+  if (!optionOrder || typeof optionOrder !== 'object' || Array.isArray(optionOrder)) return null;
+
+  const normalizedQuestionOrder = questionOrder.map(Number).filter((id) => Number.isInteger(id) && id > 0);
+  const normalizedOptionOrder: Record<string, string[]> = {};
+  for (const [questionId, keys] of Object.entries(optionOrder)) {
+    if (Array.isArray(keys)) normalizedOptionOrder[questionId] = keys.filter((key): key is string => typeof key === 'string' && key.length > 0);
+  }
+  if (normalizedQuestionOrder.length === 0) return null;
+
+  return { question_order: normalizedQuestionOrder, option_order: normalizedOptionOrder };
+}
+
 export function orderExamReviewItems<T extends { question_id: number }>(rows: T[], questionOrder: number[]) {
   const questionPositions = new Map(questionOrder.map((questionId, index) => [questionId, index + 1]));
   return rows
@@ -165,8 +196,9 @@ async function buildAttemptOrder(db: ExamDb, topicId: number, previousOrders: Pr
 }
 
 async function ensureAttemptOrder(db: ExamDb, attempt: typeof examAttempts.$inferSelect): Promise<AttemptOrder> {
-  if (Array.isArray(attempt.question_order) && attempt.question_order.length > 0 && attempt.option_order && typeof attempt.option_order === 'object') {
-    const order = { question_order: attempt.question_order, option_order: attempt.option_order };
+  const persistedOrder = normalizeAttemptOrder(attempt.question_order, attempt.option_order);
+  if (persistedOrder) {
+    const order = persistedOrder;
     if (attempt.total_questions !== order.question_order.length) {
       await db.update(examAttempts)
         .set({ total_questions: order.question_order.length })
