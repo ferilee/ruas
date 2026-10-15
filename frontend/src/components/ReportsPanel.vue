@@ -17,7 +17,10 @@
     <section :class="['panel', 'filters-panel', 'no-print', { collapsed: !filtersOpen }]">
       <div class="panel-heading">
         <div><h3>Filter laporan</h3><p>Secara default hanya asesmen yang sudah selesai yang ditampilkan.</p><div v-if="activeFilterLabels.length" class="active-filter-summary"><span v-for="filter in activeFilterLabels" :key="filter">{{ filter }}</span></div></div>
-        <button class="filter-toggle" type="button" :aria-expanded="filtersOpen" @click="filtersOpen = !filtersOpen">{{ filtersOpen ? 'Sembunyikan filter' : 'Tampilkan filter' }} <span aria-hidden="true">{{ filtersOpen ? '⌃' : '⌄' }}</span></button>
+        <div class="filter-panel-actions">
+          <span v-if="realtimeRefreshing" class="filter-live-status" aria-live="polite">Memperbarui realtime…</span>
+          <button class="filter-toggle" type="button" :aria-expanded="filtersOpen" @click="filtersOpen = !filtersOpen">{{ filtersOpen ? 'Sembunyikan filter' : 'Tampilkan filter' }} <span aria-hidden="true">{{ filtersOpen ? '⌃' : '⌄' }}</span></button>
+        </div>
       </div>
       <div v-show="filtersOpen" class="filter-grid">
         <label>Status<RuasSelect v-model="filters.status" :options="statusOptions" aria-label="Status laporan" @change="loadReport" /></label>
@@ -164,6 +167,7 @@ const loading = ref(false);
 const errorMessage = ref('');
 const successMessage = ref('');
 const filtersOpen = ref(false);
+const realtimeRefreshing = ref(false);
 const resetCount = ref(0);
 const resetting = ref(false);
 const resetConfirmOpen = ref(false);
@@ -255,7 +259,6 @@ async function loadReport() {
     rows.value = data.rows;
     summary.value = data.summary;
     classStatistics.value = data.class_statistics;
-    filtersOpen.value = false;
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Gagal memuat laporan.';
   } finally {
@@ -357,7 +360,11 @@ function eventLabel(type: string) {
 
 function handleRealtime(event: Event) {
   const detail = (event as CustomEvent<AdminRealtimeEvent>).detail;
-  if (detail?.resource === 'attempts' || detail?.resource === 'reports') void Promise.all([loadReport(), loadResetCount()]);
+  if (detail?.resource !== 'attempts' && detail?.resource !== 'reports') return;
+  realtimeRefreshing.value = true;
+  void Promise.all([loadReport(), loadResetCount()]).finally(() => {
+    realtimeRefreshing.value = false;
+  });
 }
 
 onMounted(async () => {
@@ -393,7 +400,7 @@ button:disabled { opacity: .55; cursor: default; }
 .panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .panel-heading h3 { color: #1e40af; font-size: 1.04rem; }
 .panel-heading p { margin-top: 4px; color: #71849b; font-size: .8rem; }
-.filters-panel { transition: box-shadow .2s ease, background .2s ease; }.filters-panel.collapsed { padding-bottom: 15px; background: #fbfdff; box-shadow: 0 5px 14px rgba(31, 74, 126, .04); }.filter-toggle { flex: 0 0 auto; padding: 8px 11px; border: 1px solid #c5d9ef; border-radius: 9px; color: #246bc5; background: #fff; font: inherit; font-size: .74rem; font-weight: 800; cursor: pointer; }.filter-toggle:hover { background: #edf6ff; }.filter-toggle span { margin-left: 4px; font-size: .95rem; }
+.filters-panel { transition: box-shadow .2s ease, background .2s ease; }.filters-panel.collapsed { padding-bottom: 15px; background: #fbfdff; box-shadow: 0 5px 14px rgba(31, 74, 126, .04); }.filter-panel-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }.filter-live-status { color: #2875c8; font-size: .7rem; font-weight: 700; white-space: nowrap; }.filter-toggle { flex: 0 0 auto; padding: 8px 11px; border: 1px solid #c5d9ef; border-radius: 9px; color: #246bc5; background: #fff; font: inherit; font-size: .74rem; font-weight: 800; cursor: pointer; }.filter-toggle:hover { background: #edf6ff; }.filter-toggle span { margin-left: 4px; font-size: .95rem; }
 .active-filter-summary { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }.active-filter-summary span { padding: 4px 8px; border-radius: 999px; color: #2b63a3; background: #eaf3ff; font-size: .67rem; font-weight: 700; }
 .filter-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-top: 18px; }
 label { display: flex; flex-direction: column; gap: 6px; color: #435d7d; font-size: .78rem; font-weight: 700; }
