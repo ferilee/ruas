@@ -29,6 +29,18 @@ interface UseQuizSessionOptions {
   getQueryTopicLabel: () => string;
 }
 
+function normalizeSelectedKeys(value: unknown): string[] {
+  if (Array.isArray(value)) return value.filter((item): item is string => typeof item === 'string' && item.length > 0);
+  if (typeof value !== 'string' || value.trim().length === 0) return [];
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? normalizeSelectedKeys(parsed) : typeof parsed === 'string' ? [parsed] : [];
+  } catch {
+    return [value.trim()];
+  }
+}
+
 export function useQuizSession(options: UseQuizSessionOptions) {
   const state = ref<QuizState>('loading');
   const question = ref<Question | null>(null);
@@ -183,8 +195,9 @@ export function useQuizSession(options: UseQuizSessionOptions) {
       question.value = loaded.question;
       currentQuestionNumber.value = loaded.question_number;
       setQuestionIdAtNumber(loaded.question_number, loaded.question.id);
-      selectedKeys.value = loaded.selected_keys;
-      savedSelectedKeys.value = [...loaded.selected_keys];
+      const restoredSelectedKeys = normalizeSelectedKeys(loaded.selected_keys);
+      selectedKeys.value = restoredSelectedKeys;
+      savedSelectedKeys.value = [...restoredSelectedKeys];
       savedElapsedSeconds.value = loaded.answered ? (loaded.elapsed_seconds ?? 0) : null;
       finalTime.value = loaded.answered ? (loaded.elapsed_seconds ?? 0) : 0;
       if (loaded.answered) {

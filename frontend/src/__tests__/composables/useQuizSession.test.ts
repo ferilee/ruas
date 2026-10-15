@@ -559,6 +559,33 @@ describe('useQuizSession', () => {
     expect(session.currentQuestionDoubtful.value).toBe(true);
   });
 
+  it('restores a saved answer when the API returns selected keys as JSON text', async () => {
+    fetchQuestionCount.mockResolvedValue(2);
+    fetchNextAttemptQuestion.mockResolvedValue(firstQuestion);
+    fetchAttemptQuestion.mockResolvedValue({
+      question: secondQuestion,
+      question_number: 2,
+      total_questions: 2,
+      selected_keys: '["B"]',
+      elapsed_seconds: 12,
+      answered: true,
+      is_doubtful: false,
+    } as never);
+
+    const session = useQuizSession({
+      getTopicId: () => 11,
+      getQuerySubjectId: () => 7,
+      getQueryTopicLabel: () => 'Aljabar',
+    });
+
+    await session.initializeSession();
+    await session.startQuiz();
+    await session.loadQuestionNumber(2);
+
+    expect(session.selectedKeys.value).toEqual(['B']);
+    expect(session.answerChanged.value).toBe(false);
+  });
+
   it('shows the result action after navigating to an answered final question', async () => {
     fetchQuestionCount.mockResolvedValue(2);
     fetchNextAttemptQuestion.mockResolvedValue(firstQuestion);

@@ -51,6 +51,18 @@ function parseQuestionIds(value: unknown): number[] {
   return value.map(Number).filter((id) => Number.isInteger(id) && id > 0);
 }
 
+function parseSelectedKeys(value: unknown): string[] {
+  if (Array.isArray(value)) return value.filter((item): item is string => typeof item === 'string' && item.length > 0);
+  if (typeof value !== 'string' || value.trim().length === 0) return [];
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parseSelectedKeys(parsed) : typeof parsed === 'string' ? [parsed] : [];
+  } catch {
+    return [value.trim()];
+  }
+}
+
 function shuffle<T>(items: T[]) {
   const result = [...items];
   for (let index = result.length - 1; index > 0; index -= 1) {
@@ -253,7 +265,7 @@ export async function getAttemptQuestion(db: ExamDb, attemptId: number, identity
     question: { ...question, options },
     question_number: questionNumber,
     total_questions: order.question_order.length,
-    selected_keys: Array.isArray(answer?.selected_keys) ? answer.selected_keys as string[] : [],
+    selected_keys: parseSelectedKeys(answer?.selected_keys),
     elapsed_seconds: Number(answer?.elapsed_seconds ?? 0),
     answered: Boolean(answer),
     is_doubtful: parseQuestionIds(attempt.doubtful_question_ids).includes(questionId),
@@ -362,7 +374,8 @@ export async function findActiveAttempt(db: ExamDb, topicId: number, identityKey
 export async function findAttemptAnswers(db: ExamDb, attemptId: number, identityKey: string) {
   const attempt = await findAttempt(db, attemptId, identityKey);
   if (!attempt) return null;
-  return db.select().from(examAnswers).where(eq(examAnswers.attempt_id, attemptId)).orderBy(asc(examAnswers.id));
+  const answers = await db.select().from(examAnswers).where(eq(examAnswers.attempt_id, attemptId)).orderBy(asc(examAnswers.id));
+  return answers.map((answer) => ({ ...answer, selected_keys: parseSelectedKeys(answer.selected_keys) }));
 }
 
 export async function getExamReview(db: ExamDb, attemptId: number, identityKey: string) {
