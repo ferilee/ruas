@@ -81,7 +81,7 @@
 
           <p v-if="error" class="profile-error" role="alert">{{ error }}</p>
 
-          <button class="profile-submit" type="submit" :disabled="saving || profileLoading || !form.subject_id">
+          <button class="profile-submit" type="submit" :disabled="saving || profileLoading">
             {{ saving ? 'Menyimpan...' : 'Konfirmasi dan Mulai' }}
           </button>
         </form>
@@ -151,8 +151,17 @@ async function loadProfile() {
 }
 
 async function submitProfile() {
-  if (!form.subject_id || !form.gender || !form.birth_date) {
-    error.value = 'Lengkapi semua data wajib terlebih dahulu.';
+  error.value = '';
+  if (!form.subject_id) {
+    error.value = 'Mata pelajaran belum ditetapkan oleh admin.';
+    return;
+  }
+  if (!form.gender) {
+    error.value = 'Pilih jenis kelamin terlebih dahulu.';
+    return;
+  }
+  if (!form.birth_date) {
+    error.value = 'Isi tanggal lahir terlebih dahulu.';
     return;
   }
 
@@ -171,7 +180,7 @@ async function submitProfile() {
       class_label: form.class_label,
       assessment_type_label: form.assessment_type_label,
     } satisfies ParticipantProfileInput);
-    router.replace('/');
+    await router.replace('/');
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Profil peserta gagal disimpan.';
   } finally {
