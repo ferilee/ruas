@@ -331,6 +331,46 @@ describe('useQuizSession', () => {
     expect(session.isQuestionAnswered(1)).toBe(true);
   });
 
+  it('allows changing and resaving an answered question until the attempt is completed', async () => {
+    fetchQuestionCount.mockResolvedValue(1);
+    fetchNextAttemptQuestion.mockResolvedValue(firstQuestion);
+    saveExamAnswer.mockResolvedValue({
+      correct: true,
+      correct_keys: ['B'],
+      explanation: null,
+      explanation_mode: 'after_answer',
+    });
+
+    const session = useQuizSession({
+      getTopicId: () => 11,
+      getQuerySubjectId: () => 7,
+      getQueryTopicLabel: () => 'Aljabar',
+    });
+
+    await session.initializeSession();
+    await session.startQuiz();
+    session.onSelectKeys(['A']);
+    session.timerRunning.value = false;
+    session.onTime(18);
+    await session.submitAnswer();
+
+    expect(session.state.value).toBe('reviewing');
+    expect(session.answerChanged.value).toBe(false);
+
+    session.onSelectKeys(['B']);
+    expect(session.answerChanged.value).toBe(true);
+    expect(session.result.value).toBeNull();
+    await session.submitAnswer();
+
+    expect(saveExamAnswer).toHaveBeenNthCalledWith(2, 501, {
+      question_id: 101,
+      selected_keys: ['B'],
+      elapsed_seconds: 18,
+    });
+    expect(session.answerChanged.value).toBe(false);
+    expect(session.state.value).toBe('reviewing');
+  });
+
   it('ignores a duplicate submit while the first answer is still being saved', async () => {
     fetchQuestionCount.mockResolvedValue(1);
     fetchNextAttemptQuestion.mockResolvedValue(firstQuestion);

@@ -20,7 +20,6 @@
           <span v-if="isSelected(option.key)" class="radio-dot"></span>
         </span>
       </span>
-      <span class="option-key">{{ option.key }}</span>
       <div class="option-text"><MathText :text="option.text" /></div>
     </div>
   </div>
@@ -149,13 +148,6 @@ function toggle(key: string) {
 
 .option-radio.checked .radio-dot {
   background: #fff;
-}
-
-.option-key {
-  font-weight: 700;
-  color: #556677;
-  font-size: 0.95rem;
-  min-width: 24px;
 }
 
 .option-text {

@@ -16,6 +16,7 @@ describe('OptionList - single_choice', () => {
 
     const items = wrapper.findAll('.option-item');
     expect(items).toHaveLength(3);
+    expect(wrapper.findAll('.option-key')).toHaveLength(0);
   });
 
   it('selects one option on click', async () => {

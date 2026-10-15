@@ -34,9 +34,11 @@ export function useQuizSession(options: UseQuizSessionOptions) {
   const question = ref<Question | null>(null);
   const result = ref<CheckResult | null>(null);
   const selectedKeys = ref<string[]>([]);
+  const savedSelectedKeys = ref<string[]>([]);
   const timerRunning = ref(false);
   const elapsedTime = ref(0);
   const finalTime = ref(0);
+  const savedElapsedSeconds = ref<number | null>(null);
   const errorMessage = ref('');
   const subjectId = ref(0);
   const topicLabel = ref('');
@@ -88,6 +90,15 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     return Math.max(0, minimumDurationSeconds.value - Math.floor((now - startedAt) / 1000));
   });
   const canComplete = computed(() => isLastQuestion.value && minimumTimeRemaining.value === 0);
+  function keysEqual(left: string[], right: string[]) {
+    const leftSorted = [...left].sort();
+    const rightSorted = [...right].sort();
+    return leftSorted.length === rightSorted.length && leftSorted.every((key, index) => key === rightSorted[index]);
+  }
+
+  const answerChanged = computed(() => {
+    return !keysEqual(savedSelectedKeys.value, selectedKeys.value);
+  });
 
   function normalizeQuestionOrder(value: unknown): number[] {
     if (Array.isArray(value)) return value.map(Number).filter((id) => Number.isInteger(id) && id > 0);
@@ -119,8 +130,10 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     state.value = 'loading';
     result.value = null;
     selectedKeys.value = [];
+    savedSelectedKeys.value = [];
     elapsedTime.value = 0;
     finalTime.value = 0;
+    savedElapsedSeconds.value = null;
 
     try {
       if (!attemptId.value) throw new Error('Sesi ujian belum tersimpan. Silakan muat ulang halaman.');
@@ -171,6 +184,9 @@ export function useQuizSession(options: UseQuizSessionOptions) {
       currentQuestionNumber.value = loaded.question_number;
       setQuestionIdAtNumber(loaded.question_number, loaded.question.id);
       selectedKeys.value = loaded.selected_keys;
+      savedSelectedKeys.value = [...loaded.selected_keys];
+      savedElapsedSeconds.value = loaded.answered ? (loaded.elapsed_seconds ?? 0) : null;
+      finalTime.value = loaded.answered ? (loaded.elapsed_seconds ?? 0) : 0;
       if (loaded.answered) {
         answeredIds.value.add(loaded.question.id);
         answeredQuestionNumbers.value.add(loaded.question_number);
@@ -291,19 +307,22 @@ export function useQuizSession(options: UseQuizSessionOptions) {
   }
 
   function onSelectKeys(keys: string[]) {
+    const changed = !keysEqual(selectedKeys.value, keys);
     selectedKeys.value = keys;
+    if (state.value === 'reviewing' && changed) result.value = null;
   }
 
   function onTime(seconds: number) {
     elapsedTime.value = seconds;
-    if (!timerRunning.value) finalTime.value = seconds;
+    if (timerRunning.value) return;
+    if (savedElapsedSeconds.value === null) finalTime.value = seconds;
   }
 
   async function submitAnswer() {
     if (submittingAnswer.value || !question.value || selectedKeys.value.length === 0) return;
 
     submittingAnswer.value = true;
-    finalTime.value = elapsedTime.value;
+    finalTime.value = savedElapsedSeconds.value ?? elapsedTime.value;
     timerRunning.value = false;
 
     try {
@@ -314,6 +333,8 @@ export function useQuizSession(options: UseQuizSessionOptions) {
         elapsed_seconds: finalTime.value,
       });
       result.value = checkResult;
+      savedSelectedKeys.value = [...selectedKeys.value];
+      savedElapsedSeconds.value = finalTime.value;
       answeredIds.value.add(question.value.id);
       answeredQuestionNumbers.value.add(currentQuestionNumber.value);
       const nextResult = { questionId: question.value.id, correct: checkResult.correct, elapsed: finalTime.value };
@@ -492,6 +513,8 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     question.value = null;
     timerRunning.value = false;
     elapsedTime.value = 0;
+    savedSelectedKeys.value = [];
+    savedElapsedSeconds.value = null;
   }
 
   function hasActiveSession() {
@@ -576,6 +599,7 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     result,
     retryCurrentState,
     selectedKeys,
+    answerChanged,
     showExitModal,
     startQuiz,
     state,

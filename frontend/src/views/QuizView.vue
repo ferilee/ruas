@@ -137,9 +137,9 @@
                 :options="question.options"
                 :type="question.type"
                 :selected-keys="selectedKeys"
-                :disabled="state !== 'answering'"
+                :disabled="answerOptionsDisabled"
                 :correct-keys="result?.correct_keys"
-                :show-result="state === 'reviewing'"
+                :show-result="state === 'reviewing' && Boolean(result)"
                 @update:selected-keys="onSelectKeys"
               />
 
@@ -167,8 +167,8 @@
           <button class="nav-button nav-doubt" :class="{ active: isDoubtful }" type="button" :disabled="flagSaving" @click="toggleDoubtful">
             <span>□</span> {{ isDoubtful ? 'Ragu-ragu ditandai' : 'Tandai ragu-ragu' }}
           </button>
-          <button v-if="state === 'answering'" class="nav-button nav-primary" type="button" :disabled="selectedKeys.length === 0 || submittingAnswer" @click="submitAnswer">
-            {{ submittingAnswer ? 'Menyimpan...' : 'Simpan jawaban' }} <span>›</span>
+          <button v-if="state === 'answering' || (state === 'reviewing' && answerChanged)" class="nav-button nav-primary" type="button" :disabled="selectedKeys.length === 0 || submittingAnswer" @click="submitAnswer">
+            {{ submittingAnswer ? 'Menyimpan...' : state === 'reviewing' ? 'Simpan perubahan' : 'Simpan jawaban' }} <span>›</span>
           </button>
           <button v-else class="nav-button nav-primary" type="button" :disabled="questionNavigationLoading || (isLastQuestion && !canComplete)" @click="goToNextStep">
             {{ questionNavigationLoading ? 'Memuat soal...' : isLastQuestion ? canComplete ? 'Lihat hasil' : `Tunggu ${formatDuration(minimumTimeRemaining)}` : 'Soal berikutnya' }} <span>›</span>
@@ -282,7 +282,7 @@ const countdownValue = ref(0);
 function getTopicId(): number { return Number(route.params.id); }
 
 const {
-  accuracy, cancelExit: dismissExitModal, confirmExitState, correctCount, endedByTimeout,
+  accuracy, answerChanged, cancelExit: dismissExitModal, confirmExitState, correctCount, endedByTimeout,
   currentQuestionNumber, currentQuestionDoubtful: isDoubtful, errorMessage, examReview, explanationMode, finalTime, finishSession, hasActiveSession,
   incorrectCount, initializeSession, isLastQuestion, nextQuestion, onSelectKeys, question,
   questionCount, questionCountReady, recordIntegrityEvent, resetSession, result, retryCurrentState, selectedKeys, showExitModal,
@@ -295,6 +295,8 @@ const {
   getQuerySubjectId: () => Number(route.query.subject_id),
   getQueryTopicLabel: () => typeof route.query.topic_label === 'string' ? route.query.topic_label : '',
 });
+
+const answerOptionsDisabled = computed(() => !['answering', 'reviewing'].includes(state.value));
 
 const examGuard = useExamGuard({ onViolation: handleViolation });
 const violationCount = examGuard.violationCount;

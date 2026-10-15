@@ -277,6 +277,7 @@ export interface AttemptQuestion {
   question_number: number;
   total_questions: number;
   selected_keys: string[];
+  elapsed_seconds: number;
   answered: boolean;
   is_doubtful: boolean;
 }

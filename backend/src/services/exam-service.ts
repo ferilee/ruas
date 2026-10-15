@@ -244,7 +244,7 @@ export async function getAttemptQuestion(db: ExamDb, attemptId: number, identity
     .sort((left, right) => (optionPosition.get(left.key) ?? left.display_order) - (optionPosition.get(right.key) ?? right.display_order))
     .map(({ key, text }) => ({ key, text }));
   const [answer] = await db
-    .select({ selected_keys: examAnswers.selected_keys })
+    .select({ selected_keys: examAnswers.selected_keys, elapsed_seconds: examAnswers.elapsed_seconds })
     .from(examAnswers)
     .where(and(eq(examAnswers.attempt_id, attemptId), eq(examAnswers.question_id, questionId)))
     .limit(1);
@@ -254,6 +254,7 @@ export async function getAttemptQuestion(db: ExamDb, attemptId: number, identity
     question_number: questionNumber,
     total_questions: order.question_order.length,
     selected_keys: Array.isArray(answer?.selected_keys) ? answer.selected_keys as string[] : [],
+    elapsed_seconds: Number(answer?.elapsed_seconds ?? 0),
     answered: Boolean(answer),
     is_doubtful: parseQuestionIds(attempt.doubtful_question_ids).includes(questionId),
   };
