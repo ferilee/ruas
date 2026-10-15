@@ -127,6 +127,10 @@ export function useQuizSession(options: UseQuizSessionOptions) {
       const nextQuestion = await fetchNextAttemptQuestion(attemptId.value);
 
       if (!nextQuestion) {
+        if (isLastQuestion.value) {
+          await loadQuestionNumber(1);
+          return;
+        }
         await finishSession();
         return;
       }

@@ -40,8 +40,6 @@
           <label><span>Minimum waktu pengerjaan (menit)</span><input v-model.number="subjectForm.minimum_duration_minutes" type="number" min="0" :max="subjectForm.duration_minutes || 1440" placeholder="0" title="Siswa baru dapat mengumpulkan setelah waktu ini." required /><small>Berlaku untuk seluruh sesi · 0 = boleh kumpul kapan saja</small></label>
           <label><span>Pembahasan siswa</span><RuasSelect v-model="subjectForm.explanation_mode" :options="explanationModeOptions" aria-label="Waktu tampil pembahasan" /></label>
           <label class="checkbox-field"><input v-model="subjectForm.show_correct_answer_on_wrong" type="checkbox" /><span>Tampilkan jawaban benar saat siswa salah</span></label>
-          <label class="checkbox-field"><input v-model="subjectForm.shuffle_questions" type="checkbox" /><span>Acak urutan soal</span></label>
-          <label class="checkbox-field"><input v-model="subjectForm.shuffle_options" type="checkbox" /><span>Acak pilihan jawaban</span></label>
           <label><span>Jenis asesmen</span><RuasSelect v-model="subjectForm.assessment_type_id" :options="assessmentTypeOptions" aria-label="Jenis asesmen mata pelajaran" /></label>
           <div class="form-actions"><button class="primary-btn" type="submit">{{ editingSubjectId ? 'Perbarui' : 'Tambah' }}</button><button class="secondary-btn" type="button" @click="closeMobileForm">Batal</button></div>
         </form>
@@ -117,7 +115,7 @@
         <div class="curriculum-group-heading"><h3>Mata Pelajaran</h3><button class="curriculum-add-btn" type="button" @click="openSubjectForm">＋ Tambah</button></div>
         <div class="curriculum-items">
           <div v-for="item in visibleSubjects" :key="item.id" class="curriculum-item">
-            <div><strong>{{ item.label }}</strong><small>{{ item.slug }} · {{ scopeLabel(item) }} · {{ attemptsLabel(item.max_attempts) }} · {{ durationLabel(item.duration_minutes) }} · {{ minimumDurationLabel(item.minimum_duration_minutes) }} · {{ explanationModeLabel(item.explanation_mode) }} · {{ shuffleLabel(item) }}</small></div>
+            <div><strong>{{ item.label }}</strong><small>{{ item.slug }} · {{ scopeLabel(item) }} · {{ attemptsLabel(item.max_attempts) }} · {{ durationLabel(item.duration_minutes) }} · {{ minimumDurationLabel(item.minimum_duration_minutes) }} · {{ explanationModeLabel(item.explanation_mode) }} · Soal dan opsi diacak tiap attempt</small></div>
             <div class="item-actions"><button type="button" @click="editSubject(item)">Edit</button><button type="button" class="delete-action" @click="removeSubject(item.id)">Hapus</button></div>
           </div>
         </div>
@@ -181,7 +179,7 @@ const mobileTabs: Array<{ value: MobileCurriculumTab; label: string }> = [
 ];
 const classForm = reactive<CurriculumClassInput>({ slug: '', label: '', academic_year: '2026/2027', grade: 10, program: '', section: null, display_order: 1 });
 const typeForm = reactive<CurriculumItemInput>({ slug: '', label: '', display_order: 1 });
-const subjectForm = reactive<CurriculumSubjectInput>({ slug: '', label: '', display_order: 1, max_attempts: 1, duration_minutes: 0, minimum_duration_minutes: 0, explanation_mode: 'hidden', show_correct_answer_on_wrong: false, shuffle_questions: false, shuffle_options: false, class_id: null, assessment_type_id: null });
+const subjectForm = reactive<CurriculumSubjectInput>({ slug: '', label: '', display_order: 1, max_attempts: 1, duration_minutes: 0, minimum_duration_minutes: 0, explanation_mode: 'hidden', show_correct_answer_on_wrong: false, class_id: null, assessment_type_id: null });
 const topicForm = reactive<AdminTopicInput>({ subject_id: 0, slug: '', label: '', display_order: 1, class_ids: [] });
 const explanationModeOptions = [
   { value: 'after_answer', label: 'Setelah menjawab' },
@@ -251,7 +249,7 @@ function showToast(message: string) {
 function clearForm(form: CurriculumItemInput) { form.slug = ''; form.label = ''; form.display_order = 1; }
 function resetClass() { editingClassId.value = null; classForm.slug = ''; classForm.label = ''; classForm.academic_year = '2026/2027'; classForm.grade = 10; classForm.program = ''; classForm.section = null; classForm.display_order = 1; mobileFormOpen.value = false; }
 function resetType() { editingTypeId.value = null; clearForm(typeForm); mobileFormOpen.value = false; }
-function resetSubject() { editingSubjectId.value = null; subjectForm.slug = ''; subjectForm.label = ''; subjectForm.display_order = 1; subjectForm.max_attempts = 1; subjectForm.duration_minutes = 0; subjectForm.minimum_duration_minutes = 0; subjectForm.explanation_mode = 'hidden'; subjectForm.show_correct_answer_on_wrong = false; subjectForm.shuffle_questions = false; subjectForm.shuffle_options = false; subjectForm.class_id = null; subjectForm.assessment_type_id = null; mobileFormOpen.value = false; }
+function resetSubject() { editingSubjectId.value = null; subjectForm.slug = ''; subjectForm.label = ''; subjectForm.display_order = 1; subjectForm.max_attempts = 1; subjectForm.duration_minutes = 0; subjectForm.minimum_duration_minutes = 0; subjectForm.explanation_mode = 'hidden'; subjectForm.show_correct_answer_on_wrong = false; subjectForm.class_id = null; subjectForm.assessment_type_id = null; mobileFormOpen.value = false; }
 function resetTopic() { editingTopicId.value = null; topicForm.subject_id = 0; topicForm.slug = ''; topicForm.label = ''; topicForm.display_order = 1; topicForm.class_ids = []; mobileFormOpen.value = false; }
 function openClassForm() { resetClass(); mobileTab.value = 'classes'; formModal.value = 'class'; mobileFormOpen.value = true; }
 function openTypeForm() { resetType(); mobileTab.value = 'types'; formModal.value = 'type'; mobileFormOpen.value = true; }
@@ -263,7 +261,7 @@ function closeConfirmation() { confirmOpen.value = false; pendingConfirmation.va
 async function runConfirmation() { const action = pendingConfirmation.value; closeConfirmation(); if (action) await action(); }
 function editClass(item: CurriculumClass) { editingClassId.value = item.id; Object.assign(classForm, item); mobileTab.value = 'classes'; formModal.value = 'class'; mobileFormOpen.value = true; }
 function editType(item: AssessmentType) { editingTypeId.value = item.id; Object.assign(typeForm, item); mobileTab.value = 'types'; formModal.value = 'type'; mobileFormOpen.value = true; }
-function editSubject(item: Subject) { editingSubjectId.value = item.id; Object.assign(subjectForm, { slug: item.slug, label: item.label, display_order: item.display_order, max_attempts: item.max_attempts ?? 1, duration_minutes: item.duration_minutes ?? 0, minimum_duration_minutes: item.minimum_duration_minutes ?? 0, explanation_mode: item.explanation_mode ?? 'hidden', show_correct_answer_on_wrong: item.show_correct_answer_on_wrong ?? false, shuffle_questions: item.shuffle_questions ?? false, shuffle_options: item.shuffle_options ?? false, class_id: item.class_id ?? null, assessment_type_id: item.assessment_type_id ?? null }); mobileTab.value = 'subjects'; formModal.value = 'subject'; mobileFormOpen.value = true; }
+function editSubject(item: Subject) { editingSubjectId.value = item.id; Object.assign(subjectForm, { slug: item.slug, label: item.label, display_order: item.display_order, max_attempts: item.max_attempts ?? 1, duration_minutes: item.duration_minutes ?? 0, minimum_duration_minutes: item.minimum_duration_minutes ?? 0, explanation_mode: item.explanation_mode ?? 'hidden', show_correct_answer_on_wrong: item.show_correct_answer_on_wrong ?? false, class_id: item.class_id ?? null, assessment_type_id: item.assessment_type_id ?? null }); mobileTab.value = 'subjects'; formModal.value = 'subject'; mobileFormOpen.value = true; }
 function editTopic(item: AdminTopic) { editingTopicId.value = item.id; Object.assign(topicForm, { subject_id: item.subject_id, slug: item.slug, label: item.label, display_order: item.display_order, class_ids: [...item.class_ids] }); mobileTab.value = 'topics'; formModal.value = 'topic'; mobileFormOpen.value = true; }
 function toggleTopicClass(classId: number, event: Event) {
   const checked = (event.target as HTMLInputElement).checked;
@@ -324,7 +322,6 @@ function attemptsLabel(value: number) { return value === 0 ? 'Attempts tak terba
 function durationLabel(value: number) { return value === 0 ? 'Tanpa batas waktu' : `${value} menit`; }
 function minimumDurationLabel(value: number) { return value > 0 ? `Minimum ${value} menit` : 'Boleh kumpul kapan saja'; }
 function explanationModeLabel(value: Subject['explanation_mode']) { return { after_answer: 'Pembahasan setelah menjawab', after_exam: 'Pembahasan setelah asesmen', hidden: 'Pembahasan disembunyikan' }[value] ?? 'Pembahasan disembunyikan'; }
-function shuffleLabel(subject: Subject) { const settings = [subject.shuffle_questions ? 'Soal diacak' : '', subject.shuffle_options ? 'Opsi diacak' : '', subject.show_correct_answer_on_wrong ? 'Jawaban salah ditampilkan' : 'Jawaban salah disembunyikan'].filter(Boolean); return settings.join(' · '); }
 async function loadData() {
   loading.value = true;
   try {

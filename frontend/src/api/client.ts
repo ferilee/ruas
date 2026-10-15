@@ -360,7 +360,7 @@ export async function importAdminUsers(data: unknown, mode: 'insert' | 'upsert',
 
 export type CurriculumItemInput = { slug: string; label: string; display_order: number };
 export type CurriculumClassInput = CurriculumItemInput & { academic_year: string; grade: number; program: string; section: string | null };
-export type CurriculumSubjectInput = CurriculumItemInput & { class_id: number | null; assessment_type_id: number | null; max_attempts: number; duration_minutes: number; minimum_duration_minutes: number; explanation_mode: Subject['explanation_mode']; show_correct_answer_on_wrong: boolean; shuffle_questions: boolean; shuffle_options: boolean };
+export type CurriculumSubjectInput = CurriculumItemInput & { class_id: number | null; assessment_type_id: number | null; max_attempts: number; duration_minutes: number; minimum_duration_minutes: number; explanation_mode: Subject['explanation_mode']; show_correct_answer_on_wrong: boolean };
 
 export async function fetchAdminCurriculum(): Promise<CurriculumData> {
   return adminRequest<CurriculumData>('/admin/curriculum');

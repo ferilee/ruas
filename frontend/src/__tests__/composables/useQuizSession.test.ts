@@ -557,6 +557,49 @@ describe('useQuizSession', () => {
     expect(session.isQuestionAnswered(2)).toBe(true);
   });
 
+  it('keeps an all-answered active attempt open for review after reloading', async () => {
+    fetchQuestionCount.mockResolvedValue(2);
+    fetchActiveExamAttempt.mockResolvedValue({
+      attempt: {
+        id: 501,
+        total_questions: 2,
+        question_order: [101, 202],
+        minimum_duration_minutes: 0,
+        started_at: new Date().toISOString(),
+        deadline_at: null,
+      } as never,
+      answers: [
+        { question_id: 101, is_correct: true, elapsed_seconds: 12 },
+        { question_id: 202, is_correct: false, elapsed_seconds: 18 },
+      ] as never,
+      server_now: new Date().toISOString(),
+    });
+    fetchNextAttemptQuestion.mockResolvedValue(null);
+    fetchAttemptQuestion.mockResolvedValue({
+      question: firstQuestion,
+      question_number: 1,
+      total_questions: 2,
+      selected_keys: ['A'],
+      answered: true,
+      is_doubtful: false,
+    });
+
+    const session = useQuizSession({
+      getTopicId: () => 11,
+      getQuerySubjectId: () => 7,
+      getQueryTopicLabel: () => 'Aljabar',
+    });
+
+    await session.initializeSession();
+
+    expect(completeExamAttempt).not.toHaveBeenCalled();
+    expect(fetchAttemptQuestion).toHaveBeenCalledWith(501, 1);
+    expect(session.state.value).toBe('reviewing');
+    expect(session.question.value?.id).toBe(101);
+    expect(session.selectedKeys.value).toEqual(['A']);
+    expect(session.isQuestionAnswered(1)).toBe(true);
+  });
+
   it('persists the doubtful status for the current question', async () => {
     fetchQuestionCount.mockResolvedValue(1);
     fetchNextAttemptQuestion.mockResolvedValue(firstQuestion);

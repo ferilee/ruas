@@ -8,8 +8,6 @@ export interface Subject {
   minimum_duration_minutes: number;
   explanation_mode: ExplanationMode;
   show_correct_answer_on_wrong: boolean;
-  shuffle_questions: boolean;
-  shuffle_options: boolean;
   class_id?: number | null;
   assessment_type_id?: number | null;
 }
@@ -251,6 +249,7 @@ export interface ExamAttempt {
   minimum_duration_minutes: number;
   completed_at: string | null;
   question_order?: number[] | null;
+  option_order?: Record<string, string[]> | null;
   doubtful_question_ids?: number[] | null;
 }
 

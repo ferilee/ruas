@@ -25,13 +25,16 @@ export function createExamDb(pool: Pool) {
 
 export interface ExamSettings {
   show_correct_answer_on_wrong: boolean;
-  shuffle_questions: boolean;
-  shuffle_options: boolean;
   duration_minutes: number;
   minimum_duration_minutes: number;
 }
 
 interface AttemptOrder {
+  question_order: number[];
+  option_order: Record<string, string[]>;
+}
+
+interface PreviousAttemptOrder {
   question_order: number[];
   option_order: Record<string, string[]>;
 }
@@ -50,12 +53,25 @@ function shuffle<T>(items: T[]) {
   return result;
 }
 
+function shuffleDifferent<T>(items: T[], previousOrders: T[][]) {
+  const candidate = shuffle(items);
+  if (items.length < 2 || previousOrders.length === 0) return candidate;
+
+  const previousOrderKeys = new Set(previousOrders.map((order) => JSON.stringify(order)));
+  if (!previousOrderKeys.has(JSON.stringify(candidate))) return candidate;
+
+  let fallback = candidate;
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    fallback = shuffle(items);
+    if (!previousOrderKeys.has(JSON.stringify(fallback))) return fallback;
+  }
+  return fallback;
+}
+
 export async function getSubjectExamSettings(db: ExamDb, subjectId: number): Promise<ExamSettings> {
   const [row] = await db
     .select({
       show_correct_answer_on_wrong: subjects.show_correct_answer_on_wrong,
-      shuffle_questions: subjects.shuffle_questions,
-      shuffle_options: subjects.shuffle_options,
       duration_minutes: subjects.duration_minutes,
       minimum_duration_minutes: subjects.minimum_duration_minutes,
     })
@@ -65,8 +81,6 @@ export async function getSubjectExamSettings(db: ExamDb, subjectId: number): Pro
 
   return {
     show_correct_answer_on_wrong: Boolean(row?.show_correct_answer_on_wrong),
-    shuffle_questions: Boolean(row?.shuffle_questions),
-    shuffle_options: Boolean(row?.shuffle_options),
     duration_minutes: Number(row?.duration_minutes ?? 0),
     minimum_duration_minutes: Number(row?.minimum_duration_minutes ?? 0),
   };
@@ -102,13 +116,14 @@ export function expireOverdueAttempts(db: ExamDb, now = new Date()) {
   return expiryRun;
 }
 
-async function buildAttemptOrder(db: ExamDb, topicId: number, settings: ExamSettings): Promise<AttemptOrder> {
+async function buildAttemptOrder(db: ExamDb, topicId: number, previousOrders: PreviousAttemptOrder[] = []): Promise<AttemptOrder> {
   const questionRows = await db
     .select({ id: questions.id })
     .from(questions)
     .where(eq(questions.topic_id, topicId))
     .orderBy(asc(questions.id));
-  const questionOrder = settings.shuffle_questions ? shuffle(questionRows.map((row) => row.id)) : questionRows.map((row) => row.id);
+  const questionIds = questionRows.map((row) => row.id);
+  const questionOrder = shuffleDifferent(questionIds, previousOrders.map((order) => order.question_order));
   const optionOrder: Record<string, string[]> = {};
 
   if (questionOrder.length > 0) {
@@ -120,7 +135,10 @@ async function buildAttemptOrder(db: ExamDb, topicId: number, settings: ExamSett
 
     for (const questionId of questionOrder) {
       const keys = optionRows.filter((row) => row.question_id === questionId).map((row) => row.key);
-      optionOrder[String(questionId)] = settings.shuffle_options ? shuffle(keys) : keys;
+      const previousOptionOrders = previousOrders
+        .map((order) => order.option_order[String(questionId)])
+        .filter((order): order is string[] => Array.isArray(order) && order.length === keys.length);
+      optionOrder[String(questionId)] = shuffleDifferent(keys, previousOptionOrders);
     }
   }
 
@@ -138,8 +156,7 @@ async function ensureAttemptOrder(db: ExamDb, attempt: typeof examAttempts.$infe
     return order;
   }
 
-  const settings = await getSubjectExamSettings(db, attempt.subject_id);
-  const order = await buildAttemptOrder(db, attempt.topic_id, settings);
+  const order = await buildAttemptOrder(db, attempt.topic_id);
   await db.update(examAttempts)
     .set({ ...order, total_questions: order.question_order.length })
     .where(eq(examAttempts.id, attempt.id));
@@ -394,8 +411,15 @@ export async function createAttempt(
   if (!availability) return null;
   if (!availability.can_start) return { limited: true as const, availability };
 
+  const previousAttempts = await db
+    .select({ question_order: examAttempts.question_order, option_order: examAttempts.option_order })
+    .from(examAttempts)
+    .where(and(eq(examAttempts.participant_id, participant.id), eq(examAttempts.topic_id, input.topic_id)));
+  const previousOrders = previousAttempts
+    .filter((attempt): attempt is PreviousAttemptOrder => Array.isArray(attempt.question_order) && Boolean(attempt.option_order) && typeof attempt.option_order === 'object')
+    .map((attempt) => ({ question_order: attempt.question_order, option_order: attempt.option_order }));
+  const order = await buildAttemptOrder(db, input.topic_id, previousOrders);
   const subjectSettings = await getSubjectExamSettings(db, input.subject_id);
-  const order = await buildAttemptOrder(db, input.topic_id, subjectSettings);
   const startedAt = new Date();
   const deadlineAt = subjectSettings.duration_minutes > 0
     ? new Date(startedAt.getTime() + subjectSettings.duration_minutes * 60_000)
