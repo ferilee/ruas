@@ -218,6 +218,7 @@ export interface CheckResult {
 
 export interface ExamReviewItem {
   question_id: number;
+  question_number: number;
   question_text: string;
   explanation: string;
   is_correct: boolean;

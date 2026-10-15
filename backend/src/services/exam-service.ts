@@ -39,6 +39,13 @@ interface PreviousAttemptOrder {
   option_order: Record<string, string[]>;
 }
 
+export function orderExamReviewItems<T extends { question_id: number }>(rows: T[], questionOrder: number[]) {
+  const questionPositions = new Map(questionOrder.map((questionId, index) => [questionId, index + 1]));
+  return rows
+    .map((row) => ({ ...row, question_number: questionPositions.get(row.question_id) ?? row.question_id }))
+    .sort((first, second) => first.question_number - second.question_number);
+}
+
 function parseQuestionIds(value: unknown): number[] {
   if (!Array.isArray(value)) return [];
   return value.map(Number).filter((id) => Number.isInteger(id) && id > 0);
@@ -361,6 +368,8 @@ export async function getExamReview(db: ExamDb, attemptId: number, identityKey: 
   const attempt = await findAttempt(db, attemptId, identityKey);
   if (!attempt) return null;
 
+  const order = await ensureAttemptOrder(db, attempt);
+
   const [subject] = await db
     .select({ explanation_mode: subjects.explanation_mode })
     .from(subjects)
@@ -382,7 +391,9 @@ export async function getExamReview(db: ExamDb, attemptId: number, identityKey: 
     .where(eq(examAnswers.attempt_id, attemptId))
     .orderBy(asc(examAnswers.id));
 
-  return { mode, items: rows };
+  const items = orderExamReviewItems(rows, order.question_order);
+
+  return { mode, items };
 }
 
 export async function createAttempt(

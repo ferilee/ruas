@@ -95,7 +95,7 @@
           <p v-else-if="explanationMode === 'after_answer'" class="review-note">Pembahasan telah ditampilkan setelah setiap jawaban.</p>
           <template v-else-if="examReview.length">
             <article v-for="item in examReview" :key="item.question_id" class="review-item">
-              <div class="review-item-heading"><strong>Soal #{{ item.question_id }}</strong><span :class="item.is_correct ? 'review-correct' : 'review-incorrect'">{{ item.is_correct ? 'Benar' : 'Salah' }}</span></div>
+              <div class="review-item-heading"><strong>Soal nomor {{ item.question_number }}</strong><span :class="item.is_correct ? 'review-correct' : 'review-incorrect'">{{ item.is_correct ? 'Benar' : 'Salah' }}</span></div>
               <MathText :text="item.question_text" />
               <div class="review-explanation"><strong>Pembahasan</strong><MathText :text="item.explanation" /></div>
             </article>
