@@ -13,6 +13,7 @@ Dokumentasi dipecah per topik. Pilih yang sesuai kebutuhan:
 | Paham arsitektur, API, model data | `ARSITEKTUR.md` |
 | Melihat fitur apa saja yang sudah jadi | `CHANGELOG.md` |
 | Menambah/mengedit/validasi soal | `/admin` atau `FORMAT-SOAL/` |
+| Menulis rumus matematika dengan LaTeX | `LATEX.md` |
 | Deploy ke VPS dengan Docker + NPM | `DEPLOY/` |
 | Rencana pengembangan ke depan | `RENCANA-PROFESIONALISASI.md` |
 | Navigasi folder project | `STRUKTUR.md` |
@@ -29,6 +30,7 @@ docs/
 ├── CHANGELOG.md                        ← catatan rilis
 ├── RENCANA-PROFESIONALISASI.md         ← rencana pengembangan
 ├── STRUKTUR.md                         ← struktur direktori
+├── LATEX.md                            ← panduan sintaks LaTeX untuk soal
 │
 ├── DEPLOY/                             ← deploy production
 │   ├── README.md
