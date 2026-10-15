@@ -215,7 +215,7 @@
             type="button"
             @click="editQuestion(item.id)"
           >
-            <span class="question-row-top"><span class="question-number">#{{ item.id }}</span><span class="topic-badge">{{ item.topic_label }}</span><span class="question-type-badge">{{ questionTypeLabel(item.type) }}</span><span class="question-menu" aria-hidden="true">⋮</span></span>
+            <span class="question-row-top"><span class="question-number">#{{ item.id }}</span><span class="topic-badge">{{ item.topic_labels.length > 1 ? `${item.topic_labels.length} topik` : item.topic_label }}</span><span class="question-type-badge">{{ questionTypeLabel(item.type) }}</span><span class="question-menu" aria-hidden="true">⋮</span></span>
             <strong><MathText :text="item.question_text" /></strong>
             <span class="question-row-bottom"><span :class="['difficulty-badge', `difficulty-${item.difficulty}`]">{{ difficultyLabel(item.difficulty) }}</span><span v-if="item.external_id" class="row-id">{{ item.external_id }}</span></span>
           </button>
@@ -240,6 +240,16 @@
             <label>Topik
               <RuasSelect v-model="draft.topic_id" :options="topicOptions" placeholder="Pilih topik" aria-label="Topik soal" />
             </label>
+            <fieldset class="topic-mapping-fieldset">
+              <legend>Paket/topik yang menyertakan soal</legend>
+              <p class="field-hint">Satu soal dapat digunakan di beberapa topik. Topik utama di atas selalu disertakan.</p>
+              <div class="topic-mapping-grid">
+                <label v-for="topic in topics" :key="topic.id" class="topic-mapping-option">
+                  <input v-model="draft.topic_ids" type="checkbox" :value="topic.id" />
+                  <span>{{ topic.subject_label }} · {{ topic.label }}</span>
+                </label>
+              </div>
+            </fieldset>
 
             <div class="field-row">
               <label>Tipe soal
@@ -532,6 +542,7 @@ function createDefaultOptions(type: AdminQuestionInput['type']) {
 function createDraft(): AdminQuestionInput {
   return {
     topic_id: 0,
+    topic_ids: [],
     type: 'single_choice',
     difficulty: 'easy',
     external_id: null,
@@ -545,6 +556,7 @@ const draft = reactive<AdminQuestionInput>(createDraft());
 
 function setDraft(input: AdminQuestionInput) {
   Object.assign(draft, input);
+  draft.topic_ids = [...(input.topic_ids?.length ? input.topic_ids : input.topic_id > 0 ? [input.topic_id] : [])];
   draft.options = input.options.map((option) => ({ ...option }));
 }
 
@@ -798,6 +810,7 @@ async function editQuestion(id: number) {
     const question = await fetchAdminQuestion(id);
     setDraft({
       topic_id: question.topic_id,
+      topic_ids: question.topic_ids,
       type: question.type,
       difficulty: question.difficulty,
       external_id: question.external_id,
@@ -830,6 +843,7 @@ async function saveQuestion() {
   saving.value = true;
   formMessage.value = '';
   try {
+    if (draft.topic_id > 0 && !draft.topic_ids.includes(draft.topic_id)) draft.topic_ids.unshift(draft.topic_id);
     if (editingId.value === null) {
       const id = await createAdminQuestion(draft);
       resetDraft();
@@ -1073,6 +1087,10 @@ textarea { resize: vertical; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 fieldset { border: 1px solid #d4dde6; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
 legend { padding: 0 6px; color: #445566; font-weight: 600; }
+.topic-mapping-fieldset { gap: 10px; }
+.topic-mapping-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; max-height: 210px; overflow-y: auto; padding: 2px; }
+.topic-mapping-option { display: flex; flex-direction: row; align-items: flex-start; gap: 8px; padding: 9px 10px; border: 1px solid #dbe6f2; border-radius: 8px; color: #445566; font-size: .82rem; font-weight: 600; cursor: pointer; }
+.topic-mapping-option input { flex: 0 0 auto; margin-top: 2px; accent-color: #2454be; }
 .option-editor { display: flex; align-items: center; gap: 8px; }
 .option-key-input { width: 54px; padding: 8px; border: 1px solid #d4dde6; border-radius: 6px; }
 .option-text-input { min-width: 0; flex: 1; padding: 8px; border: 1px solid #d4dde6; border-radius: 6px; }
@@ -1238,6 +1256,7 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
   .form-panel.open .panel-heading { position: sticky; z-index: 1; top: 0; padding: 16px 18px; background: #fff; }
   .import-panel.open .panel-heading { position: sticky; z-index: 1; top: 0; margin: -20px -20px 0; padding: 16px 18px; background: #fff; }
   .form-panel.open form { padding: 18px; padding-bottom: 34px; }
+  .topic-mapping-grid { grid-template-columns: 1fr; }
   .form-panel.open .close-form-btn { display: block; }
   .mobile-more-backdrop { position: fixed; z-index: 29; inset: 0; display: block; background: rgba(18, 42, 76, .2); }
   .mobile-bottom-nav { position: fixed; z-index: 30; right: 10px; bottom: 10px; left: 10px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 8px 5px; border: 1px solid #d8e5f3; border-radius: 18px; background: rgba(255, 255, 255, .96); box-shadow: 0 12px 30px rgba(28, 66, 116, .2); backdrop-filter: blur(12px); }

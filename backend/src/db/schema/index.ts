@@ -1,6 +1,7 @@
 export { subjects } from './subjects';
 export { topics } from './topics';
 export { topicClasses } from './topic-classes';
+export { topicQuestions } from './topic-questions';
 export { questions } from './questions';
 export { questionOptions } from './question-options';
 export { assessmentSchedule } from './assessment-schedule';

@@ -15,12 +15,13 @@ import { canAccessTopic, getTopicAccess } from '@/services/topic-access-service'
 import { canParticipantAccessTopic } from '@/services/topic-access-service';
 import { publishRealtimeEvent } from '@/lib/realtime-events';
 import { topicClasses } from '@/db/schema/topic-classes';
+import { topicQuestions } from '@/db/schema/topic-questions';
 
 type ExamDb = ReturnType<typeof drizzle>;
 let expiryRun: Promise<number> | null = null;
 
 export function createExamDb(pool: Pool) {
-  return drizzle(pool, { schema: { examAnswers, examAttempts, examIntegrityEvents, participantProfiles, questionOptions, questions, subjects, topics, topicClasses, users }, mode: 'default' });
+  return drizzle(pool, { schema: { examAnswers, examAttempts, examIntegrityEvents, participantProfiles, questionOptions, questions, subjects, topics, topicClasses, topicQuestions, users }, mode: 'default' });
 }
 
 export interface ExamSettings {
@@ -170,7 +171,11 @@ async function buildAttemptOrder(db: ExamDb, topicId: number, previousOrders: Pr
   const questionRows = await db
     .select({ id: questions.id })
     .from(questions)
-    .where(eq(questions.topic_id, topicId))
+    .innerJoin(topicQuestions, and(
+      eq(topicQuestions.question_id, questions.id),
+      eq(topicQuestions.topic_id, topicId),
+      eq(topicQuestions.enabled, true),
+    ))
     .orderBy(asc(questions.id));
   const questionIds = questionRows.map((row) => row.id);
   const questionOrder = shuffleDifferent(questionIds, previousOrders.map((order) => order.question_order));

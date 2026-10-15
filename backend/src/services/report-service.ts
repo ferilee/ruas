@@ -211,9 +211,8 @@ export async function getReportDetail(db: ReportDb, attemptId: number) {
   const answeredQuestionIds = uniqueAnswers.map((answer) => answer.question_id);
   const orderedQuestionIds = storedQuestionOrder.length ? storedQuestionOrder : answeredQuestionIds;
   const questionRows = orderedQuestionIds.length
-    ? await db.select({ id: questions.id, topic_id: questions.topic_id, topic_label: topics.label, question_text: questions.question_text })
+    ? await db.select({ id: questions.id, question_text: questions.question_text })
       .from(questions)
-      .innerJoin(topics, eq(questions.topic_id, topics.id))
       .where(inArray(questions.id, orderedQuestionIds))
     : [];
 
@@ -241,7 +240,7 @@ export async function getReportDetail(db: ReportDb, attemptId: number) {
     return {
       question_number: index + 1,
       question_id: questionId,
-      topic_label: question?.topic_label ?? attempt.topic_label ?? 'Topik',
+      topic_label: attempt.topic_label ?? 'Topik',
       question_text: question?.question_text ?? answer?.question_text ?? 'Soal tidak tersedia',
       selected_keys: selectedKeys,
       selected_texts: options.filter((option) => selectedKeys.includes(option.option_key)).map((option) => option.option_text),

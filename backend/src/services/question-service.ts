@@ -2,6 +2,7 @@ import { and, count, eq, notInArray } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/mysql2';
 import { questions } from '@/db/schema/questions';
 import { questionOptions } from '@/db/schema/question-options';
+import { topicQuestions } from '@/db/schema/topic-questions';
 import * as schema from '@/db/schema';
 import type { Pool } from '@/db/connection';
 
@@ -24,8 +25,8 @@ export function createQuestionsDb(pool: Pool) {
 export async function countQuestionsForTopic(db: QuestionsDb, topicId: number) {
   const [row] = await db
     .select({ total: count() })
-    .from(questions)
-    .where(eq(questions.topic_id, topicId));
+    .from(topicQuestions)
+    .where(and(eq(topicQuestions.topic_id, topicId), eq(topicQuestions.enabled, true)));
 
   return Number(row?.total ?? 0);
 }
@@ -35,14 +36,16 @@ export async function findRandomQuestion(
   topicId: number,
   excludeIds: number[],
 ) {
-  const conditions = [eq(questions.topic_id, topicId)];
-  if (excludeIds.length > 0) {
-    conditions.push(notInArray(questions.id, excludeIds));
-  }
+  const conditions = [
+    eq(topicQuestions.topic_id, topicId),
+    eq(topicQuestions.enabled, true),
+  ];
+  if (excludeIds.length > 0) conditions.push(notInArray(questions.id, excludeIds));
 
   const [countRow] = await db
     .select({ total: count() })
-    .from(questions)
+    .from(topicQuestions)
+    .innerJoin(questions, eq(questions.id, topicQuestions.question_id))
     .where(and(...conditions))
     .limit(1);
 
@@ -54,8 +57,22 @@ export async function findRandomQuestion(
   const randomOffset = Math.floor(Math.random() * total);
 
   const [question] = await db
-    .select()
+    .select({
+      id: questions.id,
+      topic_id: questions.topic_id,
+      type: questions.type,
+      difficulty: questions.difficulty,
+      question_text: questions.question_text,
+      explanation_text: questions.explanation_text,
+      external_id: questions.external_id,
+      created_at: questions.created_at,
+    })
     .from(questions)
+    .innerJoin(topicQuestions, and(
+      eq(topicQuestions.question_id, questions.id),
+      eq(topicQuestions.topic_id, topicId),
+      eq(topicQuestions.enabled, true),
+    ))
     .where(and(...conditions))
     .orderBy(questions.id)
     .limit(1)

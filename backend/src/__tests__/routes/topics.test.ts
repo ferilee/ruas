@@ -33,10 +33,10 @@ describe('topicsRoutes', () => {
           leftJoin: () => ({
             leftJoin: () => ({
               leftJoin: () => ({
-                where: () => ({
-                  groupBy: () => ({
-                    orderBy: async () => [
-                      {
+                leftJoin: () => ({
+                  where: () => ({
+                    groupBy: () => ({
+                      orderBy: async () => [{
                         id: 2,
                         subject_id: 1,
                         class_id: 4,
@@ -46,8 +46,8 @@ describe('topicsRoutes', () => {
                         display_order: 1,
                         requires_token: false,
                         question_count: 10,
-                      },
-                    ],
+                      }],
+                    }),
                   }),
                 }),
               }),

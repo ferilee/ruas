@@ -4,6 +4,7 @@ import { and, countDistinct, eq, isNull, or } from 'drizzle-orm';
 import { topics } from '../db/schema/topics';
 import { questions } from '../db/schema/questions';
 import { topicClasses } from '../db/schema/topic-classes';
+import { topicQuestions } from '../db/schema/topic-questions';
 import { educationClasses } from '../db/schema/education-classes';
 import * as schema from '../db/schema/index';
 import type { Pool } from '../db/connection';
@@ -45,7 +46,8 @@ export function topicsRoutes(pool: Pool) {
         question_count: countDistinct(questions.id),
       })
       .from(topics)
-      .leftJoin(questions, eq(questions.topic_id, topics.id))
+      .leftJoin(topicQuestions, and(eq(topicQuestions.topic_id, topics.id), eq(topicQuestions.enabled, true)))
+      .leftJoin(questions, eq(questions.id, topicQuestions.question_id))
       .leftJoin(topicClasses, eq(topicClasses.topic_id, topics.id))
       .leftJoin(educationClasses, eq(educationClasses.id, topicClasses.class_id))
       .where(and(...conditions))
@@ -87,7 +89,8 @@ export function topicsRoutes(pool: Pool) {
         requires_token: topics.requires_token,
       })
       .from(topics)
-      .leftJoin(questions, eq(questions.topic_id, topics.id))
+      .leftJoin(topicQuestions, and(eq(topicQuestions.topic_id, topics.id), eq(topicQuestions.enabled, true)))
+      .leftJoin(questions, eq(questions.id, topicQuestions.question_id))
       .leftJoin(topicClasses, eq(topicClasses.topic_id, topics.id))
       .leftJoin(educationClasses, eq(educationClasses.id, topicClasses.class_id))
       .where(eq(topics.id, id))

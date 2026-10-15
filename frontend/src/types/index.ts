@@ -117,6 +117,8 @@ export interface AdminQuestionListItem {
   topic_id: number;
   topic_slug: string;
   topic_label: string;
+  topic_ids: number[];
+  topic_labels: string[];
   type: Question['type'];
   difficulty: Question['difficulty'];
   question_text: string;
@@ -159,6 +161,7 @@ export interface AdminTopicInput {
 
 export interface AdminQuestionInput {
   topic_id: number;
+  topic_ids: number[];
   type: Question['type'];
   difficulty: Question['difficulty'];
   external_id: string | null;

@@ -1,8 +1,9 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { questionOptions } from '@/db/schema/question-options';
 import { questions } from '@/db/schema/questions';
+import { topicQuestions } from '@/db/schema/topic-questions';
 import type { Pool } from '@/db/connection';
 import { getParticipantIdentity } from '@/lib/participant-identity';
 import { checkAnswer } from '@/lib/scoring';
@@ -112,7 +113,16 @@ export function examAttemptRoutes(pool: Pool) {
     if (!parsed.success) return c.json({ error: 'invalid_body', message: 'Jawaban tidak valid.' }, 400);
     const [question] = await db.select().from(questions).where(eq(questions.id, parsed.data.question_id)).limit(1);
     if (!question) return c.json({ error: 'not_found', message: 'Soal tidak ditemukan.' }, 404);
-    if (question.topic_id !== attempt.topic_id) return c.json({ error: 'invalid_question', message: 'Soal tidak termasuk dalam sesi ujian ini.' }, 400);
+    const [topicQuestion] = await db
+      .select({ question_id: topicQuestions.question_id })
+      .from(topicQuestions)
+      .where(and(
+        eq(topicQuestions.topic_id, attempt.topic_id),
+        eq(topicQuestions.question_id, question.id),
+        eq(topicQuestions.enabled, true),
+      ))
+      .limit(1);
+    if (!topicQuestion) return c.json({ error: 'invalid_question', message: 'Soal tidak termasuk dalam sesi ujian ini.' }, 400);
     const storedOptions = await db.select().from(questionOptions).where(eq(questionOptions.question_id, question.id));
     const options = storedOptions.map((option) => ({ key: option.option_key, text: option.option_text, is_correct: option.is_correct }));
     const result = checkAnswer(question.type, parsed.data.selected_keys, options);

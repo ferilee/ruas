@@ -75,6 +75,7 @@ const questionContentSchema = z.object({
 export const adminQuestionSchema = questionContentSchema
   .extend({
     topic_id: z.coerce.number().int().positive(),
+    topic_ids: z.array(z.coerce.number().int().positive()).optional(),
   })
   .superRefine(validateQuestionRules);
 

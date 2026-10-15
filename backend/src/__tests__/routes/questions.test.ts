@@ -109,11 +109,14 @@ describe('questionsRoutes', () => {
 
         if (shape && typeof shape === 'object' && 'total' in (shape as Record<string, unknown>)) {
           return {
-            from: () => ({
-              where: () => ({
-                limit: () => Promise.resolve([{ total: 1 }]),
-              }),
-            }),
+            from: () => {
+              const query = {
+                where: () => ({
+                  limit: () => Promise.resolve([{ total: 1 }]),
+                }),
+              };
+              return { ...query, innerJoin: () => query };
+            },
           };
         }
 
@@ -131,22 +134,25 @@ describe('questionsRoutes', () => {
         }
 
         return {
-          from: () => ({
-            where: () => ({
-              orderBy: () => ({
-                limit: () => ({
-                  offset: async () => [
-                    {
-                      id: 99,
-                      type: 'single_choice',
-                      difficulty: 'medium',
-                      question_text: 'Soal contoh',
-                    },
-                  ],
+          from: () => {
+            const query = {
+              where: () => ({
+                orderBy: () => ({
+                  limit: () => ({
+                    offset: async () => [
+                      {
+                        id: 99,
+                        type: 'single_choice',
+                        difficulty: 'medium',
+                        question_text: 'Soal contoh',
+                      },
+                    ],
+                  }),
                 }),
               }),
-            }),
-          }),
+            };
+            return { ...query, innerJoin: () => query };
+          },
         };
       },
     });

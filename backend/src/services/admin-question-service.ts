@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray, like, or } from 'drizzle-orm';
+import { and, count, countDistinct, desc, eq, inArray, like, or } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/mysql2';
 import { examAnswers } from '@/db/schema/exam-answers';
 import { questions } from '@/db/schema/questions';
@@ -18,6 +18,8 @@ export interface AdminQuestionListItem {
   topic_id: number;
   topic_slug: string;
   topic_label: string;
+  topic_ids: number[];
+  topic_labels: string[];
   type: QuestionType;
   difficulty: 'easy' | 'medium' | 'hard';
   question_text: string;
@@ -62,38 +64,68 @@ export async function listAdminQuestions(db: AdminDb, filters: AdminQuestionList
       like(topics.slug, `%${filters.search}%`),
     ));
   }
-  if (filters.topic_id) conditions.push(eq(questions.topic_id, filters.topic_id));
+  if (filters.topic_id) conditions.push(eq(schema.topicQuestions.topic_id, filters.topic_id));
   if (filters.type) conditions.push(eq(questions.type, filters.type));
   if (filters.difficulty) conditions.push(eq(questions.difficulty, filters.difficulty));
   const condition = conditions.length > 0 ? and(...conditions) : undefined;
 
   const [totalRow] = await db
-    .select({ total: count(questions.id) })
+    .select({ total: countDistinct(questions.id) })
     .from(questions)
-    .innerJoin(topics, eq(questions.topic_id, topics.id))
+    .innerJoin(schema.topicQuestions, and(eq(schema.topicQuestions.question_id, questions.id), eq(schema.topicQuestions.enabled, true)))
+    .innerJoin(topics, eq(schema.topicQuestions.topic_id, topics.id))
     .where(condition);
 
-  const rows = await db
+  const matchingRows = await db
+    .selectDistinct({ id: questions.id })
+    .from(questions)
+    .innerJoin(schema.topicQuestions, and(eq(schema.topicQuestions.question_id, questions.id), eq(schema.topicQuestions.enabled, true)))
+    .innerJoin(topics, eq(schema.topicQuestions.topic_id, topics.id))
+    .where(condition)
+    .orderBy(desc(questions.id))
+    .limit(pageSize)
+    .offset((page - 1) * pageSize);
+  const questionIds = matchingRows.map((row) => row.id);
+  const rows = questionIds.length === 0 ? [] : await db
     .select({
       id: questions.id,
-      topic_id: topics.id,
-      topic_slug: topics.slug,
-      topic_label: topics.label,
+      primary_topic_id: questions.topic_id,
       type: questions.type,
       difficulty: questions.difficulty,
       question_text: questions.question_text,
       external_id: questions.external_id,
     })
     .from(questions)
-    .innerJoin(topics, eq(questions.topic_id, topics.id))
-    .where(condition)
-    .orderBy(desc(questions.id))
-    .limit(pageSize)
-    .offset((page - 1) * pageSize);
+    .where(inArray(questions.id, questionIds));
+  const mappings = questionIds.length === 0 ? [] : await db
+    .select({ question_id: schema.topicQuestions.question_id, topic_id: topics.id, topic_slug: topics.slug, topic_label: topics.label })
+    .from(schema.topicQuestions)
+    .innerJoin(topics, eq(schema.topicQuestions.topic_id, topics.id))
+    .where(and(inArray(schema.topicQuestions.question_id, questionIds), eq(schema.topicQuestions.enabled, true)))
+    .orderBy(schema.topicQuestions.display_order, topics.display_order, topics.id);
+  const mappingsByQuestion = new Map<number, typeof mappings>();
+  for (const mapping of mappings) mappingsByQuestion.set(mapping.question_id, [...(mappingsByQuestion.get(mapping.question_id) ?? []), mapping]);
 
   const total = Number(totalRow?.total ?? 0);
   return {
-    questions: rows.map((row) => ({ ...row, type: row.type as QuestionType })),
+    questions: rows
+      .sort((left, right) => right.id - left.id)
+      .map((row) => {
+        const rowMappings = mappingsByQuestion.get(row.id) ?? [];
+        const primary = rowMappings.find((mapping) => mapping.topic_id === row.primary_topic_id) ?? rowMappings[0];
+        return {
+          id: row.id,
+          topic_id: primary?.topic_id ?? row.primary_topic_id,
+          topic_slug: primary?.topic_slug ?? '',
+          topic_label: primary?.topic_label ?? 'Tanpa topik',
+          topic_ids: rowMappings.map((mapping) => mapping.topic_id),
+          topic_labels: rowMappings.map((mapping) => mapping.topic_label),
+          type: row.type as QuestionType,
+          difficulty: row.difficulty,
+          question_text: row.question_text,
+          external_id: row.external_id,
+        };
+      }),
     page,
     page_size: pageSize,
     total,
@@ -105,9 +137,7 @@ export async function findAdminQuestion(db: AdminDb, questionId: number): Promis
   const [row] = await db
     .select({
       id: questions.id,
-      topic_id: topics.id,
-      topic_slug: topics.slug,
-      topic_label: topics.label,
+      topic_id: questions.topic_id,
       type: questions.type,
       difficulty: questions.difficulty,
       question_text: questions.question_text,
@@ -115,12 +145,18 @@ export async function findAdminQuestion(db: AdminDb, questionId: number): Promis
       external_id: questions.external_id,
     })
     .from(questions)
-    .innerJoin(topics, eq(questions.topic_id, topics.id))
     .where(eq(questions.id, questionId))
     .limit(1);
 
   if (!row) return null;
 
+  const mappings = await db
+    .select({ topic_id: topics.id, topic_slug: topics.slug, topic_label: topics.label })
+    .from(schema.topicQuestions)
+    .innerJoin(topics, eq(schema.topicQuestions.topic_id, topics.id))
+    .where(and(eq(schema.topicQuestions.question_id, questionId), eq(schema.topicQuestions.enabled, true)))
+    .orderBy(schema.topicQuestions.display_order, topics.display_order, topics.id);
+  const primary = mappings.find((mapping) => mapping.topic_id === row.topic_id) ?? mappings[0];
   const options = await db
     .select({
       key: questionOptions.option_key,
@@ -131,12 +167,31 @@ export async function findAdminQuestion(db: AdminDb, questionId: number): Promis
     .where(eq(questionOptions.question_id, questionId))
     .orderBy(questionOptions.display_order);
 
-  return { ...row, type: row.type as QuestionType, options };
+  return {
+    ...row,
+    topic_id: primary?.topic_id ?? row.topic_id,
+    topic_slug: primary?.topic_slug ?? '',
+    topic_label: primary?.topic_label ?? 'Tanpa topik',
+    topic_ids: mappings.map((mapping) => mapping.topic_id),
+    topic_labels: mappings.map((mapping) => mapping.topic_label),
+    type: row.type as QuestionType,
+    options,
+  };
 }
 
-async function topicExists(db: AdminDb, topicId: number) {
-  const [topic] = await db.select({ id: topics.id }).from(topics).where(eq(topics.id, topicId)).limit(1);
-  return Boolean(topic);
+async function topicsExist(db: AdminDb, topicIds: number[]) {
+  if (topicIds.length === 0) return false;
+  const rows = await db.select({ id: topics.id }).from(topics).where(inArray(topics.id, topicIds));
+  return rows.length === topicIds.length;
+}
+
+function normalizedTopicIds(input: AdminQuestionInput) {
+  return [...new Set([input.topic_id, ...(input.topic_ids ?? [])].filter((id) => Number.isInteger(id) && id > 0))];
+}
+
+async function syncQuestionTopics(db: Pick<AdminDb, 'insert' | 'delete'>, questionId: number, topicIds: number[]) {
+  await db.delete(schema.topicQuestions).where(eq(schema.topicQuestions.question_id, questionId));
+  await db.insert(schema.topicQuestions).values(topicIds.map((topicId, index) => ({ topic_id: topicId, question_id: questionId, enabled: true, display_order: index + 1 })));
 }
 
 async function insertQuestion(db: InsertDb, input: AdminQuestionInput) {
@@ -159,12 +214,13 @@ async function insertQuestion(db: InsertDb, input: AdminQuestionInput) {
       display_order: index + 1,
     })),
   );
+  await db.insert(schema.topicQuestions).values(normalizedTopicIds(input).map((topicId, index) => ({ topic_id: topicId, question_id: questionId, enabled: true, display_order: index + 1 })));
 
   return questionId;
 }
 
 export async function createAdminQuestion(db: AdminDb, input: AdminQuestionInput): Promise<number | null> {
-  if (!(await topicExists(db, input.topic_id))) return null;
+  if (!(await topicsExist(db, normalizedTopicIds(input)))) return null;
   return db.transaction((tx) => insertQuestion(tx, input));
 }
 
@@ -173,7 +229,7 @@ export async function updateAdminQuestion(
   questionId: number,
   input: AdminQuestionInput,
 ): Promise<boolean> {
-  if (!(await topicExists(db, input.topic_id))) return false;
+  if (!(await topicsExist(db, normalizedTopicIds(input)))) return false;
 
   const existing = await findAdminQuestion(db, questionId);
   if (!existing) return false;
@@ -187,6 +243,7 @@ export async function updateAdminQuestion(
       explanation_text: input.explanation_text,
       external_id: input.external_id || null,
     }).where(eq(questions.id, questionId));
+    await syncQuestionTopics(tx, questionId, normalizedTopicIds(input));
 
     await tx.delete(questionOptions).where(eq(questionOptions.question_id, questionId));
     await tx.insert(questionOptions).values(
@@ -217,6 +274,7 @@ export async function deleteAdminQuestion(db: AdminDb, questionId: number): Prom
   if (Number(answerCount?.total ?? 0) > 0) return 'in_use';
 
   await db.transaction(async (tx) => {
+    await tx.delete(schema.topicQuestions).where(eq(schema.topicQuestions.question_id, questionId));
     await tx.delete(questionOptions).where(eq(questionOptions.question_id, questionId));
     await tx.delete(questions).where(eq(questions.id, questionId));
   });
@@ -479,6 +537,7 @@ export async function importAdminQuestions(
           explanation_text: plan.input.explanation_text,
           external_id: plan.input.external_id || null,
         }).where(eq(questions.id, plan.existingId));
+        await syncQuestionTopics(tx, plan.existingId, normalizedTopicIds(plan.input));
         await tx.delete(questionOptions).where(eq(questionOptions.question_id, plan.existingId));
         await tx.insert(questionOptions).values(plan.input.options.map((option, index) => ({
           question_id: plan.existingId as number,
