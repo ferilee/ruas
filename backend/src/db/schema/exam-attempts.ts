@@ -20,6 +20,7 @@ export const examAttempts = mysqlTable('exam_attempts', {
   final_score: int('final_score').notNull().default(0),
   question_order: json('question_order').$type<number[]>(),
   option_order: json('option_order').$type<Record<string, string[]>>(),
+  doubtful_question_ids: json('doubtful_question_ids').$type<number[]>(),
   started_at: timestamp('started_at').defaultNow().notNull(),
   deadline_at: timestamp('deadline_at'),
   minimum_duration_minutes: int('minimum_duration_minutes').notNull().default(0),

@@ -36,6 +36,11 @@ interface AttemptOrder {
   option_order: Record<string, string[]>;
 }
 
+function parseQuestionIds(value: unknown): number[] {
+  if (!Array.isArray(value)) return [];
+  return value.map(Number).filter((id) => Number.isInteger(id) && id > 0);
+}
+
 function shuffle<T>(items: T[]) {
   const result = [...items];
   for (let index = result.length - 1; index > 0; index -= 1) {
@@ -185,6 +190,63 @@ export async function getNextAttemptQuestion(db: ExamDb, attemptId: number, iden
     .map(({ key, text }) => ({ key, text }));
 
   return { question: { ...question, options } };
+}
+
+export async function getAttemptQuestion(db: ExamDb, attemptId: number, identityKey: string, questionNumber: number) {
+  const attempt = await findAttempt(db, attemptId, identityKey);
+  if (!attempt || isAttemptExpired(attempt)) {
+    if (attempt && isAttemptExpired(attempt)) await completeAttempt(db, attemptId, identityKey);
+    return null;
+  }
+
+  const order = await ensureAttemptOrder(db, attempt);
+  const questionId = order.question_order[questionNumber - 1];
+  if (!questionId) return null;
+
+  const [question] = await db
+    .select({ id: questions.id, type: questions.type, difficulty: questions.difficulty, question_text: questions.question_text })
+    .from(questions)
+    .where(eq(questions.id, questionId))
+    .limit(1);
+  if (!question) return null;
+
+  const optionRows = await db
+    .select({ key: questionOptions.option_key, text: questionOptions.option_text, display_order: questionOptions.display_order })
+    .from(questionOptions)
+    .where(eq(questionOptions.question_id, questionId))
+    .orderBy(asc(questionOptions.display_order));
+  const optionPosition = new Map((order.option_order[String(questionId)] ?? []).map((key, index) => [key, index]));
+  const options = optionRows
+    .sort((left, right) => (optionPosition.get(left.key) ?? left.display_order) - (optionPosition.get(right.key) ?? right.display_order))
+    .map(({ key, text }) => ({ key, text }));
+  const [answer] = await db
+    .select({ selected_keys: examAnswers.selected_keys })
+    .from(examAnswers)
+    .where(and(eq(examAnswers.attempt_id, attemptId), eq(examAnswers.question_id, questionId)))
+    .limit(1);
+
+  return {
+    question: { ...question, options },
+    question_number: questionNumber,
+    total_questions: order.question_order.length,
+    selected_keys: Array.isArray(answer?.selected_keys) ? answer.selected_keys as string[] : [],
+    answered: Boolean(answer),
+    is_doubtful: parseQuestionIds(attempt.doubtful_question_ids).includes(questionId),
+  };
+}
+
+export async function updateAttemptQuestionFlag(db: ExamDb, attemptId: number, identityKey: string, questionId: number, isDoubtful: boolean) {
+  const attempt = await findAttempt(db, attemptId, identityKey);
+  if (!attempt || isAttemptExpired(attempt)) return null;
+  const order = await ensureAttemptOrder(db, attempt);
+  if (!order.question_order.includes(questionId)) return null;
+
+  const doubtfulIds = new Set(parseQuestionIds(attempt.doubtful_question_ids));
+  if (isDoubtful) doubtfulIds.add(questionId);
+  else doubtfulIds.delete(questionId);
+  const doubtfulQuestionIds = [...doubtfulIds];
+  await db.update(examAttempts).set({ doubtful_question_ids: doubtfulQuestionIds }).where(eq(examAttempts.id, attemptId));
+  return { question_id: questionId, is_doubtful: isDoubtful, doubtful_question_ids: doubtfulQuestionIds };
 }
 
 async function findAssignedSubjectId(db: ExamDb, identityKey: string, profileSubjectId: number) {

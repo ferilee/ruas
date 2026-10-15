@@ -7,12 +7,13 @@ import type { Pool } from '@/db/connection';
 import { getParticipantIdentity } from '@/lib/participant-identity';
 import { checkAnswer } from '@/lib/scoring';
 import { mapCheckAnswerResponse } from '@/mappers/question-response';
-import { createExamDb, abandonAttempt, completeAttempt, createAttempt, findActiveAttempt, findAttempt, findAttemptAnswers, getAttemptAvailability, getExamReview, getNextAttemptQuestion, getQuestionExplanationMode, getSubjectExamSettings, isAttemptExpired, saveAnswer, saveIntegrityEvent } from '@/services/exam-service';
+import { createExamDb, abandonAttempt, completeAttempt, createAttempt, findActiveAttempt, findAttempt, findAttemptAnswers, getAttemptAvailability, getAttemptQuestion, getExamReview, getNextAttemptQuestion, getQuestionExplanationMode, getSubjectExamSettings, isAttemptExpired, saveAnswer, saveIntegrityEvent, updateAttemptQuestionFlag } from '@/services/exam-service';
 import { getAssessmentScheduleStatusFromDb } from '@/services/assessment-schedule-service';
 
 const attemptSchema = z.object({ subject_id: z.coerce.number().int().positive(), topic_id: z.coerce.number().int().positive(), total_questions: z.coerce.number().int().nonnegative(), topic_access_token: z.string().trim().max(100).optional() });
 const answerSchema = z.object({ question_id: z.coerce.number().int().positive(), selected_keys: z.array(z.string().min(1)).min(1), elapsed_seconds: z.coerce.number().int().nonnegative() });
 const eventSchema = z.object({ event_type: z.enum(['fullscreen_exit', 'tab_hidden', 'window_blur', 'blocked_shortcut']), occurred_at: z.string().datetime().optional() });
+const flagSchema = z.object({ is_doubtful: z.boolean() });
 
 function parseId(value: string) {
   const id = Number(value);
@@ -57,7 +58,11 @@ export function examAttemptRoutes(pool: Pool) {
     const topicId = parseId(c.req.query('topic_id') || '');
     if (!identityKey || !topicId) return c.json({ attempt: null, answers: [], server_now: new Date().toISOString() });
     const attempt = await findActiveAttempt(db, topicId, identityKey);
-    return c.json({ attempt, answers: attempt ? await findAttemptAnswers(db, attempt.id, identityKey) : [], server_now: new Date().toISOString() });
+    return c.json({
+      attempt: attempt ? { ...attempt, doubtful_question_ids: Array.isArray(attempt.doubtful_question_ids) ? attempt.doubtful_question_ids : [] } : null,
+      answers: attempt ? await findAttemptAnswers(db, attempt.id, identityKey) : [],
+      server_now: new Date().toISOString(),
+    });
   });
 
   app.get('/:id/next-question', async (c) => {
@@ -68,6 +73,29 @@ export function examAttemptRoutes(pool: Pool) {
     if (!attempt) return c.json({ error: 'not_found', message: 'Sesi ujian tidak ditemukan.' }, 404);
     if (attempt.status !== 'in_progress') return c.json({ error: 'attempt_closed', message: 'Sesi ujian sudah ditutup.' }, 409);
     return c.json(await getNextAttemptQuestion(db, attemptId, identityKey));
+  });
+
+  app.get('/:id/questions/:number', async (c) => {
+    const identityKey = getParticipantIdentity(c);
+    const attemptId = parseId(c.req.param('id'));
+    const questionNumber = parseId(c.req.param('number'));
+    if (!identityKey || !attemptId || !questionNumber) return c.json({ error: 'invalid_param', message: 'Nomor soal tidak valid.' }, 400);
+    const attempt = await findAttempt(db, attemptId, identityKey);
+    if (!attempt || attempt.status !== 'in_progress') return c.json({ error: 'attempt_closed', message: 'Sesi ujian sudah ditutup.' }, 409);
+    const result = await getAttemptQuestion(db, attemptId, identityKey, questionNumber);
+    if (!result) return c.json({ error: 'not_found', message: 'Soal tidak ditemukan.' }, 404);
+    return c.json(result);
+  });
+
+  app.patch('/:id/questions/:questionId/flag', async (c) => {
+    const identityKey = getParticipantIdentity(c);
+    const attemptId = parseId(c.req.param('id'));
+    const questionId = parseId(c.req.param('questionId'));
+    const parsed = flagSchema.safeParse(await c.req.json());
+    if (!identityKey || !attemptId || !questionId || !parsed.success) return c.json({ error: 'invalid_body', message: 'Status ragu-ragu tidak valid.' }, 400);
+    const result = await updateAttemptQuestionFlag(db, attemptId, identityKey, questionId, parsed.data.is_doubtful);
+    if (!result) return c.json({ error: 'not_found', message: 'Soal tidak ditemukan dalam sesi ini.' }, 404);
+    return c.json(result);
   });
 
   app.post('/:id/answers', async (c) => {

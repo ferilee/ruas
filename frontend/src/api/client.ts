@@ -11,6 +11,7 @@ import type {
   AdminReportDetail,
   AdminReportFilters,
   AssessmentSchedule,
+  AttemptQuestion,
   CurriculumData,
   CheckResult,
   ExamAttempt,
@@ -180,6 +181,17 @@ export async function fetchActiveExamAttempt(topicId: number): Promise<{ attempt
 export async function fetchNextAttemptQuestion(attemptId: number): Promise<Question | null> {
   const data = await request<{ question: Question | null }>(`/exam/attempts/${attemptId}/next-question`);
   return data.question;
+}
+
+export async function fetchAttemptQuestion(attemptId: number, questionNumber: number): Promise<AttemptQuestion> {
+  return request<AttemptQuestion>(`/exam/attempts/${attemptId}/questions/${questionNumber}`);
+}
+
+export async function saveAttemptQuestionFlag(attemptId: number, questionId: number, isDoubtful: boolean): Promise<void> {
+  await request(`/exam/attempts/${attemptId}/questions/${questionId}/flag`, {
+    method: 'PATCH',
+    body: JSON.stringify({ is_doubtful: isDoubtful }),
+  });
 }
 
 export async function fetchExamAttemptAvailability(subjectId: number, topicId: number): Promise<ExamAttemptAvailability | null> {

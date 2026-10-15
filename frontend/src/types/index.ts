@@ -250,6 +250,8 @@ export interface ExamAttempt {
   deadline_at: string | null;
   minimum_duration_minutes: number;
   completed_at: string | null;
+  question_order?: number[] | null;
+  doubtful_question_ids?: number[] | null;
 }
 
 export interface ExamAttemptAvailability {
@@ -268,6 +270,15 @@ export interface ExamAnswerRecord {
   is_correct: boolean;
   elapsed_seconds: number;
   answered_at: string;
+}
+
+export interface AttemptQuestion {
+  question: Question | null;
+  question_number: number;
+  total_questions: number;
+  selected_keys: string[];
+  answered: boolean;
+  is_doubtful: boolean;
 }
 
 export type ReportStatus = 'all' | 'in_progress' | 'completed' | 'abandoned';

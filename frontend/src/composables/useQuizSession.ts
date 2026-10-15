@@ -4,12 +4,14 @@ import {
   completeExamAttempt,
   createExamAttempt,
   fetchActiveExamAttempt,
+  fetchAttemptQuestion,
   fetchExamReview,
   fetchNextAttemptQuestion,
   fetchQuestionCount,
   fetchTopic,
   saveExamAnswer,
   saveExamIntegrityEvent,
+  saveAttemptQuestionFlag,
 } from '@/api/client';
 import type { CheckResult, ExamAttempt, ExamReviewItem, ExplanationMode, Question } from '@/types';
 
@@ -43,6 +45,8 @@ export function useQuizSession(options: UseQuizSessionOptions) {
   const questionCountError = ref('');
   const autoStart = ref(false);
   const answeredIds = ref<Set<number>>(new Set());
+  const questionOrder = ref<number[]>([]);
+  const doubtfulQuestionIds = ref<Set<number>>(new Set());
   const sessionResults = ref<SessionResult[]>([]);
   const showExitModal = ref(false);
   const attemptId = ref<number | null>(null);
@@ -52,14 +56,13 @@ export function useQuizSession(options: UseQuizSessionOptions) {
   const explanationMode = ref<ExplanationMode | null>(null);
   const endedByTimeout = ref(false);
   const submittingAnswer = ref(false);
+  const flagSaving = ref(false);
   const clockTick = ref(Date.now());
   let clockInterval: ReturnType<typeof setInterval> | null = null;
   let finishing = false;
 
-  const currentQuestionNumber = computed(() => {
-    if (state.value === 'reviewing') return answeredIds.value.size;
-    return answeredIds.value.size + 1;
-  });
+  const currentQuestionNumber = ref(1);
+  const currentQuestionDoubtful = computed(() => Boolean(question.value && doubtfulQuestionIds.value.has(question.value.id)));
 
   const completedAttempt = computed(() => persistedAttempt.value?.status === 'completed' ? persistedAttempt.value : null);
   const correctCount = computed(() => completedAttempt.value?.correct_count ?? sessionResults.value.filter((entry) => entry.correct).length);
@@ -105,6 +108,8 @@ export function useQuizSession(options: UseQuizSessionOptions) {
       }
 
       question.value = nextQuestion;
+      const orderIndex = questionOrder.value.indexOf(nextQuestion.id);
+      currentQuestionNumber.value = orderIndex >= 0 ? orderIndex + 1 : answeredIds.value.size + 1;
       if (autoStart.value) {
         autoStart.value = false;
         timerRunning.value = true;
@@ -112,6 +117,32 @@ export function useQuizSession(options: UseQuizSessionOptions) {
       } else {
         state.value = 'ready';
       }
+    } catch (error) {
+      errorMessage.value = error instanceof Error ? error.message : 'Gagal memuat soal.';
+      state.value = 'error';
+    }
+  }
+
+  async function loadQuestionNumber(number: number) {
+    if (!attemptId.value || number < 1 || number > questionCount.value) return;
+    state.value = 'loading';
+    result.value = null;
+    elapsedTime.value = 0;
+    finalTime.value = 0;
+
+    try {
+      const loaded = await fetchAttemptQuestion(attemptId.value, number);
+      if (!loaded.question) {
+        await finishSession();
+        return;
+      }
+      question.value = loaded.question;
+      currentQuestionNumber.value = loaded.question_number;
+      selectedKeys.value = loaded.selected_keys;
+      if (loaded.is_doubtful) doubtfulQuestionIds.value.add(loaded.question.id);
+      else doubtfulQuestionIds.value.delete(loaded.question.id);
+      timerRunning.value = true;
+      state.value = 'answering';
     } catch (error) {
       errorMessage.value = error instanceof Error ? error.message : 'Gagal memuat soal.';
       state.value = 'error';
@@ -129,6 +160,8 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     const created = await createExamAttempt({ subject_id: subjectId.value, topic_id: options.getTopicId(), total_questions: questionCount.value });
     attemptId.value = created.attempt.id;
     persistedAttempt.value = created.attempt;
+    questionOrder.value = created.attempt.question_order ?? [];
+    doubtfulQuestionIds.value = new Set(created.attempt.doubtful_question_ids ?? []);
     if (Number.isInteger(created.attempt.total_questions)) {
       questionCount.value = created.attempt.total_questions;
       questionCountReady.value = true;
@@ -157,8 +190,45 @@ export function useQuizSession(options: UseQuizSessionOptions) {
   }
 
   function nextQuestion() {
+    if (questionOrder.value.length > 0) {
+      const nextUnanswered = questionOrder.value.findIndex((questionId, index) => index + 1 > currentQuestionNumber.value && !answeredIds.value.has(questionId));
+      const firstUnanswered = questionOrder.value.findIndex((questionId) => !answeredIds.value.has(questionId));
+      const target = nextUnanswered >= 0 ? nextUnanswered + 1 : firstUnanswered >= 0 ? firstUnanswered + 1 : 0;
+      if (target > 0) {
+        void loadQuestionNumber(target);
+        return;
+      }
+    }
     autoStart.value = true;
-    loadQuestion();
+    void loadQuestion();
+  }
+
+  async function toggleDoubtful() {
+    if (!attemptId.value || !question.value || flagSaving.value) return;
+    const questionId = question.value.id;
+    const isDoubtful = !doubtfulQuestionIds.value.has(questionId);
+    if (isDoubtful) doubtfulQuestionIds.value.add(questionId);
+    else doubtfulQuestionIds.value.delete(questionId);
+    flagSaving.value = true;
+    try {
+      await saveAttemptQuestionFlag(attemptId.value, questionId, isDoubtful);
+    } catch (error) {
+      if (isDoubtful) doubtfulQuestionIds.value.delete(questionId);
+      else doubtfulQuestionIds.value.add(questionId);
+      errorMessage.value = error instanceof Error ? error.message : 'Status ragu-ragu gagal disimpan.';
+    } finally {
+      flagSaving.value = false;
+    }
+  }
+
+  function isQuestionAnswered(number: number) {
+    const questionId = questionOrder.value[number - 1];
+    return questionId ? answeredIds.value.has(questionId) : false;
+  }
+
+  function isQuestionDoubtful(number: number) {
+    const questionId = questionOrder.value[number - 1];
+    return questionId ? doubtfulQuestionIds.value.has(questionId) : false;
   }
 
   function onSelectKeys(keys: string[]) {
@@ -329,9 +399,12 @@ export function useQuizSession(options: UseQuizSessionOptions) {
 
   function resetSession() {
     answeredIds.value = new Set();
+    questionOrder.value = [];
+    doubtfulQuestionIds.value = new Set();
     sessionResults.value = [];
     autoStart.value = false;
     attemptId.value = null;
+    currentQuestionNumber.value = 1;
     persistedAttempt.value = null;
     serverClockOffsetMs.value = 0;
     examReview.value = [];
@@ -373,12 +446,16 @@ export function useQuizSession(options: UseQuizSessionOptions) {
       if (active.attempt) {
         attemptId.value = active.attempt.id;
         persistedAttempt.value = active.attempt;
+        questionOrder.value = active.attempt.question_order ?? [];
+        doubtfulQuestionIds.value = new Set(active.attempt.doubtful_question_ids ?? []);
         const activeQuestionCount = Number(active.attempt.total_questions);
         if (activeQuestionCount > 0) questionCount.value = activeQuestionCount;
         questionCountReady.value = true;
         startClock();
         answeredIds.value = new Set(active.answers.map((answer) => answer.question_id));
         sessionResults.value = active.answers.map((answer) => ({ questionId: answer.question_id, correct: answer.is_correct, elapsed: answer.elapsed_seconds }));
+        const nextNumber = questionOrder.value.findIndex((questionId) => !answeredIds.value.has(questionId)) + 1;
+        if (nextNumber > 0) currentQuestionNumber.value = nextNumber;
         await loadQuestion();
       } else {
         question.value = null;
@@ -404,6 +481,7 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     confirmExitState,
     correctCount,
     currentQuestionNumber,
+    currentQuestionDoubtful,
     elapsedTime,
     examReview,
     errorMessage,
@@ -416,6 +494,7 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     initializeSession,
     isLastQuestion,
     loadQuestion,
+    loadQuestionNumber,
     loadQuestionCount,
     loadTopicInfo,
     nextQuestion,
@@ -434,6 +513,10 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     subjectId,
     submitAnswer,
     submittingAnswer,
+    toggleDoubtful,
+    flagSaving,
+    isQuestionAnswered,
+    isQuestionDoubtful,
     timerRunning,
     deadlineAt: computed(() => persistedAttempt.value?.deadline_at ?? null),
     serverClockOffsetMs,

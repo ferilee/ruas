@@ -162,7 +162,7 @@
         <nav class="exam-navigation" aria-label="Navigasi ujian">
           <p v-if="state === 'reviewing' && errorMessage" class="minimum-time-note" role="status">{{ errorMessage }}</p>
           <button class="nav-button nav-secondary" type="button" @click="tryExit"><span>‹</span> Keluar dari ujian</button>
-          <button class="nav-button nav-doubt" :class="{ active: isDoubtful }" type="button" @click="isDoubtful = !isDoubtful">
+          <button class="nav-button nav-doubt" :class="{ active: isDoubtful }" type="button" :disabled="flagSaving" @click="toggleDoubtful">
             <span>□</span> {{ isDoubtful ? 'Ragu-ragu ditandai' : 'Tandai ragu-ragu' }}
           </button>
           <button v-if="state === 'answering'" class="nav-button nav-primary" type="button" :disabled="selectedKeys.length === 0 || submittingAnswer" @click="submitAnswer">
@@ -200,12 +200,15 @@
         <h2 id="list-title">Daftar soal</h2>
         <p class="modal-description">Status soal pada sesi ini.</p>
         <div class="question-number-grid">
-          <span v-for="number in questionNumbers" :key="number" class="question-number" :class="questionNumberClass(number)">{{ number }}</span>
+          <button v-for="number in questionNumbers" :key="number" type="button" class="question-number" :class="questionNumberClass(number)" :aria-current="number === currentQuestionNumber ? 'step' : undefined" @click="goToQuestion(number)">
+            {{ number }}
+          </button>
         </div>
         <div class="question-status-legend">
           <span><i class="legend-dot current"></i> Sedang dikerjakan</span>
           <span><i class="legend-dot answered"></i> Sudah dijawab</span>
           <span><i class="legend-dot"></i> Belum dikerjakan</span>
+          <span><i class="legend-dot doubtful"></i> Ragu-ragu</span>
         </div>
       </section>
     </div>
@@ -263,7 +266,6 @@ import { useExamGuard, type ExamViolation, type ExamViolationType } from '@/comp
 const route = useRoute();
 const router = useRouter();
 const fontSize = ref<'small' | 'normal' | 'large'>('normal');
-const isDoubtful = ref(false);
 const showInfoModal = ref(false);
 const showQuestionList = ref(false);
 const showSecurityWarning = ref(false);
@@ -279,11 +281,12 @@ function getTopicId(): number { return Number(route.params.id); }
 
 const {
   accuracy, cancelExit: dismissExitModal, confirmExitState, correctCount, endedByTimeout,
-  currentQuestionNumber, errorMessage, examReview, explanationMode, finalTime, finishSession, hasActiveSession,
+  currentQuestionNumber, currentQuestionDoubtful: isDoubtful, errorMessage, examReview, explanationMode, finalTime, finishSession, hasActiveSession,
   incorrectCount, initializeSession, isLastQuestion, nextQuestion, onSelectKeys, question,
   questionCount, questionCountReady, recordIntegrityEvent, resetSession, result, retryCurrentState, selectedKeys, showExitModal,
   startQuiz, state, subjectId, submitAnswer, topicLabel, totalTime, timerRunning, onTime,
   deadlineAt, serverClockOffsetMs, canComplete, minimumDurationSeconds, minimumTimeRemaining, submittingAnswer,
+  toggleDoubtful, flagSaving, isQuestionAnswered, isQuestionDoubtful, loadQuestionNumber,
 } = useQuizSession({
   getTopicId,
   getQuerySubjectId: () => Number(route.query.subject_id),
@@ -317,7 +320,17 @@ const questionTypeLabel = computed(() => {
 function setFontSize(size: 'small' | 'normal' | 'large') { fontSize.value = size; }
 
 function questionNumberClass(number: number) {
-  return { current: number === currentQuestionNumber.value, answered: number < currentQuestionNumber.value };
+  return {
+    current: number === currentQuestionNumber.value,
+    answered: isQuestionAnswered(number) && number !== currentQuestionNumber.value,
+    doubtful: isQuestionDoubtful(number),
+  };
+}
+
+function goToQuestion(number: number) {
+  showQuestionList.value = false;
+  if (number === currentQuestionNumber.value) return;
+  void loadQuestionNumber(number);
 }
 
 function goToNextStep() {
@@ -327,7 +340,7 @@ function goToNextStep() {
     void examGuard.exitFullscreen();
     finishSession();
   }
-  else { isDoubtful.value = false; nextQuestion(); }
+  else { nextQuestion(); }
 }
 
 function formatDuration(seconds: number) {
@@ -444,7 +457,6 @@ async function confirmExit() {
 watch(() => route.params.id, (newId) => {
   if (!newId) return;
   resetSession();
-  isDoubtful.value = false;
   initializeSession();
 });
 
@@ -552,14 +564,19 @@ onMounted(() => { initializeSession(); });
 .question-list-modal { width: min(600px, 100%); }
 .modal-description { margin-bottom: 18px; }
 .question-number-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; }
-.question-number { min-height: 38px; display: grid; place-items: center; border: 1px solid #d4e0ea; border-radius: 7px; color: #60778a; background: #f8fafc; font-weight: 700; }
+.question-number { min-height: 38px; display: grid; place-items: center; border: 1px solid #d4e0ea; border-radius: 7px; color: #60778a; background: #f8fafc; font: inherit; font-weight: 700; cursor: pointer; }
+.question-number:hover { border-color: #1477c4; color: #1477c4; }
 .question-number.current { color: #fff; border-color: #1477c4; background: #1477c4; }
 .question-number.answered { color: #fff; border-color: #48a47a; background: #48a47a; }
+.question-number.doubtful { border-color: #d29400; box-shadow: inset 0 -4px 0 #d29400; }
+.question-number.current.doubtful { color: #fff; border-color: #1477c4; box-shadow: inset 0 -4px 0 #ffd45a; }
+.question-number.answered.doubtful { border-color: #48a47a; box-shadow: inset 0 -4px 0 #ffd45a; }
 .question-status-legend { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 12px; color: #71869a; font-size: .78rem; }
 .question-status-legend span { display: inline-flex; align-items: center; gap: 5px; }
 .legend-dot { width: 10px; height: 10px; display: inline-block; border: 1px solid #d4e0ea; border-radius: 50%; background: #f8fafc; }
 .legend-dot.current { border-color: #1477c4; background: #1477c4; }
 .legend-dot.answered { border-color: #48a47a; background: #48a47a; }
+.legend-dot.doubtful { border-color: #d29400; background: #ffd45a; }
 .exit-modal { width: min(420px, 100%); text-align: center; }
 .exit-modal .modal-actions { margin-top: 22px; display: flex; justify-content: center; gap: 10px; }
 .exit-password-field { display: flex; flex-direction: column; gap: 7px; margin-top: 18px; color: #63798c; font-size: .82rem; font-weight: 700; text-align: left; }

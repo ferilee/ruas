@@ -6,22 +6,26 @@ const {
   completeExamAttempt,
   createExamAttempt,
   fetchActiveExamAttempt,
+  fetchAttemptQuestion,
   fetchExamReview,
   fetchNextAttemptQuestion,
   fetchQuestionCount,
   fetchTopic,
   saveExamAnswer,
+  saveAttemptQuestionFlag,
   saveExamIntegrityEvent,
 } = vi.hoisted(() => ({
   abandonExamAttempt: vi.fn(),
   completeExamAttempt: vi.fn(),
   createExamAttempt: vi.fn(),
   fetchActiveExamAttempt: vi.fn(),
+  fetchAttemptQuestion: vi.fn(),
   fetchExamReview: vi.fn(),
   fetchNextAttemptQuestion: vi.fn(),
   fetchQuestionCount: vi.fn(),
   fetchTopic: vi.fn(),
   saveExamAnswer: vi.fn(),
+  saveAttemptQuestionFlag: vi.fn(),
   saveExamIntegrityEvent: vi.fn(),
 }));
 
@@ -30,11 +34,13 @@ vi.mock('@/api/client', () => ({
   completeExamAttempt,
   createExamAttempt,
   fetchActiveExamAttempt,
+  fetchAttemptQuestion,
   fetchExamReview,
   fetchNextAttemptQuestion,
   fetchQuestionCount,
   fetchTopic,
   saveExamAnswer,
+  saveAttemptQuestionFlag,
   saveExamIntegrityEvent,
 }));
 
@@ -66,11 +72,13 @@ describe('useQuizSession', () => {
     completeExamAttempt.mockReset();
     createExamAttempt.mockReset();
     fetchActiveExamAttempt.mockReset();
+    fetchAttemptQuestion.mockReset();
     fetchExamReview.mockReset();
     fetchNextAttemptQuestion.mockReset();
     fetchQuestionCount.mockReset();
     fetchTopic.mockReset();
     saveExamAnswer.mockReset();
+    saveAttemptQuestionFlag.mockReset();
     saveExamIntegrityEvent.mockReset();
     fetchActiveExamAttempt.mockResolvedValue({ attempt: null, answers: [], server_now: new Date().toISOString() });
     createExamAttempt.mockResolvedValue({
@@ -404,5 +412,53 @@ describe('useQuizSession', () => {
     expect(session.state.value).toBe('answering');
     expect(session.currentQuestionNumber.value).toBe(2);
     expect(session.timerRunning.value).toBe(true);
+  });
+
+  it('navigates directly to a question and restores its saved answer', async () => {
+    fetchQuestionCount.mockResolvedValue(2);
+    fetchNextAttemptQuestion.mockResolvedValue(firstQuestion);
+    fetchAttemptQuestion.mockResolvedValue({
+      question: secondQuestion,
+      question_number: 2,
+      total_questions: 2,
+      selected_keys: ['A'],
+      answered: true,
+      is_doubtful: true,
+    });
+
+    const session = useQuizSession({
+      getTopicId: () => 11,
+      getQuerySubjectId: () => 7,
+      getQueryTopicLabel: () => 'Aljabar',
+    });
+
+    await session.initializeSession();
+    await session.startQuiz();
+    await session.loadQuestionNumber(2);
+
+    expect(fetchAttemptQuestion).toHaveBeenCalledWith(501, 2);
+    expect(session.question.value?.id).toBe(202);
+    expect(session.currentQuestionNumber.value).toBe(2);
+    expect(session.selectedKeys.value).toEqual(['A']);
+    expect(session.currentQuestionDoubtful.value).toBe(true);
+  });
+
+  it('persists the doubtful status for the current question', async () => {
+    fetchQuestionCount.mockResolvedValue(1);
+    fetchNextAttemptQuestion.mockResolvedValue(firstQuestion);
+    saveAttemptQuestionFlag.mockResolvedValue(undefined);
+
+    const session = useQuizSession({
+      getTopicId: () => 11,
+      getQuerySubjectId: () => 7,
+      getQueryTopicLabel: () => 'Aljabar',
+    });
+
+    await session.initializeSession();
+    await session.startQuiz();
+    await session.toggleDoubtful();
+
+    expect(saveAttemptQuestionFlag).toHaveBeenCalledWith(501, 101, true);
+    expect(session.currentQuestionDoubtful.value).toBe(true);
   });
 });
