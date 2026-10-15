@@ -56,6 +56,7 @@ export function useQuizSession(options: UseQuizSessionOptions) {
   const explanationMode = ref<ExplanationMode | null>(null);
   const endedByTimeout = ref(false);
   const submittingAnswer = ref(false);
+  const questionNavigationLoading = ref(false);
   const flagSaving = ref(false);
   const clockTick = ref(Date.now());
   let clockInterval: ReturnType<typeof setInterval> | null = null;
@@ -125,6 +126,8 @@ export function useQuizSession(options: UseQuizSessionOptions) {
 
   async function loadQuestionNumber(number: number) {
     if (!attemptId.value || number < 1 || number > questionCount.value) return;
+    if (questionNavigationLoading.value) return;
+    questionNavigationLoading.value = true;
     state.value = 'loading';
     result.value = null;
     elapsedTime.value = 0;
@@ -146,6 +149,8 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     } catch (error) {
       errorMessage.value = error instanceof Error ? error.message : 'Gagal memuat soal.';
       state.value = 'error';
+    } finally {
+      questionNavigationLoading.value = false;
     }
   }
 
@@ -189,18 +194,29 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     }
   }
 
-  function nextQuestion() {
+  async function nextQuestion() {
+    if (questionNavigationLoading.value) return;
     if (questionOrder.value.length > 0) {
       const nextUnanswered = questionOrder.value.findIndex((questionId, index) => index + 1 > currentQuestionNumber.value && !answeredIds.value.has(questionId));
       const firstUnanswered = questionOrder.value.findIndex((questionId) => !answeredIds.value.has(questionId));
       const target = nextUnanswered >= 0 ? nextUnanswered + 1 : firstUnanswered >= 0 ? firstUnanswered + 1 : 0;
       if (target > 0) {
-        void loadQuestionNumber(target);
+        await loadQuestionNumber(target);
         return;
       }
     }
-    autoStart.value = true;
-    void loadQuestion();
+    questionNavigationLoading.value = true;
+    try {
+      autoStart.value = true;
+      await loadQuestion();
+    } finally {
+      questionNavigationLoading.value = false;
+    }
+  }
+
+  async function previousQuestion() {
+    if (questionNavigationLoading.value || currentQuestionNumber.value <= 1) return;
+    await loadQuestionNumber(currentQuestionNumber.value - 1);
   }
 
   async function toggleDoubtful() {
@@ -513,10 +529,12 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     subjectId,
     submitAnswer,
     submittingAnswer,
+    questionNavigationLoading,
     toggleDoubtful,
     flagSaving,
     isQuestionAnswered,
     isQuestionDoubtful,
+    previousQuestion,
     timerRunning,
     deadlineAt: computed(() => persistedAttempt.value?.deadline_at ?? null),
     serverClockOffsetMs,

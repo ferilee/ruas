@@ -414,6 +414,46 @@ describe('useQuizSession', () => {
     expect(session.timerRunning.value).toBe(true);
   });
 
+  it('prevents duplicate next-question requests while navigation is loading', async () => {
+    fetchQuestionCount.mockResolvedValue(2);
+    fetchNextAttemptQuestion.mockResolvedValueOnce(firstQuestion);
+    saveExamAnswer.mockResolvedValue({
+      correct: true,
+      correct_keys: ['B'],
+      explanation: null,
+      explanation_mode: 'after_answer',
+    });
+
+    let releaseQuestion!: () => void;
+    fetchNextAttemptQuestion.mockImplementationOnce(() => new Promise((resolve) => {
+      releaseQuestion = () => resolve(secondQuestion);
+    }));
+
+    const session = useQuizSession({
+      getTopicId: () => 11,
+      getQuerySubjectId: () => 7,
+      getQueryTopicLabel: () => 'Aljabar',
+    });
+
+    await session.initializeSession();
+    await session.startQuiz();
+    session.onSelectKeys(['B']);
+    session.timerRunning.value = false;
+    session.onTime(15);
+    await session.submitAnswer();
+
+    const firstNavigation = session.nextQuestion();
+    const duplicateNavigation = session.nextQuestion();
+    expect(session.questionNavigationLoading.value).toBe(true);
+    expect(fetchNextAttemptQuestion).toHaveBeenCalledTimes(2);
+
+    releaseQuestion();
+    await Promise.all([firstNavigation, duplicateNavigation]);
+
+    expect(session.question.value?.id).toBe(202);
+    expect(session.questionNavigationLoading.value).toBe(false);
+  });
+
   it('navigates directly to a question and restores its saved answer', async () => {
     fetchQuestionCount.mockResolvedValue(2);
     fetchNextAttemptQuestion.mockResolvedValue(firstQuestion);

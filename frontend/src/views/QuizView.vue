@@ -161,15 +161,17 @@
 
         <nav class="exam-navigation" aria-label="Navigasi ujian">
           <p v-if="state === 'reviewing' && errorMessage" class="minimum-time-note" role="status">{{ errorMessage }}</p>
-          <button class="nav-button nav-secondary" type="button" @click="tryExit"><span>‹</span> Keluar dari ujian</button>
+          <button class="nav-button nav-secondary" type="button" :disabled="questionNavigationLoading" @click="goToPreviousQuestion">
+            <span>‹</span> {{ currentQuestionNumber > 1 ? questionNavigationLoading ? 'Memuat...' : 'Soal sebelumnya' : 'Keluar dari ujian' }}
+          </button>
           <button class="nav-button nav-doubt" :class="{ active: isDoubtful }" type="button" :disabled="flagSaving" @click="toggleDoubtful">
             <span>□</span> {{ isDoubtful ? 'Ragu-ragu ditandai' : 'Tandai ragu-ragu' }}
           </button>
           <button v-if="state === 'answering'" class="nav-button nav-primary" type="button" :disabled="selectedKeys.length === 0 || submittingAnswer" @click="submitAnswer">
             {{ submittingAnswer ? 'Menyimpan...' : 'Simpan jawaban' }} <span>›</span>
           </button>
-          <button v-else class="nav-button nav-primary" type="button" :disabled="isLastQuestion && !canComplete" @click="goToNextStep">
-            {{ isLastQuestion ? canComplete ? 'Lihat hasil' : `Tunggu ${formatDuration(minimumTimeRemaining)}` : 'Soal berikutnya' }} <span>›</span>
+          <button v-else class="nav-button nav-primary" type="button" :disabled="questionNavigationLoading || (isLastQuestion && !canComplete)" @click="goToNextStep">
+            {{ questionNavigationLoading ? 'Memuat soal...' : isLastQuestion ? canComplete ? 'Lihat hasil' : `Tunggu ${formatDuration(minimumTimeRemaining)}` : 'Soal berikutnya' }} <span>›</span>
           </button>
         </nav>
       </template>
@@ -285,8 +287,9 @@ const {
   incorrectCount, initializeSession, isLastQuestion, nextQuestion, onSelectKeys, question,
   questionCount, questionCountReady, recordIntegrityEvent, resetSession, result, retryCurrentState, selectedKeys, showExitModal,
   startQuiz, state, subjectId, submitAnswer, topicLabel, totalTime, timerRunning, onTime,
-  deadlineAt, serverClockOffsetMs, canComplete, minimumDurationSeconds, minimumTimeRemaining, submittingAnswer,
+  deadlineAt, serverClockOffsetMs, canComplete, minimumDurationSeconds, minimumTimeRemaining, submittingAnswer, questionNavigationLoading,
   toggleDoubtful, flagSaving, isQuestionAnswered, isQuestionDoubtful, loadQuestionNumber,
+  previousQuestion,
 } = useQuizSession({
   getTopicId,
   getQuerySubjectId: () => Number(route.query.subject_id),
@@ -333,14 +336,24 @@ function goToQuestion(number: number) {
   void loadQuestionNumber(number);
 }
 
-function goToNextStep() {
+async function goToNextStep() {
+  if (questionNavigationLoading.value) return;
   if (isLastQuestion.value && !canComplete.value) return;
   if (isLastQuestion.value) {
     examGuard.deactivate();
     void examGuard.exitFullscreen();
-    finishSession();
+    await finishSession();
   }
-  else { nextQuestion(); }
+  else { await nextQuestion(); }
+}
+
+async function goToPreviousQuestion() {
+  if (questionNavigationLoading.value) return;
+  if (currentQuestionNumber.value <= 1) {
+    tryExit();
+    return;
+  }
+  await previousQuestion();
 }
 
 function formatDuration(seconds: number) {
