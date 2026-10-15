@@ -1,4 +1,4 @@
-import { and, asc, count, eq, inArray, lte } from 'drizzle-orm';
+import { and, asc, count, eq, inArray, isNull, lte } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/mysql2';
 import { randomInt } from 'node:crypto';
 import { subjects } from '@/db/schema/subjects';
@@ -178,6 +178,7 @@ async function buildAttemptOrder(db: ExamDb, topicId: number, previousOrders: Pr
       eq(topicQuestions.question_id, questions.id),
       eq(topicQuestions.topic_id, topicId),
       eq(topicQuestions.enabled, true),
+      isNull(questions.archived_at),
     ))
     .orderBy(asc(questions.id));
   const questionIds = questionRows.map((row) => row.id);

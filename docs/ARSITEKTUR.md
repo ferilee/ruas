@@ -132,6 +132,7 @@ tanggal lahir, dan token sesi setelah login pertama.
 | explanation_text | text | Pembahasan |
 | external_id | varchar(100) nullable | ID stabil untuk dedup |
 | created_at | timestamp | |
+| archived_at | timestamp nullable | Waktu diarsipkan; `NULL` berarti soal aktif |
 
 ### question_options
 

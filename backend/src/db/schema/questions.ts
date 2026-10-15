@@ -10,4 +10,5 @@ export const questions = mysqlTable('questions', {
   explanation_text: text('explanation_text').notNull(),
   external_id: varchar('external_id', { length: 100 }),
   created_at: timestamp('created_at').defaultNow().notNull(),
+  archived_at: timestamp('archived_at'),
 });

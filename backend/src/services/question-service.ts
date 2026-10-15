@@ -1,4 +1,4 @@
-import { and, count, eq, notInArray } from 'drizzle-orm';
+import { and, count, eq, isNull, notInArray } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/mysql2';
 import { questions } from '@/db/schema/questions';
 import { questionOptions } from '@/db/schema/question-options';
@@ -26,7 +26,8 @@ export async function countQuestionsForTopic(db: QuestionsDb, topicId: number) {
   const [row] = await db
     .select({ total: count() })
     .from(topicQuestions)
-    .where(and(eq(topicQuestions.topic_id, topicId), eq(topicQuestions.enabled, true)));
+    .innerJoin(questions, eq(questions.id, topicQuestions.question_id))
+    .where(and(eq(topicQuestions.topic_id, topicId), eq(topicQuestions.enabled, true), isNull(questions.archived_at)));
 
   return Number(row?.total ?? 0);
 }
@@ -39,6 +40,7 @@ export async function findRandomQuestion(
   const conditions = [
     eq(topicQuestions.topic_id, topicId),
     eq(topicQuestions.enabled, true),
+    isNull(questions.archived_at),
   ];
   if (excludeIds.length > 0) conditions.push(notInArray(questions.id, excludeIds));
 

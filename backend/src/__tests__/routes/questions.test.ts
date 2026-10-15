@@ -35,9 +35,12 @@ describe('questionsRoutes', () => {
         }
 
         return {
-        from: () => ({
-          where: () => Promise.resolve([{ total: 7 }]),
-        }),
+          from: () => ({
+            where: () => Promise.resolve([]),
+            innerJoin: () => ({
+              where: () => Promise.resolve([{ total: 7 }]),
+            }),
+          }),
         };
       },
     });

@@ -132,6 +132,7 @@ export interface AdminQuestionListItem {
   difficulty: Question['difficulty'];
   question_text: string;
   external_id: string | null;
+  archived_at: string | null;
 }
 
 export interface AdminQuestionPage {

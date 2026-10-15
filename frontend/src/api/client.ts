@@ -263,7 +263,7 @@ export async function adminLogin(password: string): Promise<void> {
   sessionStorage.setItem('admin_token', data.token);
 }
 
-export async function fetchAdminQuestions(filters: { search?: string; topic_id?: number; type?: AdminQuestionListItem['type']; difficulty?: AdminQuestionListItem['difficulty']; page?: number; page_size?: number } = {}): Promise<AdminQuestionPage> {
+export async function fetchAdminQuestions(filters: { search?: string; topic_id?: number; type?: AdminQuestionListItem['type']; difficulty?: AdminQuestionListItem['difficulty']; status?: 'active' | 'archived' | 'all'; page?: number; page_size?: number } = {}): Promise<AdminQuestionPage> {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(filters)) {
     if (value !== undefined && value !== null && value !== '') params.set(key, String(value));
@@ -470,6 +470,13 @@ export async function updateAdminQuestion(id: number, input: AdminQuestionInput)
   await adminRequest(`/admin/questions/${id}`, {
     method: 'PUT',
     body: JSON.stringify(input),
+  });
+}
+
+export async function setAdminQuestionArchived(id: number, archived: boolean): Promise<void> {
+  await adminRequest(`/admin/questions/${id}/archive`, {
+    method: 'PATCH',
+    body: JSON.stringify({ archived }),
   });
 }
 

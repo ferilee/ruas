@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { createAdminDbMock, deleteAdminQuestionMock, listAdminQuestionsMock } = vi.hoisted(() => ({
+const { createAdminDbMock, deleteAdminQuestionMock, listAdminQuestionsMock, setAdminQuestionArchivedMock } = vi.hoisted(() => ({
   createAdminDbMock: vi.fn(),
   deleteAdminQuestionMock: vi.fn(),
   listAdminQuestionsMock: vi.fn(),
+  setAdminQuestionArchivedMock: vi.fn(),
 }));
 
 vi.mock('@/services/admin-question-service', () => ({
@@ -13,6 +14,7 @@ vi.mock('@/services/admin-question-service', () => ({
   findAdminQuestion: vi.fn(),
   importAdminQuestions: vi.fn(),
   listAdminQuestions: listAdminQuestionsMock,
+  setAdminQuestionArchived: setAdminQuestionArchivedMock,
   updateAdminQuestion: vi.fn(),
 }));
 
@@ -21,6 +23,7 @@ describe('adminQuestionRoutes delete', () => {
     createAdminDbMock.mockReset().mockReturnValue({});
     deleteAdminQuestionMock.mockReset();
     listAdminQuestionsMock.mockReset();
+    setAdminQuestionArchivedMock.mockReset();
   });
 
   it('returns a paginated question list using server-side filters', async () => {
@@ -37,9 +40,26 @@ describe('adminQuestionRoutes delete', () => {
       topic_id: 4,
       type: 'single_choice',
       difficulty: 'medium',
+      status: 'active',
       page: 2,
       page_size: 50,
     });
+  });
+
+  it('archives and restores a question', async () => {
+    setAdminQuestionArchivedMock.mockResolvedValue(true);
+    const { adminQuestionRoutes } = await import('@/routes/admin-questions');
+    const app = adminQuestionRoutes({} as never);
+
+    const response = await app.request('http://localhost/12/archive', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ archived: true }),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ archived: true });
+    expect(setAdminQuestionArchivedMock).toHaveBeenCalledWith({}, 12, true);
   });
 
   it('explains why a question with exam history cannot be deleted', async () => {

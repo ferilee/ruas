@@ -175,6 +175,7 @@
           <div class="question-filters" aria-label="Filter bank soal">
             <button v-for="filter in difficultyFilters" :key="filter.value" type="button" :class="['filter-chip', { active: difficultyFilter === filter.value }]" @click="difficultyFilter = filter.value">{{ filter.label }}</button>
             <RuasSelect v-model="questionTypeFilter" :options="questionTypeFilterOptions" aria-label="Filter tipe soal" />
+            <RuasSelect v-model="questionStatusFilter" :options="questionStatusFilterOptions" aria-label="Filter status soal" />
             <RuasSelect v-model="questionTopicFilter" class="topic-filter-select" :options="questionTopicFilterOptions" searchable search-placeholder="Cari topik atau mata pelajaran..." aria-label="Filter topik soal" />
           </div>
 
@@ -215,7 +216,7 @@
             type="button"
             @click="editQuestion(item.id)"
           >
-            <span class="question-row-top"><span class="question-number">#{{ item.id }}</span><span class="topic-badge">{{ item.topic_labels.length > 1 ? `${item.topic_labels.length} topik` : item.topic_label }}</span><span class="question-type-badge">{{ questionTypeLabel(item.type) }}</span><span class="question-menu" aria-hidden="true">⋮</span></span>
+            <span class="question-row-top"><span class="question-number">#{{ item.id }}</span><span class="topic-badge">{{ item.topic_labels.length > 1 ? `${item.topic_labels.length} topik` : item.topic_label }}</span><span class="question-type-badge">{{ questionTypeLabel(item.type) }}</span><span v-if="item.archived_at" class="question-status-badge">Diarsipkan</span><span class="question-menu" aria-hidden="true">⋮</span></span>
             <strong><MathText :text="item.question_text" /></strong>
             <span class="question-row-bottom"><span :class="['difficulty-badge', `difficulty-${item.difficulty}`]">{{ difficultyLabel(item.difficulty) }}</span><span v-if="item.external_id" class="row-id">{{ item.external_id }}</span></span>
           </button>
@@ -233,7 +234,7 @@
         <div class="panel form-panel" :class="{ open: questionFormOpen }">
           <div class="panel-heading">
             <h2>{{ editingId === null ? 'Soal Baru' : `Edit Soal #${editingId}` }}</h2>
-            <div class="form-heading-actions"><button v-if="editingId !== null" type="button" class="danger-link" @click="removeQuestion">Hapus</button><button class="close-form-btn" type="button" aria-label="Tutup form soal" @click="closeQuestionForm">×</button></div>
+            <div class="form-heading-actions"><button v-if="editingId !== null" type="button" :class="editingArchivedAt ? 'restore-link' : 'archive-link'" @click="toggleQuestionArchive">{{ editingArchivedAt ? 'Pulihkan' : 'Arsipkan' }}</button><button v-if="editingId !== null" type="button" class="danger-link" @click="removeQuestion">Hapus</button><button class="close-form-btn" type="button" aria-label="Tutup form soal" @click="closeQuestionForm">×</button></div>
           </div>
 
           <form @submit.prevent="saveQuestion">
@@ -396,6 +397,7 @@ import {
   fetchAdminTopics,
   deleteAdminQuestionMedia,
   importAdminQuestions,
+  setAdminQuestionArchived,
   uploadAdminQuestionMedia,
   updateAdminTopicAccess,
   updateAdminQuestion,
@@ -442,6 +444,7 @@ const topicAccessMessageType = ref<'success' | 'error'>('success');
 const search = ref('');
 const difficultyFilter = ref<AdminQuestionListItem['difficulty'] | 'all'>('all');
 const questionTypeFilter = ref<AdminQuestionListItem['type'] | 'all'>('all');
+const questionStatusFilter = ref<'active' | 'archived' | 'all'>('active');
 const questionTopicFilter = ref<number | null>(null);
 const questionPage = ref(1);
 const questionPageSize = ref(25);
@@ -479,11 +482,17 @@ function topicScopeLabel(topic: AdminTopic) {
 }
 const topicOptions = computed(() => topics.value.map((topic) => ({ value: topic.id, label: `${topic.subject_label} — ${topic.label} · ${topicScopeLabel(topic)}` })));
 const questionTypeFilterOptions = [{ value: 'all', label: 'Semua tipe soal' }, ...questionTypeOptions];
+const questionStatusFilterOptions = [
+  { value: 'active', label: 'Soal aktif' },
+  { value: 'archived', label: 'Soal diarsipkan' },
+  { value: 'all', label: 'Semua status' },
+];
 const questionTopicFilterOptions = computed(() => [{ value: null, label: 'Semua topik' }, ...topics.value.map((topic) => ({ value: topic.id, label: `${topic.subject_label} · ${topic.label} · ${topicScopeLabel(topic)}` }))]);
 const questionPageSizeOptions = [25, 50, 100].map((value) => ({ value, label: `${value} soal` }));
 const questionRangeStart = computed(() => questionTotal.value === 0 ? 0 : (questionPage.value - 1) * questionPageSize.value + 1);
 const questionRangeEnd = computed(() => Math.min(questionTotal.value, questionPage.value * questionPageSize.value));
 const editingId = ref<number | null>(null);
+const editingArchivedAt = ref<string | null>(null);
 const importText = ref('');
 const parsedImport = ref<unknown>(null);
 const importMode = ref<'insert' | 'upsert'>('insert');
@@ -516,7 +525,7 @@ watch(search, () => {
     void loadQuestions();
   }, 350);
 });
-watch([difficultyFilter, questionTypeFilter, questionTopicFilter, questionPageSize], () => {
+watch([difficultyFilter, questionTypeFilter, questionStatusFilter, questionTopicFilter, questionPageSize], () => {
   questionPage.value = 1;
   void loadQuestions();
 });
@@ -594,6 +603,7 @@ function resetDraft() {
   mediaAltText.value = '';
   mediaCaption.value = '';
   editingId.value = null;
+  editingArchivedAt.value = null;
   formMessage.value = '';
 }
 
@@ -692,6 +702,7 @@ async function loadQuestions() {
       topic_id: questionTopicFilter.value ?? undefined,
       type: questionTypeFilter.value === 'all' ? undefined : questionTypeFilter.value,
       difficulty: difficultyFilter.value === 'all' ? undefined : difficultyFilter.value,
+      status: questionStatusFilter.value,
       page: questionPage.value,
       page_size: questionPageSize.value,
     });
@@ -849,6 +860,7 @@ async function editQuestion(id: number) {
       explanation_text: question.explanation_text,
       options: question.options,
     });
+    editingArchivedAt.value = question.archived_at;
     questionMedia.value = question.media ?? [];
     mediaAltText.value = '';
     mediaCaption.value = '';
@@ -858,6 +870,30 @@ async function editQuestion(id: number) {
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Gagal memuat soal.';
   }
+}
+
+function toggleQuestionArchive() {
+  if (editingId.value === null) return;
+  const archived = editingArchivedAt.value === null;
+  askConfirmation(
+    archived ? 'Arsipkan soal?' : 'Pulihkan soal?',
+    archived ? 'Soal tidak akan dipakai dalam ujian baru, tetapi riwayat asesmen tetap aman.' : 'Soal akan kembali tersedia untuk paket dan ujian baru.',
+    async () => {
+      if (editingId.value === null) return;
+      try {
+        await setAdminQuestionArchived(editingId.value, archived);
+        editingArchivedAt.value = archived ? new Date().toISOString() : null;
+        formMessageType.value = 'success';
+        formMessage.value = archived ? 'Soal berhasil diarsipkan.' : 'Soal berhasil dipulihkan.';
+        await loadQuestions();
+        if ((archived && questionStatusFilter.value === 'active') || (!archived && questionStatusFilter.value === 'archived')) closeQuestionForm();
+      } catch (error) {
+        formMessageType.value = 'error';
+        formMessage.value = error instanceof Error ? error.message : 'Gagal mengubah status arsip soal.';
+      }
+    },
+    archived ? 'Arsipkan' : 'Pulihkan',
+  );
 }
 
 function syncOptionsForType() {
@@ -1136,6 +1172,7 @@ onUnmounted(() => {
 .topic-badge, .question-type-badge, .difficulty-badge { display: inline-flex; max-width: 100%; overflow: hidden; align-items: center; padding: 4px 7px; border-radius: 999px; font-size: .67rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .topic-badge { color: #41688f; background: #edf5ff; }
 .question-type-badge { color: #7650b6; background: #f1ebff; }
+.question-status-badge { display: inline-flex; align-items: center; padding: 4px 7px; border-radius: 999px; color: #93651b; background: #fff2cf; font-size: .67rem; font-weight: 800; white-space: nowrap; }
 .difficulty-badge { color: #687c96; background: #eef2f7; }
 .difficulty-easy { color: #287b59; background: #e2f7ed; }.difficulty-medium { color: #9a691a; background: #fff3d9; }.difficulty-hard { color: #ae4d55; background: #ffebeb; }
 .question-menu { margin-left: auto; color: #8ca0b8; font-size: 1.25rem; line-height: 1; }
@@ -1179,7 +1216,9 @@ legend { padding: 0 6px; color: #445566; font-weight: 600; }
 .option-key-input { width: 54px; padding: 8px; border: 1px solid #d4dde6; border-radius: 6px; }
 .option-text-input { min-width: 0; flex: 1; padding: 8px; border: 1px solid #d4dde6; border-radius: 6px; }
 .correct-toggle { flex-direction: row; align-items: center; white-space: nowrap; font-size: .85rem; }
-.remove-option, .danger-link { color: #c53030; border: 0; background: transparent; cursor: pointer; font-weight: 700; }
+.remove-option, .danger-link, .archive-link, .restore-link { border: 0; background: transparent; cursor: pointer; font-weight: 700; }
+.danger-link, .archive-link { color: #c53030; }
+.restore-link { color: #28734f; }
 .add-option { align-self: flex-start; color: #1e40af; border: 0; background: transparent; cursor: pointer; font-weight: 600; }
 .import-panel { display: none; flex-direction: column; gap: 14px; }
 .form-panel { display: none; }

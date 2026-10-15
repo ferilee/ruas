@@ -1,4 +1,4 @@
-import { and, count, countDistinct, desc, eq, inArray, like, or } from 'drizzle-orm';
+import { and, count, countDistinct, desc, eq, inArray, isNotNull, isNull, like, or } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/mysql2';
 import { examAnswers } from '@/db/schema/exam-answers';
 import { questions } from '@/db/schema/questions';
@@ -26,6 +26,7 @@ export interface AdminQuestionListItem {
   difficulty: 'easy' | 'medium' | 'hard';
   question_text: string;
   external_id: string | null;
+  archived_at: Date | null;
 }
 
 export interface AdminQuestionDetail extends AdminQuestionListItem {
@@ -38,6 +39,7 @@ export interface AdminQuestionListFilters {
   topic_id?: number;
   type?: QuestionType;
   difficulty?: 'easy' | 'medium' | 'hard';
+  status?: 'active' | 'archived' | 'all';
   page?: number;
   page_size?: number;
 }
@@ -69,6 +71,7 @@ export async function listAdminQuestions(db: AdminDb, filters: AdminQuestionList
   if (filters.topic_id) conditions.push(eq(schema.topicQuestions.topic_id, filters.topic_id));
   if (filters.type) conditions.push(eq(questions.type, filters.type));
   if (filters.difficulty) conditions.push(eq(questions.difficulty, filters.difficulty));
+  if (filters.status !== 'all') conditions.push(filters.status === 'archived' ? isNotNull(questions.archived_at) : isNull(questions.archived_at));
   const condition = conditions.length > 0 ? and(...conditions) : undefined;
 
   const [totalRow] = await db
@@ -96,6 +99,7 @@ export async function listAdminQuestions(db: AdminDb, filters: AdminQuestionList
       difficulty: questions.difficulty,
       question_text: questions.question_text,
       external_id: questions.external_id,
+      archived_at: questions.archived_at,
     })
     .from(questions)
     .where(inArray(questions.id, questionIds));
@@ -126,6 +130,7 @@ export async function listAdminQuestions(db: AdminDb, filters: AdminQuestionList
           difficulty: row.difficulty,
           question_text: row.question_text,
           external_id: row.external_id,
+          archived_at: row.archived_at,
         };
       }),
     page,
@@ -145,6 +150,7 @@ export async function findAdminQuestion(db: AdminDb, questionId: number): Promis
       question_text: questions.question_text,
       explanation_text: questions.explanation_text,
       external_id: questions.external_id,
+      archived_at: questions.archived_at,
     })
     .from(questions)
     .where(eq(questions.id, questionId))
@@ -179,6 +185,15 @@ export async function findAdminQuestion(db: AdminDb, questionId: number): Promis
     type: row.type as QuestionType,
     options,
   };
+}
+
+export async function setAdminQuestionArchived(db: AdminDb, questionId: number, archived: boolean): Promise<boolean> {
+  const [result] = await db
+    .update(questions)
+    .set({ archived_at: archived ? new Date() : null })
+    .where(eq(questions.id, questionId));
+
+  return Number(result.affectedRows ?? 0) > 0;
 }
 
 async function topicsExist(db: AdminDb, topicIds: number[]) {

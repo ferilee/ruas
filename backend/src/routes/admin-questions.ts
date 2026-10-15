@@ -13,6 +13,7 @@ import {
   findAdminQuestion,
   importAdminQuestions,
   listAdminQuestions,
+  setAdminQuestionArchived,
   updateAdminQuestion,
 } from '@/services/admin-question-service';
 import { findQuestionMediaRecord, listQuestionMedia } from '@/services/question-media-service';
@@ -24,6 +25,7 @@ const questionListQuerySchema = z.object({
   topic_id: z.coerce.number().int().positive().optional(),
   type: z.enum(['single_choice', 'multiple_response', 'true_false']).optional(),
   difficulty: z.enum(['easy', 'medium', 'hard']).optional(),
+  status: z.enum(['active', 'archived', 'all']).default('active'),
   page: z.coerce.number().int().min(1).default(1),
   page_size: z.coerce.number().int().refine((value) => [25, 50, 100].includes(value), 'page_size harus 25, 50, atau 100.').default(25),
 });
@@ -61,6 +63,20 @@ export function adminQuestionRoutes(pool: Pool, mediaStorage: MediaStorage | nul
     if (!question) return c.json({ error: 'not_found', message: 'Soal tidak ditemukan.' }, 404);
     const media = await listQuestionMedia(db, id, mediaStorage);
     return c.json({ question: { ...question, media } });
+  });
+
+  app.patch('/:id/archive', async (c) => {
+    const id = parseQuestionIdParam(c.req.param('id'));
+    if (id === null) return c.json({ error: 'invalid_param', message: 'ID soal tidak valid.' }, 400);
+
+    const body = await readJson(c);
+    if (!body || typeof body.archived !== 'boolean') {
+      return c.json({ error: 'invalid_body', message: 'Properti archived harus berupa boolean.' }, 400);
+    }
+
+    const updated = await setAdminQuestionArchived(db, id, body.archived);
+    if (!updated) return c.json({ error: 'not_found', message: 'Soal tidak ditemukan.' }, 404);
+    return c.json({ archived: body.archived });
   });
 
   app.post('/:id/media', async (c) => {
