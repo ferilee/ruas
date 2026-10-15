@@ -519,6 +519,44 @@ describe('useQuizSession', () => {
     expect(session.currentQuestionDoubtful.value).toBe(true);
   });
 
+  it('shows the result action after navigating to an answered final question', async () => {
+    fetchQuestionCount.mockResolvedValue(2);
+    fetchNextAttemptQuestion.mockResolvedValue(firstQuestion);
+    saveExamAnswer.mockResolvedValue({
+      correct: true,
+      correct_keys: ['B'],
+      explanation: null,
+      explanation_mode: 'after_answer',
+    });
+    fetchAttemptQuestion.mockResolvedValue({
+      question: secondQuestion,
+      question_number: 2,
+      total_questions: 2,
+      selected_keys: ['A'],
+      answered: true,
+      is_doubtful: false,
+    });
+
+    const session = useQuizSession({
+      getTopicId: () => 11,
+      getQuerySubjectId: () => 7,
+      getQueryTopicLabel: () => 'Aljabar',
+    });
+
+    await session.initializeSession();
+    await session.startQuiz();
+    session.onSelectKeys(['B']);
+    session.timerRunning.value = false;
+    session.onTime(15);
+    await session.submitAnswer();
+    await session.loadQuestionNumber(2);
+
+    expect(session.state.value).toBe('reviewing');
+    expect(session.isLastQuestion.value).toBe(true);
+    expect(session.canComplete.value).toBe(true);
+    expect(session.isQuestionAnswered(2)).toBe(true);
+  });
+
   it('persists the doubtful status for the current question', async () => {
     fetchQuestionCount.mockResolvedValue(1);
     fetchNextAttemptQuestion.mockResolvedValue(firstQuestion);

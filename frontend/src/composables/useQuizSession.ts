@@ -78,7 +78,7 @@ export function useQuizSession(options: UseQuizSessionOptions) {
   const accuracy = computed(() => {
     return completedAttempt.value?.accuracy ?? (sessionResults.value.length === 0 ? 0 : Math.round((correctCount.value / sessionResults.value.length) * 100));
   });
-  const isLastQuestion = computed(() => answeredIds.value.size >= questionCount.value);
+  const isLastQuestion = computed(() => answeredQuestionNumbers.value.size >= questionCount.value);
   const minimumDurationSeconds = computed(() => (persistedAttempt.value?.minimum_duration_minutes ?? 0) * 60);
   const minimumTimeRemaining = computed(() => {
     void clockTick.value;
@@ -167,12 +167,17 @@ export function useQuizSession(options: UseQuizSessionOptions) {
       currentQuestionNumber.value = loaded.question_number;
       setQuestionIdAtNumber(loaded.question_number, loaded.question.id);
       selectedKeys.value = loaded.selected_keys;
-      if (loaded.answered) answeredQuestionNumbers.value.add(loaded.question_number);
-      else answeredQuestionNumbers.value.delete(loaded.question_number);
+      if (loaded.answered) {
+        answeredIds.value.add(loaded.question.id);
+        answeredQuestionNumbers.value.add(loaded.question_number);
+      } else {
+        answeredIds.value.delete(loaded.question.id);
+        answeredQuestionNumbers.value.delete(loaded.question_number);
+      }
       if (loaded.is_doubtful) doubtfulQuestionIds.value.add(loaded.question.id);
       else doubtfulQuestionIds.value.delete(loaded.question.id);
-      timerRunning.value = true;
-      state.value = 'answering';
+      timerRunning.value = !loaded.answered;
+      state.value = loaded.answered ? 'reviewing' : 'answering';
     } catch (error) {
       errorMessage.value = error instanceof Error ? error.message : 'Gagal memuat soal.';
       state.value = 'error';
