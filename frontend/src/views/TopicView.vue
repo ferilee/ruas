@@ -7,7 +7,12 @@
         <span class="topic-token-kicker">AKSES TOPIK</span>
         <h2>Masukkan token</h2>
         <p>Token diperlukan untuk membuka topik <strong>{{ tokenModalTopic.label }}</strong>.</p>
-        <label>Token topik<input v-model.trim="tokenInput" type="text" autocomplete="one-time-code" placeholder="Masukkan token" autofocus /></label>
+        <div v-if="isDemoAccount" class="demo-token-hint" role="status">
+          <strong>Akun demo</strong>
+          <span>Gunakan token <code>{{ DEMO_TOPIC_TOKEN }}</code>.</span>
+          <button type="button" class="demo-token-use" @click="useDemoToken">Gunakan token demo</button>
+        </div>
+        <label>Token topik<input v-model.trim="tokenInput" type="text" autocomplete="one-time-code" :placeholder="isDemoAccount ? DEMO_TOPIC_TOKEN : 'Masukkan token'" autofocus @input="tokenInput = tokenInput.toUpperCase()" /></label>
         <p v-if="tokenError" class="topic-error">{{ tokenError }}</p>
         <button class="topic-action-btn topic-token-submit" type="submit" :disabled="tokenLoading || !tokenInput">{{ tokenLoading ? 'Memeriksa...' : 'Buka Topik' }}</button>
       </form>
@@ -63,7 +68,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { fetchAssessmentSchedule, fetchExamAttemptAvailability, fetchTopics, fetchSubjects, getTopicAccessToken, verifyTopicAccess } from '@/api/client';
+import { fetchAssessmentSchedule, fetchExamAttemptAvailability, fetchParticipantProfile, fetchTopics, fetchSubjects, getTopicAccessToken, verifyTopicAccess } from '@/api/client';
 import type { AssessmentSchedule, ExamAttemptAvailability, Topic } from '@/types';
 
 const route = useRoute();
@@ -84,6 +89,8 @@ const tokenModalTopic = ref<Topic | null>(null);
 const tokenInput = ref('');
 const tokenError = ref('');
 const tokenLoading = ref(false);
+const isDemoAccount = ref(false);
+const DEMO_TOPIC_TOKEN = 'DEMORUAS';
 let scheduleTimer: ReturnType<typeof setInterval> | undefined;
 
 const topicGroups = computed(() => {
@@ -106,10 +113,12 @@ async function loadTopicsData() {
   error.value = null;
 
   try {
-    const [fetchedTopics, subjects] = await Promise.all([
+    const [fetchedTopics, subjects, profile] = await Promise.all([
       fetchTopics(subjectId),
       fetchSubjects(),
+      fetchParticipantProfile().catch(() => null),
     ]);
+    isDemoAccount.value = Boolean(profile?.is_demo);
     topics.value = fetchedTopics;
     topicAccessState.value = Object.fromEntries(fetchedTopics.map((topic) => [topic.id, Boolean(getTopicAccessToken(topic.id))]));
     const availability = await Promise.all(fetchedTopics.map(async (topic) => {
@@ -162,7 +171,12 @@ function scheduleLabel(topicId: number) {
 
 function openTokenModal(topic: Topic) {
   tokenModalTopic.value = topic;
-  tokenInput.value = '';
+  tokenInput.value = isDemoAccount.value ? DEMO_TOPIC_TOKEN : '';
+  tokenError.value = '';
+}
+
+function useDemoToken() {
+  tokenInput.value = DEMO_TOPIC_TOKEN;
   tokenError.value = '';
 }
 
@@ -175,6 +189,7 @@ function closeTokenModal() {
 async function submitTopicToken() {
   const topic = tokenModalTopic.value;
   if (!topic || !tokenInput.value) return;
+  tokenInput.value = tokenInput.value.trim().toUpperCase();
   tokenLoading.value = true;
   tokenError.value = '';
   try {
@@ -626,7 +641,7 @@ onUnmounted(() => {
 .topic-token-close { position: absolute; top: 14px; right: 15px; width: 30px; height: 30px; border: 0; border-radius: 50%; color: #6680aa; background: #eaf1fc; font-size: 1.25rem; line-height: 1; cursor: pointer; }
 .topic-token-icon { display: grid; width: 48px; height: 48px; margin-bottom: 14px; place-items: center; border-radius: 15px; background: #e8f1ff; font-size: 1.4rem; }
 .topic-token-kicker { color: #4781c7; font-size: .66rem; font-weight: 800; letter-spacing: .15em; }
-.topic-token-modal h2 { margin-top: 6px; color: #10265e; font-size: 1.35rem; }.topic-token-modal p { margin-top: 7px; color: #6680aa; font-size: .82rem; line-height: 1.5; }.topic-token-modal label { display: flex; margin-top: 20px; flex-direction: column; gap: 7px; color: #49678f; font-size: .75rem; font-weight: 700; }.topic-token-modal input { width: 100%; padding: 12px 13px; border: 1px solid #d2e0f3; border-radius: 11px; color: #244978; background: #fff; font: inherit; font-size: .86rem; outline: none; }.topic-token-modal input:focus { border-color: #438ae5; box-shadow: 0 0 0 4px rgba(67, 138, 229, .14); }.topic-token-modal .topic-error { margin-top: 9px; color: #c94e63; font-size: .76rem; }.topic-token-submit { width: 100%; margin-top: 18px; }
+.topic-token-modal h2 { margin-top: 6px; color: #10265e; font-size: 1.35rem; }.topic-token-modal p { margin-top: 7px; color: #6680aa; font-size: .82rem; line-height: 1.5; }.topic-token-modal label { display: flex; margin-top: 20px; flex-direction: column; gap: 7px; color: #49678f; font-size: .75rem; font-weight: 700; }.demo-token-hint { display: flex; flex-direction: column; gap: 5px; margin-top: 14px; padding: 11px 12px; border: 1px solid #c8ddf7; border-radius: 10px; color: #386796; background: #edf6ff; font-size: .78rem; line-height: 1.45; }.demo-token-hint strong { color: #1d5ea0; }.demo-token-hint code { padding: 2px 5px; border-radius: 5px; color: #123e70; background: #dcecff; font: inherit; font-weight: 800; letter-spacing: .06em; }.demo-token-use { align-self: flex-start; padding: 0; border: 0; color: #1767ae; background: transparent; font: inherit; font-size: .75rem; font-weight: 800; cursor: pointer; }.demo-token-use:hover { text-decoration: underline; }.topic-token-modal input { width: 100%; padding: 12px 13px; border: 1px solid #d2e0f3; border-radius: 11px; color: #244978; background: #fff; font: inherit; font-size: .86rem; outline: none; }.topic-token-modal input:focus { border-color: #438ae5; box-shadow: 0 0 0 4px rgba(67, 138, 229, .14); }.topic-token-modal .topic-error { margin-top: 9px; color: #c94e63; font-size: .76rem; }.topic-token-submit { width: 100%; margin-top: 18px; }
 
 @media (max-width: 560px) {
   .topic-view {

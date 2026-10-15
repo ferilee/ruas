@@ -1,7 +1,7 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 
 export function normalizeTopicToken(token: string) {
-  return token.trim();
+  return token.trim().toUpperCase();
 }
 
 export function hashTopicToken(token: string) {
@@ -12,6 +12,14 @@ export function matchesTopicToken(tokenHash: string | null, token: string | unde
   if (!tokenHash || !token) return false;
 
   const expected = Buffer.from(tokenHash, 'hex');
-  const actual = Buffer.from(hashTopicToken(token), 'hex');
-  return expected.length === actual.length && timingSafeEqual(expected, actual);
+  const actualHashes = [
+    hashTopicToken(token),
+    createHash('sha256').update(token.trim()).digest('hex'),
+    createHash('sha256').update(token.trim().toLowerCase()).digest('hex'),
+  ];
+
+  return actualHashes.some((actualHash) => {
+    const actual = Buffer.from(actualHash, 'hex');
+    return expected.length === actual.length && timingSafeEqual(expected, actual);
+  });
 }

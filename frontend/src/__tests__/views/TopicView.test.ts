@@ -3,11 +3,12 @@ import { mount } from '@vue/test-utils';
 import { defineComponent, h } from 'vue';
 import TopicView from '@/views/TopicView.vue';
 
-const { fetchTopics, fetchSubjects, fetchAssessmentSchedule, fetchExamAttemptAvailability, getTopicAccessToken, verifyTopicAccess } = vi.hoisted(() => ({
+const { fetchTopics, fetchSubjects, fetchAssessmentSchedule, fetchExamAttemptAvailability, fetchParticipantProfile, getTopicAccessToken, verifyTopicAccess } = vi.hoisted(() => ({
   fetchTopics: vi.fn(),
   fetchSubjects: vi.fn(),
   fetchAssessmentSchedule: vi.fn(),
   fetchExamAttemptAvailability: vi.fn(),
+  fetchParticipantProfile: vi.fn(),
   getTopicAccessToken: vi.fn(),
   verifyTopicAccess: vi.fn(),
 }));
@@ -17,6 +18,7 @@ vi.mock('@/api/client', () => ({
   fetchSubjects,
   fetchAssessmentSchedule,
   fetchExamAttemptAvailability,
+  fetchParticipantProfile,
   getTopicAccessToken,
   verifyTopicAccess,
 }));
@@ -47,9 +49,11 @@ describe('TopicView', () => {
     fetchSubjects.mockReset();
     fetchAssessmentSchedule.mockReset();
     fetchExamAttemptAvailability.mockReset();
+    fetchParticipantProfile.mockReset();
     getTopicAccessToken.mockReset();
     verifyTopicAccess.mockReset();
     getTopicAccessToken.mockReturnValue(null);
+    fetchParticipantProfile.mockResolvedValue(null);
   });
 
   it('passes subject_id and topic_label to quiz route', async () => {
@@ -93,6 +97,25 @@ describe('TopicView', () => {
 
     expect(wrapper.find('.topic-token-modal').exists()).toBe(true);
     expect(wrapper.find('.topic-token-modal').text()).toContain('Masukkan token');
+  });
+
+  it('shows the demo token and pre-fills it for a demo account', async () => {
+    fetchTopics.mockResolvedValue([
+      { id: 11, subject_id: 7, slug: 'aljabar', label: 'Aljabar', display_order: 1, question_count: 5, requires_token: true },
+    ]);
+    fetchSubjects.mockResolvedValue([{ id: 7, slug: 'pm', label: 'Penalaran Matematika', display_order: 1 }]);
+    fetchAssessmentSchedule.mockResolvedValue({ start_at: null, is_open: true, starts_in_seconds: 0 });
+    fetchExamAttemptAvailability.mockResolvedValue({ max_attempts: 1, attempts_used: 0, remaining_attempts: 1, can_start: true, has_active_attempt: false });
+    fetchParticipantProfile.mockResolvedValue({ is_demo: true });
+
+    const wrapper = mount(TopicView, { global: { stubs: { RouterLink: RouterLinkStub } } });
+    await vi.waitFor(() => expect(wrapper.find('button.topic-card').exists()).toBe(true));
+
+    await wrapper.find('button.topic-card').trigger('click');
+
+    expect(wrapper.find('.demo-token-hint').text()).toContain('DEMORUAS');
+    expect((wrapper.find('.topic-token-modal input').element as HTMLInputElement).value).toBe('DEMORUAS');
+    expect(wrapper.find('.demo-token-use').exists()).toBe(true);
   });
 
   it('groups topics by their assigned class', async () => {
