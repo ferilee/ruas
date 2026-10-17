@@ -446,7 +446,7 @@ export async function deleteAdminTopic(db: AdminDb, topicId: number): Promise<De
 export async function updateAdminTopicAccess(
   db: AdminDb,
   topicId: number,
-  input: { requires_token: boolean; token?: string },
+  input: { token?: string },
 ) {
   const [existing] = await db
     .select({ id: topics.id, token_hash: topics.token_hash })
@@ -456,14 +456,12 @@ export async function updateAdminTopicAccess(
   if (!existing) return null;
 
   const token = input.token ? normalizeTopicToken(input.token) : '';
-  const tokenHash = input.requires_token
-    ? token ? hashTopicToken(token) : existing.token_hash
-    : null;
+  const tokenHash = token ? hashTopicToken(token) : existing.token_hash;
 
-  if (input.requires_token && !tokenHash) return { missingToken: true as const };
+  if (!tokenHash) return { missingToken: true as const };
 
-  await db.update(topics).set({ requires_token: input.requires_token, token_hash: tokenHash }).where(eq(topics.id, topicId));
-  return { id: topicId, requires_token: input.requires_token, token_configured: Boolean(tokenHash) };
+  await db.update(topics).set({ requires_token: true, token_hash: tokenHash }).where(eq(topics.id, topicId));
+  return { id: topicId, requires_token: true, token_configured: true, token: token || undefined };
 }
 
 interface ImportPlan {

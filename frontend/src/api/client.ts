@@ -308,7 +308,7 @@ export async function deleteAdminTopic(id: number): Promise<void> {
   await adminRequest(`/admin/topics/${id}`, { method: 'DELETE' });
 }
 
-export async function updateAdminTopicAccess(id: number, input: { requires_token: boolean; token?: string }): Promise<AdminTopic> {
+export async function updateAdminTopicAccess(id: number, input: { token?: string }): Promise<AdminTopic> {
   const data = await adminRequest<{ topic: AdminTopic }>(`/admin/topics/${id}/access`, {
     method: 'PATCH',
     body: JSON.stringify(input),

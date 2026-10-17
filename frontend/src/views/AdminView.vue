@@ -179,23 +179,25 @@
             <RuasSelect v-model="questionTopicFilter" class="topic-filter-select" :options="questionTopicFilterOptions" searchable search-placeholder="Cari topik atau mata pelajaran..." aria-label="Filter topik soal" />
           </div>
 
-          <section class="panel topic-access-panel">
-            <div class="panel-heading">
-              <div><h2>Akses Topik</h2><p>Kunci topik dengan token yang dibagikan oleh pengawas.</p></div>
+          <details class="panel topic-access-panel">
+            <summary class="topic-access-summary"><span><strong>Akses Topik</strong><small>Semua topik menggunakan token</small></span><span class="topic-access-count">{{ topics.length }} topik</span></summary>
+            <div class="topic-access-content">
+              <p class="field-hint">Token lama tidak dapat ditampilkan kembali karena disimpan sebagai hash. Masukkan token baru jika ingin menggantinya; token baru akan ditampilkan sekali setelah disimpan.</p>
+              <input v-model="topicAccessSearch" class="topic-access-search" type="search" placeholder="Cari topik atau mata pelajaran..." aria-label="Cari akses topik" />
+              <p v-if="topicAccessMessage" :class="topicAccessMessageType === 'error' ? 'error-text' : 'success-text'">{{ topicAccessMessage }}</p>
+              <div class="topic-access-list">
+                <article v-for="topic in filteredTopicAccessTopics" :key="topic.id" class="topic-access-row">
+                  <div class="topic-access-info"><strong>{{ topic.label }}</strong><small>{{ topic.subject_label }} · {{ topic.token_configured ? 'Token aktif · tersimpan aman' : 'Token belum diatur' }}</small></div>
+                  <div class="topic-access-controls">
+                    <input v-model="topicAccessDrafts[topic.id].token" type="text" autocomplete="off" :placeholder="topic.token_configured ? 'Ganti token (opsional)' : 'Masukkan token wajib'" @keydown.enter="saveTopicAccess(topic)" />
+                    <button class="primary-btn" type="button" :disabled="topicAccessSavingId === topic.id" @click="saveTopicAccess(topic)">{{ topicAccessSavingId === topic.id ? 'Menyimpan...' : 'Simpan' }}</button>
+                  </div>
+                  <div v-if="revealedTopicTokens[topic.id]" class="topic-access-reveal"><span>Token baru, tampil sekali:</span><code>{{ revealedTopicTokens[topic.id] }}</code><button type="button" @click="copyTopicToken(topic.id)">Salin</button></div>
+                </article>
+                <p v-if="filteredTopicAccessTopics.length === 0" class="panel-empty">Topik akses tidak ditemukan.</p>
+              </div>
             </div>
-            <p class="field-hint">Token disimpan secara aman. Kosongkan kolom token saat memperbarui jika token lama tetap digunakan.</p>
-            <p v-if="topicAccessMessage" :class="topicAccessMessageType === 'error' ? 'error-text' : 'success-text'">{{ topicAccessMessage }}</p>
-            <div class="topic-access-list">
-              <article v-for="topic in topics" :key="topic.id" class="topic-access-row">
-                <div class="topic-access-info"><strong>{{ topic.label }}</strong><small>{{ topic.subject_label }} · {{ topic.token_configured ? 'Token sudah dikonfigurasi' : 'Tanpa token' }}</small></div>
-                <div class="topic-access-controls">
-                  <label class="token-toggle"><input v-model="topicAccessDrafts[topic.id].requires_token" type="checkbox" /> Wajib token</label>
-                  <input v-model="topicAccessDrafts[topic.id].token" type="text" autocomplete="off" :placeholder="topic.token_configured ? 'Token baru (opsional)' : 'Masukkan token'" />
-                  <button class="primary-btn" type="button" :disabled="topicAccessSavingId === topic.id" @click="saveTopicAccess(topic)">{{ topicAccessSavingId === topic.id ? 'Menyimpan...' : 'Simpan' }}</button>
-                </div>
-              </article>
-            </div>
-          </section>
+          </details>
 
           <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
 
@@ -437,10 +439,12 @@ const formMessage = ref('');
 const formMessageType = ref<'success' | 'error'>('success');
 const questions = ref<AdminQuestionListItem[]>([]);
 const topics = ref<AdminTopic[]>([]);
-const topicAccessDrafts = reactive<Record<number, { requires_token: boolean; token: string }>>({});
+const topicAccessDrafts = reactive<Record<number, { token: string }>>({});
+const revealedTopicTokens = reactive<Record<number, string>>({});
 const topicAccessSavingId = ref<number | null>(null);
 const topicAccessMessage = ref('');
 const topicAccessMessageType = ref<'success' | 'error'>('success');
+const topicAccessSearch = ref('');
 const search = ref('');
 const difficultyFilter = ref<AdminQuestionListItem['difficulty'] | 'all'>('all');
 const questionTypeFilter = ref<AdminQuestionListItem['type'] | 'all'>('all');
@@ -481,6 +485,11 @@ function topicScopeLabel(topic: AdminTopic) {
   return topic.class_labels.length > 0 ? topic.class_labels.join(', ') : 'Semua kelas';
 }
 const topicOptions = computed(() => topics.value.map((topic) => ({ value: topic.id, label: `${topic.subject_label} — ${topic.label} · ${topicScopeLabel(topic)}` })));
+const filteredTopicAccessTopics = computed(() => {
+  const query = topicAccessSearch.value.trim().toLocaleLowerCase('id-ID');
+  if (!query) return topics.value;
+  return topics.value.filter((topic) => `${topic.label} ${topic.subject_label}`.toLocaleLowerCase('id-ID').includes(query));
+});
 const questionTypeFilterOptions = [{ value: 'all', label: 'Semua tipe soal' }, ...questionTypeOptions];
 const questionStatusFilterOptions = [
   { value: 'active', label: 'Soal aktif' },
@@ -538,30 +547,51 @@ function selectSection(section: AdminSection) {
 
 function syncTopicAccessDrafts(rows: AdminTopic[]) {
   for (const topic of rows) {
-    topicAccessDrafts[topic.id] = { requires_token: topic.requires_token, token: '' };
+    topicAccessDrafts[topic.id] = { token: '' };
   }
 }
 
 async function saveTopicAccess(topic: AdminTopic) {
   const draft = topicAccessDrafts[topic.id];
   if (!draft) return;
+  if (!topic.token_configured && !draft.token.trim()) {
+    topicAccessMessageType.value = 'error';
+    topicAccessMessage.value = `Masukkan token untuk ${topic.label} terlebih dahulu.`;
+    return;
+  }
   topicAccessSavingId.value = topic.id;
   topicAccessMessage.value = '';
+  delete revealedTopicTokens[topic.id];
   try {
     const updated = await updateAdminTopicAccess(topic.id, {
-      requires_token: draft.requires_token,
       ...(draft.token.trim() ? { token: draft.token.trim() } : {}),
     });
-    topic.requires_token = updated.requires_token;
+    topic.requires_token = true;
     topic.token_configured = updated.token_configured;
+    if (updated.token) revealedTopicTokens[topic.id] = updated.token;
     draft.token = '';
     topicAccessMessageType.value = 'success';
-    topicAccessMessage.value = `Akses token untuk ${topic.label} berhasil disimpan.`;
+    topicAccessMessage.value = updated.token
+      ? `Token ${topic.label} berhasil disimpan dan ditampilkan sekali.`
+      : `Akses token ${topic.label} tetap aktif.`;
   } catch (error) {
     topicAccessMessageType.value = 'error';
     topicAccessMessage.value = error instanceof Error ? error.message : 'Gagal menyimpan pengaturan token topik.';
   } finally {
     topicAccessSavingId.value = null;
+  }
+}
+
+async function copyTopicToken(topicId: number) {
+  const token = revealedTopicTokens[topicId];
+  if (!token) return;
+  try {
+    await navigator.clipboard.writeText(token);
+    topicAccessMessageType.value = 'success';
+    topicAccessMessage.value = 'Token berhasil disalin.';
+  } catch {
+    topicAccessMessageType.value = 'error';
+    topicAccessMessage.value = 'Token tidak dapat disalin otomatis. Silakan salin secara manual.';
   }
 }
 
@@ -1146,16 +1176,27 @@ onUnmounted(() => {
 .question-filters { display: flex; flex-wrap: wrap; gap: 7px; margin: 14px 0 16px; }
 .question-filters > .ruas-select { width: min(210px, 100%); }
 .question-filters > .topic-filter-select { width: min(300px, 100%); }
-.topic-access-panel { margin-bottom: 16px; padding: 18px; }
-.topic-access-panel .panel-heading { margin-bottom: 4px; }
-.topic-access-panel .panel-heading p { margin-top: 4px; color: #778899; font-size: .8rem; }
+.topic-access-panel { margin-bottom: 16px; padding: 0; }
+.topic-access-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; color: #1e40af; cursor: pointer; list-style: none; }
+.topic-access-summary::-webkit-details-marker { display: none; }
+.topic-access-summary::after { content: '⌄'; color: #5b7ba7; font-size: 1.1rem; font-weight: 800; transition: transform .16s ease; }
+.topic-access-panel[open] .topic-access-summary::after { transform: rotate(180deg); }
+.topic-access-summary span:first-child { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.topic-access-summary strong { font-size: 1rem; }
+.topic-access-summary small { color: #7a91ad; font-size: .72rem; font-weight: 500; }
+.topic-access-count { padding: 5px 9px; border-radius: 999px; color: #356bb5; background: #edf5ff; font-size: .7rem; font-weight: 800; white-space: nowrap; }
+.topic-access-content { padding: 0 18px 16px; }
+.topic-access-content > .field-hint { margin-bottom: 10px; }
+.topic-access-search { width: min(360px, 100%); margin-bottom: 10px; padding: 9px 11px; border: 1px solid #d4e2ef; border-radius: 8px; color: #334b68; background: #fbfdff; font: inherit; font-size: .78rem; }
 .topic-access-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
-.topic-access-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px; border: 1px solid #e1eaf4; border-radius: 11px; background: #fbfdff; }
+.topic-access-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 390px); align-items: center; gap: 8px 14px; padding: 10px 12px; border: 1px solid #e1eaf4; border-radius: 10px; background: #fbfdff; }
 .topic-access-info { min-width: 0; }.topic-access-info strong, .topic-access-info small { display: block; }.topic-access-info strong { color: #2c4f7a; font-size: .82rem; }.topic-access-info small { margin-top: 3px; color: #8497ae; font-size: .7rem; }
-.topic-access-controls { display: grid; min-width: min(100%, 460px); grid-template-columns: auto minmax(150px, 1fr) auto; align-items: center; gap: 8px; }
-.token-toggle { flex-direction: row; align-items: center; gap: 6px; color: #496482; font-size: .72rem; white-space: nowrap; }.token-toggle input { accent-color: #246bc5; }
+.topic-access-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; }
 .topic-access-controls input { min-width: 0; padding: 9px 10px; border: 1px solid #d4dde6; border-radius: 8px; color: #334b68; background: #fff; font: inherit; font-size: .78rem; }
 .topic-access-controls .primary-btn { padding: 9px 12px; font-size: .74rem; }
+.topic-access-reveal { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; padding-top: 2px; color: #28734f; font-size: .72rem; }
+.topic-access-reveal code { padding: 5px 8px; color: #1f5e42; background: #e7f7ed; font-size: .78rem; letter-spacing: .06em; }
+.topic-access-reveal button { padding: 4px 8px; border: 1px solid #acd9bd; border-radius: 6px; color: #28734f; background: #fff; cursor: pointer; font: inherit; font-weight: 700; }
 .filter-chip { padding: 7px 12px; border: 1px solid #d7e2ef; border-radius: 999px; color: #617793; background: #fff; font: inherit; font-size: .75rem; font-weight: 700; cursor: pointer; }
 .filter-chip:hover, .filter-chip.active { border-color: #2b72ce; color: #fff; background: #2b72ce; }
 .search-input { max-width: 420px; }
@@ -1238,6 +1279,7 @@ legend { padding: 0 6px; color: #445566; font-weight: 600; }
 .success-text { color: #2f855a; }
 code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 @media (max-width: 720px) { .editor-grid { grid-template-columns: 1fr; } .toolbar { flex-wrap: wrap; } .search-input { max-width: none; flex: 1; } .field-row { grid-template-columns: 1fr; } .admin-header { align-items: flex-start; } }
+@media (max-width: 720px) { .topic-access-row { grid-template-columns: 1fr; } .topic-access-controls { grid-template-columns: minmax(0, 1fr) auto; } }
 </style>
 
 <style scoped>

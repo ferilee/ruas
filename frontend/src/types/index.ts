@@ -160,6 +160,7 @@ export interface AdminTopic {
   display_order: number;
   requires_token: boolean;
   token_configured: boolean;
+  token?: string;
 }
 
 export interface AdminTopicInput {

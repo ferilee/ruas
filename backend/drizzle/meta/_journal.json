@@ -162,6 +162,13 @@
       "when": 1792200000000,
       "tag": "0022_archive_questions",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "5",
+      "when": 1792280000000,
+      "tag": "0023_require_topic_tokens",
+      "breakpoints": true
     }
   ]
 }

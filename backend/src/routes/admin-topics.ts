@@ -11,7 +11,6 @@ import {
 } from '@/services/admin-question-service';
 
 const topicAccessSchema = z.object({
-  requires_token: z.boolean(),
   token: z.string().trim().max(100).optional(),
 });
 
