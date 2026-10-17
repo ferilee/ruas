@@ -249,8 +249,12 @@ async function login() {
       return;
     }
 
-    const data = await res.json() as { token: string };
+    const data = await res.json() as { token: string; must_change_password?: boolean };
     sessionStorage.setItem('auth_token', data.token);
+    if (data.must_change_password) {
+      await router.push('/change-password');
+      return;
+    }
     let profile = await fetchParticipantProfile();
     const legacyProfile = profile ? null : getLegacyParticipantProfile();
     if (legacyProfile) {

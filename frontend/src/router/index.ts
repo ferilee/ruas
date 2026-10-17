@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import AuthView from '@/views/AuthView.vue';
+import ChangePasswordView from '@/views/ChangePasswordView.vue';
 import ProfileView from '@/views/ProfileView.vue';
 import HomeView from '@/views/HomeView.vue';
 import TopicView from '@/views/TopicView.vue';
@@ -20,6 +21,7 @@ async function getAuthEnabled(): Promise<boolean> {
 
 const routes = [
   { path: '/auth', name: 'auth', component: AuthView },
+  { path: '/change-password', name: 'change-password', component: ChangePasswordView, meta: { requiresAuth: true } },
   { path: '/tentang', name: 'landing', component: LandingView },
   { path: '/profile', name: 'profile', component: ProfileView, meta: { requiresAuth: true } },
   { path: '/', name: 'home', component: HomeView, meta: { requiresAuth: true } },

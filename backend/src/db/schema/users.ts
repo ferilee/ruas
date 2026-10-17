@@ -12,6 +12,7 @@ export const users = mysqlTable('users', {
   role: mysqlEnum('role', ['admin', 'editor', 'participant']).notNull().default('participant'),
   active: int('active').notNull().default(1),
   is_demo: int('is_demo').notNull().default(0),
+  must_change_password: int('must_change_password').notNull().default(0),
   created_at: timestamp('created_at').defaultNow().notNull(),
   updated_at: timestamp('updated_at').defaultNow().notNull(),
 });

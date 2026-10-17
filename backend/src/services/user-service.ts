@@ -1,5 +1,6 @@
 import { and, asc, eq, inArray, like, or } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/mysql2';
+import { randomBytes } from 'node:crypto';
 import { educationClasses } from '@/db/schema/education-classes';
 import { users } from '@/db/schema/users';
 import { subjects } from '@/db/schema/subjects';
@@ -36,6 +37,7 @@ export function toPublicUser(user: typeof users.$inferSelect, classLabel?: strin
     role: user.role,
     active: Boolean(user.active),
     is_demo: Boolean(user.is_demo),
+    must_change_password: Boolean(user.must_change_password),
     created_at: user.created_at,
     updated_at: user.updated_at,
   };
@@ -117,6 +119,7 @@ export async function createUser(db: UserDb, input: UserInput) {
     role: input.role,
     active: input.active ? 1 : 0,
     is_demo: input.is_demo ? 1 : 0,
+    must_change_password: input.is_demo ? 0 : 1,
   });
   return findUserById(db, Number(result.insertId));
 }
@@ -131,6 +134,7 @@ export async function updateUser(db: UserDb, id: number, input: UserInput) {
     role: UserRole;
     active: number;
     is_demo: number;
+    must_change_password?: number;
     password_hash?: string;
     updated_at: Date;
   } = {
@@ -143,10 +147,49 @@ export async function updateUser(db: UserDb, id: number, input: UserInput) {
     is_demo: input.is_demo ? 1 : 0,
     updated_at: new Date(),
   };
-  if (input.password) values.password_hash = hashPassword(input.password);
+  if (input.is_demo) values.must_change_password = 0;
+  if (input.password) {
+    values.password_hash = hashPassword(input.password);
+    values.must_change_password = input.is_demo ? 0 : 1;
+  }
 
   await db.update(users).set(values).where(eq(users.id, id));
   return findUserById(db, id);
+}
+
+function generateTemporaryPassword() {
+  return randomBytes(9).toString('base64url');
+}
+
+export async function resetUserPassword(db: UserDb, id: number) {
+  const user = await findUserById(db, id);
+  if (!user) return null;
+  if (user.is_demo) return { demoAccount: true as const };
+
+  const temporaryPassword = generateTemporaryPassword();
+  await db.update(users).set({
+    password_hash: hashPassword(temporaryPassword),
+    must_change_password: 1,
+    updated_at: new Date(),
+  }).where(eq(users.id, id));
+
+  return {
+    user: await findUserById(db, id),
+    temporaryPassword,
+  };
+}
+
+export async function changeUserPassword(db: UserDb, username: string, password: string) {
+  const user = await findUserByUsername(db, username);
+  if (!user) return null;
+
+  await db.update(users).set({
+    password_hash: hashPassword(password),
+    must_change_password: 0,
+    updated_at: new Date(),
+  }).where(eq(users.id, user.id));
+
+  return findUserById(db, user.id);
 }
 
 export async function assignSubjectToUsers(db: UserDb, userIds: number[], subjectId: number | null) {

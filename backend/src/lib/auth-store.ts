@@ -48,6 +48,12 @@ export function removeToken(token: string): void {
   tokens.delete(token);
 }
 
+export function revokeTokensForUsername(username: string): void {
+  for (const [token, session] of tokens.entries()) {
+    if (session.username === username) tokens.delete(token);
+  }
+}
+
 export function clearTokensForTest(): void {
   tokens.clear();
 }

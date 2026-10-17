@@ -176,6 +176,13 @@
       "when": 1792280001000,
       "tag": "0024_default_topic_tokens",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "5",
+      "when": 1792290000000,
+      "tag": "0025_user_password_policy",
+      "breakpoints": true
     }
   ]
 }

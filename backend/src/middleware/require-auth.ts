@@ -1,7 +1,7 @@
 import type { Context, Next } from 'hono';
 import { getTokenUsername } from '../lib/auth-store';
 import type { Pool } from '../db/connection';
-import { createUserDb, hasUsers } from '../services/user-service';
+import { createUserDb, findUserByUsername, hasUsers } from '../services/user-service';
 
 export function createRequireAuth(pool: Pool, legacyPassword: string) {
   return async function requireAuth(c: Context, next: Next) {
@@ -19,6 +19,10 @@ export function createRequireAuth(pool: Pool, legacyPassword: string) {
     }
 
     c.set('authUsername', username);
+    const user = await findUserByUsername(db, username);
+    if (user?.must_change_password && !user.is_demo) {
+      return c.json({ error: 'password_change_required', message: 'Silakan ubah sandi terlebih dahulu.' }, 403);
+    }
     await next();
   };
 }

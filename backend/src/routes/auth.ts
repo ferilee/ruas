@@ -1,13 +1,20 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { createDemoToken, createToken } from '../lib/auth-store';
+import { createDemoToken, createToken, getTokenUsername } from '../lib/auth-store';
 import type { Pool } from '../db/connection';
-import { authenticateUser, createUserDb, findDemoUser, hasUsers } from '../services/user-service';
+import { authenticateUser, changeUserPassword, createUserDb, findDemoUser, hasUsers } from '../services/user-service';
 import { createDemoDb, prepareDemoSession } from '../services/demo-service';
 
 const authBodySchema = z.object({
   username: z.string().trim().min(1),
   password: z.string().min(1),
+});
+const changePasswordSchema = z.object({
+  new_password: z.string().min(8).max(200),
+  confirm_password: z.string().min(8).max(200),
+}).refine((value) => value.new_password === value.confirm_password, {
+  path: ['confirm_password'],
+  message: 'Konfirmasi sandi tidak sama.',
 });
 
 export function authRoutes(validUsername: string, validPassword: string, pool?: Pool) {
@@ -37,6 +44,19 @@ export function authRoutes(validUsername: string, validPassword: string, pool?: 
     const ready = await prepareDemoSession(createDemoDb(pool), demoUser);
     if (!ready) return c.json({ error: 'demo_unavailable', message: 'Mode demo belum memiliki mata pelajaran.' }, 409);
     return c.json({ token: createDemoToken(demoUser.username), demo_mode: true });
+  });
+
+  app.post('/change-password', async (c) => {
+    const username = getTokenUsername(c.req.header('x-auth-token'));
+    if (!username) return c.json({ error: 'unauthorized', message: 'Sesi login tidak valid.' }, 401);
+    const db = getDb();
+    if (!db) return c.json({ error: 'auth_unavailable', message: 'Perubahan sandi tidak tersedia.' }, 503);
+
+    const parsed = changePasswordSchema.safeParse(await c.req.json());
+    if (!parsed.success) return c.json({ error: 'invalid_body', message: 'Sandi baru minimal 8 karakter dan konfirmasi harus sama.' }, 400);
+    const user = await changeUserPassword(db, username, parsed.data.new_password);
+    if (!user) return c.json({ error: 'unauthorized', message: 'Akun pengguna tidak ditemukan.' }, 401);
+    return c.json({ changed: true });
   });
 
   app.post('/', async (c) => {
@@ -69,6 +89,9 @@ export function authRoutes(validUsername: string, validPassword: string, pool?: 
     }
 
     const token = databaseUser?.is_demo ? createDemoToken(databaseUser.username) : createToken(databaseUser?.username ?? parsed.data.username);
+    if (databaseUser) {
+      return c.json({ token, must_change_password: Boolean(databaseUser.must_change_password && !databaseUser.is_demo) });
+    }
     return c.json({ token });
   });
 

@@ -62,6 +62,13 @@ export async function loginAsDemo(): Promise<{ token: string }> {
   return res.json() as Promise<{ token: string }>;
 }
 
+export async function changePassword(newPassword: string, confirmPassword: string): Promise<void> {
+  await request('/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ new_password: newPassword, confirm_password: confirmPassword }),
+  });
+}
+
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const token = sessionStorage.getItem('auth_token');
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -81,6 +88,9 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ message: 'Gagal memuat data.' }));
+    if (res.status === 403 && body.error === 'password_change_required') {
+      window.location.href = '/change-password';
+    }
     const error = new Error(body.message || `HTTP ${res.status}`) as Error & { code?: string; details?: Record<string, unknown> };
     error.code = body.error;
     error.details = body;
@@ -335,6 +345,11 @@ export async function createAdminUser(input: AdminUserInput): Promise<AdminUser>
 export async function updateAdminUser(id: number, input: AdminUserInput): Promise<AdminUser> {
   const data = await adminRequest<{ user: AdminUser }>(`/admin/users/${id}`, { method: 'PUT', body: JSON.stringify(input) });
   return data.user;
+}
+
+export async function resetAdminUserPassword(id: number): Promise<{ user: AdminUser; temporary_password: string }> {
+  const data = await adminRequest<{ user: AdminUser; temporary_password: string }>(`/admin/users/${id}/reset-password`, { method: 'POST' });
+  return data;
 }
 
 export async function assignAdminUsersClass(userIds: number[], classId: number | null, search?: string): Promise<number> {

@@ -14,11 +14,13 @@ import {
   findUserById,
   listUsers,
   listUserIds,
+  resetUserPassword,
   toPublicUser,
   updateUser,
   assignSubjectToUsers,
   assignClassToUsers,
 } from '@/services/user-service';
+import { revokeTokensForUsername } from '@/lib/auth-store';
 
 const roleSchema = z.enum(['admin', 'editor', 'participant']);
 const userFieldsSchema = z.object({
@@ -233,6 +235,20 @@ export function adminUserRoutes(pool: Pool) {
     }
 
     return c.json({ summary });
+  });
+
+  app.post('/:id/reset-password', async (c) => {
+    const id = parseId(c.req.param('id'));
+    if (!id) return c.json({ error: 'invalid_param', message: 'ID pengguna tidak valid.' }, 400);
+
+    const existing = await findUserById(db, id);
+    if (!existing) return c.json({ error: 'not_found', message: 'Pengguna tidak ditemukan.' }, 404);
+    const result = await resetUserPassword(db, id);
+    if (result && 'demoAccount' in result) {
+      return c.json({ error: 'demo_account', message: 'Sandi akun demo tidak dapat di-reset.' }, 400);
+    }
+    revokeTokensForUsername(existing.username);
+    return c.json({ user: result?.user ? toPublicUser(result.user) : null, temporary_password: result?.temporaryPassword });
   });
 
   app.patch('/bulk-subject', async (c) => {
