@@ -28,7 +28,6 @@ function profile(overrides: Record<string, unknown> = {}) {
     subject_label: 'Matematika',
     class_label: '11 TKJ A',
     assessment_type_label: 'Asesmen Tengah Semester',
-    access_token: '',
     is_demo: false,
     is_complete: false,
     ...overrides,

@@ -85,7 +85,7 @@ Setiap jawaban masuk ke `exam_answers`, sedangkan aktivitas integritas masuk ke
 
 Password pengguna tidak disimpan dalam bentuk plaintext. Admin menetapkan mata
 pelajaran pada akun peserta. Profil peserta hanya melengkapi jenis kelamin,
-tanggal lahir, dan token sesi setelah login pertama.
+dan tanggal lahir setelah login pertama. Token akses dimasukkan saat pengguna membuka topik yang memerlukannya.
 
 ### education_classes
 

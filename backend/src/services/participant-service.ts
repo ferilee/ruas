@@ -23,7 +23,6 @@ export async function findParticipantProfile(db: ParticipantDb, identityKey: str
         birth_date: participantProfiles.birth_date,
         subject_id: participantProfiles.subject_id,
         subject_label: subjects.label,
-        access_token: participantProfiles.access_token,
         is_demo: participantProfiles.is_demo,
       })
       .from(participantProfiles)
@@ -65,7 +64,6 @@ export async function findParticipantProfile(db: ParticipantDb, identityKey: str
     subject_label: subjectContext?.label ?? profile?.subject_label ?? '',
     class_label: account?.class_label ?? subjectContext?.class_label ?? '',
     assessment_type_label: subjectContext?.assessment_type_label ?? '',
-    access_token: profile?.access_token ?? '',
     is_demo: Boolean(account?.is_demo || profile?.is_demo),
     is_complete: Boolean(profile),
   };
@@ -90,7 +88,6 @@ export async function saveParticipantProfile(
     gender: 'male' | 'female';
     birth_date: string;
     subject_id: number;
-    access_token: string | null;
     is_demo?: boolean;
   },
 ) {

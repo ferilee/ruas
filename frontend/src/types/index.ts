@@ -65,7 +65,6 @@ export interface ParticipantProfile {
   subject_label: string;
   class_label: string;
   assessment_type_label: string;
-  access_token: string;
   is_demo: boolean;
   is_complete: boolean;
 }
@@ -80,7 +79,6 @@ export interface ParticipantProfileInput {
   subject_label?: string;
   class_label?: string;
   assessment_type_label?: string;
-  access_token: string;
 }
 
 export interface Topic {

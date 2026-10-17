@@ -36,7 +36,6 @@ export async function prepareDemoSession(db: DemoDb, user: typeof users.$inferSe
         gender: 'male',
         birth_date: '2000-01-01',
         subject_id: subjectId,
-        access_token: null,
         is_demo: 1,
         updated_at: new Date(),
       }).where(eq(participantProfiles.id, participantId));
@@ -50,7 +49,6 @@ export async function prepareDemoSession(db: DemoDb, user: typeof users.$inferSe
       gender: 'male',
       birth_date: '2000-01-01',
       subject_id: subjectId,
-      access_token: null,
       is_demo: 1,
     });
   });

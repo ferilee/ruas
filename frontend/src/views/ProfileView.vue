@@ -74,11 +74,6 @@
             <input v-model="form.birth_date" type="date" required />
           </label>
 
-          <label class="profile-field">
-            <span>Token sesi <small>(opsional)</small></span>
-            <input v-model.trim="form.access_token" type="text" placeholder="Ketikkan token jika tersedia" autocomplete="off" />
-          </label>
-
           <p v-if="error" class="profile-error" role="alert">{{ error }}</p>
 
           <button class="profile-submit" type="submit" :disabled="saving || profileLoading">
@@ -107,7 +102,6 @@ type ProfileForm = {
   subject_label: string;
   class_label: string;
   assessment_type_label: string;
-  access_token: string;
 };
 
 const genderOptions = [
@@ -130,7 +124,6 @@ const form = reactive<ProfileForm>({
   subject_label: '',
   class_label: '',
   assessment_type_label: '',
-  access_token: '',
 });
 
 async function loadProfile() {
@@ -175,7 +168,6 @@ async function submitProfile() {
       birth_date: form.birth_date,
       subject_id: form.subject_id,
       subject_label: form.subject_label,
-      access_token: form.access_token,
       username: form.username,
       class_label: form.class_label,
       assessment_type_label: form.assessment_type_label,

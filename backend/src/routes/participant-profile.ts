@@ -13,7 +13,6 @@ const profileSchema = z.object({
   gender: z.enum(['male', 'female']),
   birth_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   subject_id: z.coerce.number().int().positive(),
-  access_token: z.string().max(255).nullable(),
 });
 
 export function participantProfileRoutes(pool: Pool) {
