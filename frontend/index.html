@@ -23,9 +23,21 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <title>Asesmen SMKN Pasirian</title>
+    <style>
+      #app-loading {
+        display: grid;
+        min-height: 100vh;
+        min-height: 100dvh;
+        place-items: center;
+        padding: 24px;
+        background: linear-gradient(145deg, #f3f7ff, #dce9ff);
+        color: #23457d;
+        font: 700 1rem/1.5 'Segoe UI', system-ui, sans-serif;
+      }
+    </style>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app"><div id="app-loading" role="status">Memuat halaman…</div></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

@@ -6,6 +6,7 @@ async function bootstrap() {
   const router = await buildRouter();
   const app = createApp(App);
   app.use(router);
+  await router.isReady();
   app.mount('#app');
 
   if (import.meta.env.PROD && 'serviceWorker' in navigator) {
