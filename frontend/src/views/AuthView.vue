@@ -138,7 +138,7 @@
         <button type="button" :disabled="loading" @click="loginAsDemo"><span aria-hidden="true">▷</span> {{ loading && demoLoading ? 'Membuka demo...' : 'Coba mode demo' }}</button>
       </div>
 
-      <router-link to="/ajukan-guru" class="teacher-apply-link">Guru? Ajukan akses Editor</router-link>
+      <router-link to="/ajukan-guru" class="teacher-apply-link">Saya Guru, ingin mendaftar</router-link>
 
       <div class="auth-divider" aria-hidden="true">
         <span></span>
