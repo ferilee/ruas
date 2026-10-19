@@ -1,9 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { createReportDbMock, countReportAttemptsMock, resetAllReportDataMock } = vi.hoisted(() => ({
+const { createReportDbMock, countReportAttemptsMock, resetAllReportDataMock, listReportAttemptsMock, summarizeReportMock, summarizeReportByClassMock } = vi.hoisted(() => ({
   createReportDbMock: vi.fn(),
   countReportAttemptsMock: vi.fn(),
   resetAllReportDataMock: vi.fn(),
+  listReportAttemptsMock: vi.fn(),
+  summarizeReportMock: vi.fn(),
+  summarizeReportByClassMock: vi.fn(),
+}));
+
+vi.mock('@/services/exam-service', () => ({
+  createExamDb: createReportDbMock,
+  expireOverdueAttempts: vi.fn().mockResolvedValue(0),
 }));
 
 vi.mock('@/services/report-service', () => ({
@@ -11,9 +19,9 @@ vi.mock('@/services/report-service', () => ({
   countReportAttempts: countReportAttemptsMock,
   resetAllReportData: resetAllReportDataMock,
   getReportDetail: vi.fn(),
-  listReportAttempts: vi.fn(),
-  summarizeReport: vi.fn(),
-  summarizeReportByClass: vi.fn(),
+  listReportAttempts: listReportAttemptsMock,
+  summarizeReport: summarizeReportMock,
+  summarizeReportByClass: summarizeReportByClassMock,
 }));
 
 describe('adminReportRoutes reset', () => {
@@ -21,6 +29,9 @@ describe('adminReportRoutes reset', () => {
     createReportDbMock.mockReset().mockReturnValue({});
     countReportAttemptsMock.mockReset();
     resetAllReportDataMock.mockReset();
+    listReportAttemptsMock.mockReset().mockResolvedValue([]);
+    summarizeReportMock.mockReset().mockReturnValue({});
+    summarizeReportByClassMock.mockReset().mockReturnValue([]);
   });
 
   it('rejects reset without the exact confirmation phrase', async () => {
@@ -59,5 +70,14 @@ describe('adminReportRoutes reset', () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ attempts: 12 });
+  });
+
+  it('passes the selected topic to the report query', async () => {
+    const { adminReportRoutes } = await import('@/routes/admin-reports');
+    const app = adminReportRoutes({} as never);
+    const response = await app.request('http://localhost/?status=all&topic_id=7');
+
+    expect(response.status).toBe(200);
+    expect(listReportAttemptsMock).toHaveBeenCalledWith({}, expect.objectContaining({ status: 'all', topic_id: 7 }));
   });
 });

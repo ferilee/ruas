@@ -304,6 +304,7 @@ export interface AdminReportFilters {
   status: ReportStatus;
   score_policy: ReportScorePolicy;
   subject_id?: number;
+  topic_id?: number;
   class_id?: number;
   assessment_type_id?: number;
   from?: string;

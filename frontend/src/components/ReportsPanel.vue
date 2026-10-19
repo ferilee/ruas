@@ -27,7 +27,8 @@
         <label>Kebijakan nilai<RuasSelect v-model="filters.score_policy" :options="scorePolicyOptions" aria-label="Kebijakan nilai laporan" @change="loadReport" /></label>
         <label>Kelas<RuasSelect v-model="filters.class_id" :options="classOptions" aria-label="Filter kelas" @change="loadReport" /></label>
         <label>Jenis asesmen<RuasSelect v-model="filters.assessment_type_id" :options="assessmentTypeOptions" aria-label="Filter jenis asesmen" @change="loadReport" /></label>
-        <label>Mata pelajaran<RuasSelect v-model="filters.subject_id" :options="subjectOptions" aria-label="Filter mata pelajaran" @change="loadReport" /></label>
+        <label>Mata pelajaran<RuasSelect v-model="filters.subject_id" :options="subjectOptions" aria-label="Filter mata pelajaran" @change="handleFilterContextChange" /></label>
+        <label>Topik<RuasSelect v-model="filters.topic_id" :options="topicOptions" aria-label="Filter topik" @change="loadReport" /></label>
         <label>Dari tanggal
           <input v-model="filters.from" type="date" @change="loadReport" />
         </label>
@@ -149,14 +150,15 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
-import { fetchAdminCurriculum, fetchAdminReport, fetchAdminReportDetail, fetchAdminReportResetCount, resetAdminReportData } from '@/api/client';
+import { fetchAdminCurriculum, fetchAdminReport, fetchAdminReportDetail, fetchAdminReportResetCount, fetchAdminTopics, resetAdminReportData } from '@/api/client';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import RuasSelect from '@/components/RuasSelect.vue';
-import type { AdminReportClassStatistic, AdminReportDetail, AdminReportFilters, AdminReportQuestionStatus, AdminReportRow, AdminReportSummary, CurriculumData } from '@/types';
+import type { AdminReportClassStatistic, AdminReportDetail, AdminReportFilters, AdminReportQuestionStatus, AdminReportRow, AdminReportSummary, AdminTopic, CurriculumData } from '@/types';
 import { ADMIN_REALTIME_EVENT, type AdminRealtimeEvent } from '@/lib/admin-realtime';
 
 const emptySummary: AdminReportSummary = { total_attempts: 0, completed_attempts: 0, in_progress_attempts: 0, abandoned_attempts: 0, average_score: 0, average_accuracy: 0, average_time_seconds: 0, total_violations: 0 };
 const curriculum = reactive<CurriculumData>({ classes: [], assessment_types: [], subjects: [] });
+const topics = ref<AdminTopic[]>([]);
 const filters = reactive<AdminReportFilters>({ status: 'completed', score_policy: 'best', search: '' });
 const rows = ref<AdminReportRow[]>([]);
 const summary = ref<AdminReportSummary>({ ...emptySummary });
@@ -200,12 +202,19 @@ const filteredSubjects = computed(() => curriculum.subjects.filter((subject) => 
   return true;
 }));
 const subjectOptions = computed(() => [{ value: undefined, label: 'Semua mata pelajaran' }, ...filteredSubjects.value.map((item) => ({ value: item.id, label: item.label }))]);
+const filteredTopics = computed(() => topics.value.filter((topic) => {
+  if (filters.subject_id && topic.subject_id !== filters.subject_id) return false;
+  if (filters.class_id && topic.class_ids.length > 0 && !topic.class_ids.includes(filters.class_id)) return false;
+  return true;
+}));
+const topicOptions = computed(() => [{ value: undefined, label: 'Semua topik' }, ...filteredTopics.value.map((item) => ({ value: item.id, label: `${item.label} · ${item.subject_label}` }))]);
 const activeFilterLabels = computed(() => {
   const labels: string[] = [];
   if (filters.status && filters.status !== 'completed') labels.push(statusOptions.find((option) => option.value === filters.status)?.label ?? 'Status');
   if (filters.class_id) labels.push(`Kelas: ${curriculum.classes.find((item) => item.id === filters.class_id)?.label ?? filters.class_id}`);
   if (filters.assessment_type_id) labels.push(`Jenis: ${curriculum.assessment_types.find((item) => item.id === filters.assessment_type_id)?.label ?? filters.assessment_type_id}`);
   if (filters.subject_id) labels.push(`Mapel: ${curriculum.subjects.find((item) => item.id === filters.subject_id)?.label ?? filters.subject_id}`);
+  if (filters.topic_id) labels.push(`Topik: ${topics.value.find((item) => item.id === filters.topic_id)?.label ?? filters.topic_id}`);
   if (filters.from) labels.push(`Dari: ${filters.from}`);
   if (filters.to) labels.push(`Sampai: ${filters.to}`);
   if (filters.search) labels.push(`Cari: ${filters.search}`);
@@ -322,8 +331,13 @@ function analysisStatusLabel(status: AdminReportQuestionStatus) {
 }
 
 function resetFilters() {
-  Object.assign(filters, { status: 'completed', score_policy: 'best', subject_id: undefined, class_id: undefined, assessment_type_id: undefined, from: undefined, to: undefined, search: '' });
+  Object.assign(filters, { status: 'completed', score_policy: 'best', subject_id: undefined, topic_id: undefined, class_id: undefined, assessment_type_id: undefined, from: undefined, to: undefined, search: '' });
   filtersOpen.value = false;
+  void loadReport();
+}
+
+function handleFilterContextChange() {
+  if (filters.topic_id && !filteredTopics.value.some((topic) => topic.id === filters.topic_id)) filters.topic_id = undefined;
   void loadReport();
 }
 
@@ -369,8 +383,9 @@ function handleRealtime(event: Event) {
 
 onMounted(async () => {
   try {
-    const data = await fetchAdminCurriculum();
+    const [data, topicRows] = await Promise.all([fetchAdminCurriculum(), fetchAdminTopics()]);
     Object.assign(curriculum, data);
+    topics.value = topicRows;
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Gagal memuat filter kurikulum.';
   }

@@ -8,6 +8,7 @@ const querySchema = z.object({
   status: z.enum(['all', 'in_progress', 'completed', 'abandoned']).default('completed'),
   score_policy: z.enum(['best', 'latest', 'average']).default('best'),
   subject_id: z.coerce.number().int().positive().optional(),
+  topic_id: z.coerce.number().int().positive().optional(),
   class_id: z.coerce.number().int().positive().optional(),
   assessment_type_id: z.coerce.number().int().positive().optional(),
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
