@@ -98,7 +98,15 @@ const structureCountLabel = computed(() => `${props.classCount} kelas · ${props
 </script>
 
 <style scoped>
-.teacher-workspace-home { min-height: calc(100vh - 190px); padding: clamp(28px, 5vw, 58px) clamp(20px, 5vw, 58px) 42px; border-radius: 18px; color: #f6f2eb; background: #111115; box-shadow: 0 18px 42px rgba(24, 18, 37, .16); }
+.teacher-workspace-home {
+  min-height: calc(100vh - 190px);
+  padding: clamp(28px, 5vw, 58px) clamp(20px, 5vw, 58px) 42px;
+  border-radius: 18px;
+  color: #f6f2eb;
+  background: #111115;
+  box-shadow: 0 18px 42px rgba(24, 18, 37, .16);
+}
+
 .teacher-workspace-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
 .teacher-workspace-eyebrow, .teacher-workspace-section-label { color: #8da4ff; font-size: .67rem; font-weight: 800; letter-spacing: .16em; }
 .teacher-workspace-heading h2 { max-width: 760px; margin-top: 15px; color: #f7f2eb; font-size: clamp(2rem, 4vw, 3.55rem); font-weight: 800; letter-spacing: -.045em; line-height: 1.02; }
@@ -107,34 +115,97 @@ const structureCountLabel = computed(() => `${props.classCount} kelas · ${props
 .teacher-workspace-divider { height: 1px; margin: 42px 0 27px; background: #3b3a41; }
 .teacher-workspace-section-label { margin-bottom: 16px; color: #92909b; font-size: .62rem; }
 .teacher-workspace-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
-.teacher-workspace-card { display: flex; min-width: 0; min-height: 158px; align-items: flex-start; gap: 16px; padding: 20px; border: 1px solid #3d3c43; border-radius: 3px; color: #fff; background: #202023; font: inherit; text-align: left; cursor: pointer; transition: border-color .18s ease, background .18s ease, transform .18s ease; }
+
+.teacher-workspace-card {
+  display: flex;
+  min-width: 0;
+  min-height: 158px;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid #3d3c43;
+  border-radius: 3px;
+  color: #fff;
+  background: #202023;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .18s ease, background .18s ease, transform .18s ease;
+}
+
 .teacher-workspace-card:hover { border-color: #7473a5; background: #26262c; transform: translateY(-2px); }
 .teacher-workspace-card:focus-visible, .workspace-action-button:focus-visible, .workspace-mini-link:focus-visible { outline: 2px solid #9aa7ff; outline-offset: 3px; }
-.workspace-actions-card { display: block; grid-column: 1 / -1; min-height: 0; cursor: default; }
-.workspace-actions-card:hover { transform: none; }
-.workspace-card-heading { display: flex; align-items: center; gap: 14px; }
+
+.workspace-actions-card {
+  display: block;
+  grid-column: 1 / -1;
+  min-height: 0;
+  cursor: default;
+}
+
+.workspace-actions-card:hover, .workspace-overview-card:hover { transform: none; }
+.workspace-card-heading { display: flex; width: 100%; align-items: center; gap: 14px; }
 .workspace-card-heading > div { display: flex; min-width: 0; flex-direction: column; gap: 5px; }
 .workspace-card-heading strong { color: #f8f3ed; font-size: 1rem; text-transform: uppercase; }
-.workspace-card-heading small { color: #aaa6b0; font-size: .78rem; }
+.workspace-card-heading small { color: #aaa6b0; font-size: .78rem; line-height: 1.45; }
 .teacher-workspace-icon { display: grid; width: 40px; height: 40px; flex: 0 0 auto; place-items: center; border: 1px solid currentColor; font-size: 1.25rem; font-weight: 700; }
 .teacher-workspace-icon.tone-blue, .workspace-action-icon.tone-blue { color: #91a8ff; background: #202d5b; }
 .teacher-workspace-icon.tone-violet, .workspace-action-icon.tone-violet { color: #dc9cff; background: #3c1954; }
 .teacher-workspace-icon.tone-green, .workspace-action-icon.tone-green { color: #70eee8; background: #123f43; }
 .teacher-workspace-icon.tone-amber, .workspace-action-icon.tone-amber { color: #f0d466; background: #4c3b13; }
 .teacher-workspace-icon.tone-pink, .workspace-action-icon.tone-pink { color: #ff94c8; background: #521d3b; }
-.workspace-action-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 9px; margin-top: 20px; }
-.workspace-action-button { display: flex; min-width: 0; min-height: 76px; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 11px; border: 1px solid #3d3c43; color: #d5d1d8; background: #25252a; font: inherit; font-size: .72rem; font-weight: 700; text-align: left; cursor: pointer; transition: border-color .18s ease, background .18s ease; }
-.workspace-action-button:hover { border-color: #7466a4; background: #393542; }
-.workspace-action-icon { display: grid; width: 25px; height: 25px; place-items: center; border: 1px solid currentColor; font-size: .85rem; }
+
+.workspace-action-grid {
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 20px;
+}
+
+.workspace-action-button,
+.workspace-mini-link {
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  margin: 0;
+  border-radius: 0;
+  font-family: inherit;
+}
+
+.workspace-action-button {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 86px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #3d3c43;
+  color: #e0dce4;
+  background: #25252a;
+  font-size: .72rem;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .18s ease, background .18s ease, transform .18s ease;
+}
+
+.workspace-action-button:hover { border-color: #8a7bc0; background: #393542; transform: translateY(-2px); }
+.workspace-action-icon { display: grid; width: 27px; height: 27px; place-items: center; border: 1px solid currentColor; font-size: .85rem; }
+
 .workspace-overview-card { display: block; cursor: default; }
-.workspace-overview-card:hover { transform: none; }
-.workspace-mini-links { display: grid; gap: 8px; margin-top: 18px; }
-.workspace-mini-link { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px; border: 1px solid #3d3c43; color: #d5d1d8; background: #25252a; font: inherit; text-align: left; cursor: pointer; transition: border-color .18s ease, background .18s ease; }
-.workspace-mini-link:hover { border-color: #7466a4; background: #393542; }
+.workspace-mini-links { display: grid; width: 100%; gap: 8px; margin-top: 18px; }
+.workspace-mini-link { display: flex; width: 100%; min-height: 54px; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid #3d3c43; color: #d5d1d8; background: #25252a; text-align: left; cursor: pointer; transition: border-color .18s ease, background .18s ease, transform .18s ease; }
+.workspace-mini-link:hover { border-color: #8a7bc0; background: #393542; transform: translateX(2px); }
 .workspace-mini-link span { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
 .workspace-mini-link b { color: #f0ebf2; font-size: .76rem; }
 .workspace-mini-link small { overflow: hidden; color: #96919d; font-size: .67rem; text-overflow: ellipsis; white-space: nowrap; }
 .workspace-mini-link i { color: #bca7ff; font-size: 1.05rem; font-style: normal; }
+
 .workspace-link-card { align-items: flex-start; }
 .teacher-workspace-card-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 9px; }
 .teacher-workspace-card-copy strong { color: #f8f3ed; font-size: 1rem; text-transform: uppercase; }
@@ -143,7 +214,10 @@ const structureCountLabel = computed(() => `${props.classCount} kelas · ${props
 .teacher-workspace-arrow { display: grid; width: 28px; height: 28px; flex: 0 0 auto; place-items: center; border: 1px solid #4b4a52; color: #cbc8d0; font-size: 1rem; }
 .teacher-workspace-hint { max-width: 700px; margin-top: 28px; color: #77747f; font-size: .76rem; line-height: 1.55; }
 
-@media (max-width: 900px) { .workspace-action-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 900px) {
+  .workspace-action-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
 @media (max-width: 720px) {
   .teacher-workspace-home { min-height: calc(100vh - 130px); padding: 28px 18px 34px; }
   .teacher-workspace-heading { flex-direction: column; }
@@ -152,5 +226,9 @@ const structureCountLabel = computed(() => `${props.classCount} kelas · ${props
   .teacher-workspace-grid { grid-template-columns: 1fr; }
   .workspace-actions-card { grid-column: auto; }
   .workspace-action-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 390px) {
+  .workspace-action-grid { grid-template-columns: 1fr; }
 }
 </style>
