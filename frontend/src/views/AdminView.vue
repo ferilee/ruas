@@ -88,6 +88,63 @@
               :initial-form="curriculumFocus"
               @topics-updated="loadData"
             />
+            <div v-if="teacherWorkspaceModal === 'users'" class="teacher-workspace-modal-backdrop" role="presentation" @click.self="closeTeacherWorkspaceModal">
+              <section class="teacher-workspace-modal" role="dialog" aria-modal="true" aria-labelledby="teacher-users-modal-title">
+                <div class="teacher-workspace-modal-heading">
+                  <div><span class="modal-eyebrow">RUANG KERJA GURU</span><h2 id="teacher-users-modal-title">Daftar Pengguna</h2><p>Kelola siswa yang berada dalam penetapan Anda.</p></div>
+                  <button class="teacher-workspace-modal-close" type="button" aria-label="Tutup daftar pengguna" @click="closeTeacherWorkspaceModal">×</button>
+                </div>
+                <UsersPanel :admin-session="adminSession" />
+              </section>
+            </div>
+            <div v-if="teacherWorkspaceModal === 'schedule'" class="teacher-workspace-modal-backdrop" role="presentation" @click.self="closeTeacherWorkspaceModal">
+              <section class="teacher-workspace-modal teacher-schedule-modal" role="dialog" aria-modal="true" aria-labelledby="teacher-schedule-modal-title">
+                <div class="teacher-workspace-modal-heading">
+                  <div><span class="modal-eyebrow">RUANG KERJA GURU</span><h2 id="teacher-schedule-modal-title">Jadwal Asesmen</h2><p>Tentukan kapan siswa dapat membuka setiap topik.</p></div>
+                  <button class="teacher-workspace-modal-close" type="button" aria-label="Tutup jadwal asesmen" @click="closeTeacherWorkspaceModal">×</button>
+                </div>
+                <section class="schedule-panel workspace-schedule-panel">
+                  <div class="schedule-layout">
+                    <form class="schedule-form schedule-editor-form" @submit.prevent="saveSchedule">
+                      <div class="panel-heading"><div><h3>Atur jadwal</h3><p>Pilih topik, lalu tentukan jendela pengerjaannya.</p></div></div>
+                      <label>Topik
+                        <RuasSelect v-model="scheduleTopicId" :options="scheduleTopicOptions" placeholder="Pilih topik" aria-label="Topik untuk jadwal" />
+                      </label>
+                      <label>Waktu mulai
+                        <input v-model="scheduleStartAt" type="datetime-local" />
+                      </label>
+                      <label>Waktu selesai <span class="label-optional">(opsional)</span>
+                        <input v-model="scheduleEndAt" type="datetime-local" />
+                      </label>
+                      <label>Catatan <span class="label-optional">(opsional)</span>
+                        <input v-model.trim="scheduleNotes" type="text" maxlength="255" placeholder="Contoh: Sesi pagi kelas XI" />
+                      </label>
+                      <label class="schedule-toggle"><input v-model="scheduleEnabled" type="checkbox" /> <span>Jadwal aktif</span></label>
+                      <div class="schedule-actions">
+                        <button class="primary-btn" type="submit" :disabled="scheduleSaving || !scheduleTopicId">{{ scheduleSaving ? 'Menyimpan...' : 'Simpan Jadwal' }}</button>
+                        <button class="secondary-btn" type="button" :disabled="scheduleSaving || !scheduleTopicId" @click="openScheduleNow">Buka Sekarang</button>
+                      </div>
+                    </form>
+                    <div class="schedule-list-card">
+                      <div class="panel-heading"><div><h3>Jadwal per topik</h3><p>Pilih jadwal untuk mengubahnya.</p></div></div>
+                      <div v-if="scheduleRows.length === 0" class="schedule-empty">Belum ada jadwal khusus. Peserta dapat mulai segera.</div>
+                      <template v-for="group in scheduleGroups" :key="group.key">
+                        <div v-if="group.rows.length" class="schedule-group">
+                          <h4>{{ group.label }} <span>{{ group.rows.length }}</span></h4>
+                          <button v-for="row in group.rows" :key="row.topic_id ?? row.id ?? 'schedule'" type="button" class="schedule-row" @click="editSchedule(row)">
+                            <span class="schedule-row-main"><strong>{{ row.topic_label }}</strong><small>{{ row.subject_label || 'Tanpa mata pelajaran' }} · {{ row.notes || 'Tanpa catatan' }}</small></span>
+                            <span :class="['schedule-row-state', `state-${row.state}`]">{{ scheduleStateLabel(row.state) }}</span>
+                            <span class="schedule-row-time">{{ formatScheduleWindow(row) }}</span>
+                          </button>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+                  <p class="field-hint schedule-hint">Kosongkan waktu mulai lalu simpan untuk membuka topik segera.</p>
+                  <p v-if="scheduleMessage" :class="scheduleMessageType === 'error' ? 'error-text' : 'success-text'">{{ scheduleMessage }}</p>
+                </section>
+              </section>
+            </div>
           </template>
 
           <section v-else-if="activeSection === 'overview'" class="overview-section">
@@ -130,7 +187,7 @@
 
           <CurriculumPanel v-else-if="activeSection === 'curriculum'" :admin-session="adminSession" :initial-form="isEditorSession ? curriculumFocus : null" @topics-updated="loadData" />
 
-          <ReportsPanel v-else-if="activeSection === 'reports'" :can-reset="isAdminSession" />
+          <ReportsPanel v-else-if="activeSection === 'reports'" :can-reset="isAdminSession" :simple="isEditorSession" />
 
           <UsersPanel v-else-if="activeSection === 'users'" :admin-session="adminSession" />
 
@@ -462,6 +519,7 @@ const visibleMobileSecondaryNavigation = computed(() => visibleNavigation.value.
 const activeSection = ref<AdminSection>('overview');
 const curriculumFocus = ref<'class' | 'type' | 'subject' | 'topic' | null>(null);
 const teacherQuestionFlow = ref(false);
+const teacherWorkspaceModal = ref<'schedule' | 'users' | null>(null);
 const moreMenuOpen = ref(false);
 const currentSection = computed(() => navigation.find((item) => item.id === activeSection.value) ?? navigation[0]);
 const currentSectionTitle = computed(() => currentSection.value.title);
@@ -587,6 +645,7 @@ watch([difficultyFilter, questionTypeFilter, questionStatusFilter, questionTopic
 });
 
 function selectSection(section: AdminSection) {
+  teacherWorkspaceModal.value = null;
   if (section !== 'overview') curriculumFocus.value = null;
   if (section !== 'questions') teacherQuestionFlow.value = false;
   activeSection.value = section;
@@ -611,7 +670,16 @@ function handleTeacherWorkspaceAction(action: TeacherWorkspaceAction) {
 function handleTeacherWorkspaceNavigation(section: 'curriculum' | 'questions' | 'reports' | 'schedule' | 'users') {
   teacherQuestionFlow.value = false;
   curriculumFocus.value = null;
+  if (isEditorSession.value && (section === 'schedule' || section === 'users')) {
+    teacherWorkspaceModal.value = section;
+    moreMenuOpen.value = false;
+    return;
+  }
   selectSection(section);
+}
+
+function closeTeacherWorkspaceModal() {
+  teacherWorkspaceModal.value = null;
 }
 
 function syncTopicAccessDrafts(rows: AdminTopic[]) {
@@ -1580,6 +1648,58 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .teacher-question-workspace .form-panel.open :deep(.ruas-select-menu) { border-color: #4b4a52; background: #25252a; }
 .teacher-question-workspace .form-panel.open :deep(.ruas-select-option) { color: #d5d1d8; }
 .teacher-question-workspace .form-panel.open :deep(.ruas-select-option:hover), .teacher-question-workspace .form-panel.open :deep(.ruas-select-option.highlighted) { color: #fff; background: #393542; }
+
+.teacher-workspace-modal-backdrop {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(8, 8, 12, .78);
+}
+
+.teacher-workspace-modal {
+  width: min(100%, 980px);
+  max-height: min(90vh, 820px);
+  overflow: auto;
+  padding: 24px;
+  border: 1px solid #45444e;
+  border-radius: 18px;
+  color: #f6f2eb;
+  background: #202023;
+  box-shadow: 0 28px 70px rgba(0, 0, 0, .48);
+}
+
+.teacher-workspace-modal-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #3d3c43;
+}
+
+.teacher-workspace-modal-heading h2 { margin-top: 5px; color: #f7f2eb; font-size: 1.4rem; }
+.teacher-workspace-modal-heading p { margin-top: 5px; color: #9e9aa5; font-size: .82rem; }
+.modal-eyebrow { color: #bca7ff; font-size: .64rem; font-weight: 800; letter-spacing: .14em; }
+.teacher-workspace-modal-close { display: grid; width: 32px; height: 32px; place-items: center; border: 0; border-radius: 50%; color: #c5c2ca; background: #35343c; font-size: 1.35rem; line-height: 1; cursor: pointer; }
+.teacher-workspace-modal-close:hover { color: #fff; background: #4a4654; }
+.teacher-workspace-modal :deep(.users-panel) { gap: 14px; }
+.teacher-workspace-modal :deep(.users-grid) { gap: 14px; }
+.teacher-workspace-modal :deep(.panel) { box-shadow: none; }
+.teacher-schedule-modal { width: min(100%, 1080px); }
+.workspace-schedule-panel { padding: 0; border: 0; box-shadow: none; }
+.workspace-schedule-panel .schedule-layout { grid-template-columns: minmax(250px, .75fr) minmax(0, 1.25fr); }
+.workspace-schedule-panel .schedule-editor-form, .workspace-schedule-panel .schedule-list-card { background: #25252a; }
+
+@media (max-width: 720px) {
+  .teacher-workspace-modal-backdrop { align-items: stretch; padding: 0; }
+  .teacher-workspace-modal { width: 100%; max-height: none; min-height: 100%; overflow: auto; padding: 18px; border-radius: 0; }
+  .teacher-workspace-modal-heading { position: sticky; z-index: 2; top: -18px; margin: -18px -18px 18px; padding: 18px; background: #202023; }
+  .workspace-schedule-panel .schedule-layout { grid-template-columns: 1fr; }
+}
 
 @media (max-width: 620px) {
   .schedule-panel { padding: 16px; }

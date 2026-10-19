@@ -1,5 +1,40 @@
 <template>
   <section class="reports-panel">
+    <template v-if="props.simple">
+      <div class="simple-report-header">
+        <div><span class="eyebrow">HASIL ASESMEN</span><h2>Laporan sederhana</h2><p>Pilih topik dan kelas untuk melihat hasil siswa.</p></div>
+        <div class="toolbar-actions"><button class="secondary-btn" type="button" :disabled="loading" @click="loadReport">Muat ulang</button><button class="primary-btn" type="button" :disabled="loading || rows.length === 0" @click="exportPdf">Unduh PDF</button></div>
+      </div>
+
+      <section class="simple-report-filters">
+        <div><strong>1. Pilih yang ingin dilihat</strong><span>Gunakan dua pilihan ini untuk menyaring laporan.</span></div>
+        <label>Topik<RuasSelect v-model="filters.topic_id" :options="topicOptions" aria-label="Pilih topik laporan" @change="loadReport" /></label>
+        <label>Kelas<RuasSelect v-model="filters.class_id" :options="classOptions" aria-label="Pilih kelas laporan" @change="loadReport" /></label>
+      </section>
+
+      <section class="simple-report-summary">
+        <article><span>Siswa selesai</span><strong>{{ summary.completed_attempts }}</strong><small>dari {{ summary.total_attempts }} hasil</small></article>
+        <article><span>Rata-rata nilai</span><strong>{{ summary.average_score }}</strong><small>nilai terbaik</small></article>
+        <article><span>Rata-rata jawaban benar</span><strong>{{ summary.average_accuracy }}%</strong><small>akurasi kelas</small></article>
+      </section>
+
+      <section class="simple-report-results">
+        <div class="simple-report-results-heading"><div><strong>2. Lihat hasil siswa</strong><span>Klik nama siswa untuk melihat detail jawabannya.</span></div><span v-if="realtimeRefreshing" class="filter-live-status">Memperbarui…</span></div>
+        <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
+        <div v-if="loading" class="panel-empty">Memuat laporan...</div>
+        <div v-else-if="rows.length === 0" class="panel-empty">Belum ada hasil asesmen sesuai pilihan.</div>
+        <div v-else class="simple-report-list">
+          <button v-for="group in reportGroups" :key="group.key" type="button" class="simple-report-row" @click="openDetail(group.official.attempt_id)">
+            <span class="simple-report-student"><strong>{{ group.official.participant_name }}</strong><small>{{ group.official.subject_label }} · {{ group.official.topic_label || 'Semua topik' }}</small></span>
+            <span class="simple-report-score"><strong>{{ group.official.final_score }}</strong><small>Nilai</small></span>
+            <span class="simple-report-accuracy"><strong>{{ group.official.accuracy }}%</strong><small>Benar</small></span>
+            <span :class="['status-badge', `status-${group.official.status}`]">{{ statusLabel(group.official.status) }}</span>
+            <span class="simple-report-arrow" aria-hidden="true">→</span>
+          </button>
+        </div>
+      </section>
+    </template>
+    <template v-else>
     <ConfirmDialog :open="resetConfirmOpen" title="Reset seluruh hasil asesmen?" :message="resetConfirmationMessage" confirm-label="Reset hasil" confirmation-phrase="RESET HASIL ASESMEN" @confirm="resetReportData" @cancel="closeResetConfirmation" />
     <div class="panel report-toolbar no-print">
       <div>
@@ -115,6 +150,8 @@
       </div>
     </section>
 
+    </template>
+
     <div v-if="detail" class="detail-backdrop no-print" @click.self="detail = null">
       <section class="detail-dialog" role="dialog" aria-modal="true" aria-labelledby="detail-title">
         <div class="detail-header">
@@ -156,7 +193,7 @@ import RuasSelect from '@/components/RuasSelect.vue';
 import type { AdminReportClassStatistic, AdminReportDetail, AdminReportFilters, AdminReportQuestionStatus, AdminReportRow, AdminReportSummary, AdminTopic, CurriculumData } from '@/types';
 import { ADMIN_REALTIME_EVENT, type AdminRealtimeEvent } from '@/lib/admin-realtime';
 
-const props = withDefaults(defineProps<{ canReset?: boolean }>(), { canReset: true });
+const props = withDefaults(defineProps<{ canReset?: boolean; simple?: boolean }>(), { canReset: true, simple: false });
 
 const emptySummary: AdminReportSummary = { total_attempts: 0, completed_attempts: 0, in_progress_attempts: 0, abandoned_attempts: 0, average_score: 0, average_accuracy: 0, average_time_seconds: 0, total_violations: 0 };
 const curriculum = reactive<CurriculumData>({ classes: [], assessment_types: [], subjects: [] });
@@ -400,6 +437,40 @@ onUnmounted(() => window.removeEventListener(ADMIN_REALTIME_EVENT, handleRealtim
 
 <style scoped>
 .reports-panel { display: flex; flex-direction: column; gap: 18px; }
+.simple-report-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 24px; border: 1px solid #3d3c43; border-radius: 16px; color: #f6f2eb; background: #202023; }
+.simple-report-header h2 { margin-top: 6px; color: #f7f2eb; font-size: 1.45rem; }
+.simple-report-header p { margin-top: 5px; color: #9e9aa5; font-size: .84rem; }
+.simple-report-header .eyebrow { color: #bca7ff; }
+.simple-report-header .toolbar-actions { flex: 0 0 auto; }
+.simple-report-header .primary-btn { background: #7350c7; }
+.simple-report-header .secondary-btn { border-color: #45444e; color: #d1c9e9; background: #393542; }
+.simple-report-filters { display: grid; grid-template-columns: minmax(0, 1fr) repeat(2, minmax(190px, .7fr)); align-items: end; gap: 14px; padding: 18px; border: 1px solid #3d3c43; border-radius: 14px; background: #202023; }
+.simple-report-filters > div { display: flex; min-width: 0; flex-direction: column; gap: 5px; }
+.simple-report-filters > div strong, .simple-report-results-heading strong { color: #f0ebf2; font-size: .9rem; }
+.simple-report-filters > div span, .simple-report-results-heading span { color: #9b97a2; font-size: .74rem; line-height: 1.45; }
+.simple-report-filters label { color: #d5d1d8; font-size: .75rem; }
+.simple-report-filters :deep(.ruas-select-trigger) { border-color: #4b4a52; color: #e5e0e8; background: #1a1a1e; }
+.simple-report-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.simple-report-summary article { display: flex; min-height: 105px; flex-direction: column; justify-content: center; gap: 4px; padding: 16px; border: 1px solid #3d3c43; border-radius: 14px; background: #202023; }
+.simple-report-summary article:nth-child(1) { border-top: 3px solid #70eee8; }
+.simple-report-summary article:nth-child(2) { border-top: 3px solid #91a8ff; }
+.simple-report-summary article:nth-child(3) { border-top: 3px solid #dc9cff; }
+.simple-report-summary span, .simple-report-summary small { color: #9b97a2; font-size: .72rem; }
+.simple-report-summary strong { color: #f7f2eb; font-size: 1.45rem; }
+.simple-report-results { overflow: hidden; border: 1px solid #3d3c43; border-radius: 14px; background: #202023; }
+.simple-report-results-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px; border-bottom: 1px solid #3d3c43; }
+.simple-report-results-heading > div { display: flex; flex-direction: column; gap: 5px; }
+.simple-report-list { display: flex; flex-direction: column; }
+.simple-report-row { display: grid; grid-template-columns: minmax(0, 1fr) 82px 82px auto 22px; align-items: center; gap: 12px; width: 100%; padding: 14px 18px; border: 0; border-bottom: 1px solid #3d3c43; color: #d5d1d8; background: #202023; font: inherit; text-align: left; cursor: pointer; transition: background .16s ease; }
+.simple-report-row:last-child { border-bottom: 0; }
+.simple-report-row:hover { background: #2b2932; }
+.simple-report-student, .simple-report-score, .simple-report-accuracy { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
+.simple-report-student strong, .simple-report-score strong, .simple-report-accuracy strong { color: #f0ebf2; font-size: .82rem; }
+.simple-report-student small, .simple-report-score small, .simple-report-accuracy small { overflow: hidden; color: #96919d; font-size: .68rem; text-overflow: ellipsis; white-space: nowrap; }
+.simple-report-score strong { color: #91a8ff; font-size: 1rem; }
+.simple-report-accuracy strong { color: #70eee8; }
+.simple-report-arrow { color: #bca7ff; font-size: 1.1rem; }
+.simple-report-row .status-badge { justify-self: start; }
 .panel { padding: 20px; border: 1px solid #e0e9f3; border-radius: 16px; background: #fff; box-shadow: 0 7px 18px rgba(31, 74, 126, .05); }
 .report-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; background: linear-gradient(115deg, #185db7, #2686df); color: #fff; }
 .report-toolbar h2 { margin: 6px 0; color: #fff; font-size: 1.45rem; }
@@ -454,8 +525,8 @@ td strong, td small { display: block; }.report-row { cursor: pointer; }.report-r
 .detail-header { display: flex; justify-content: space-between; gap: 14px; }.detail-header h3 { margin: 6px 0 3px; color: #173e7f; font-size: 1.35rem; }.detail-header p, .muted { color: #8294aa; font-size: .82rem; }.close-btn { width: 32px; height: 32px; border: 0; border-radius: 50%; color: #55718f; background: #eef4fb; font-size: 1.5rem; cursor: pointer; }
 .detail-meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 14px; }.detail-meta span { padding: 6px 9px; border-radius: 7px; color: #38649a; background: #edf5ff; font-size: .73rem; }.detail-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }.detail-stats div { padding: 13px; border-radius: 10px; background: #f2f7fc; text-align: center; }.detail-stats strong, .detail-stats small { display: block; }.detail-stats strong { color: #166bc0; font-size: 1.15rem; }.detail-stats small { margin-top: 3px; color: #7c90aa; font-size: .7rem; }.detail-columns { display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; margin-top: 22px; }.detail-columns h4 { margin-bottom: 9px; color: #315987; font-size: .85rem; }.event-list { display: flex; flex-direction: column; gap: 7px; padding: 0; list-style: none; }.event-list li { display: flex; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: 7px; background: #fff4e2; color: #946321; font-size: .75rem; }.event-list small { color: #b1844c; font-size: .68rem; }
 .analysis-summary { margin-top: 22px; padding-top: 18px; border-top: 1px solid #e6edf5; }.analysis-summary-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }.analysis-summary-heading h4 { color: #315987; font-size: .9rem; }.analysis-summary-heading p { margin-top: 4px; color: #8294aa; font-size: .75rem; }.analysis-summary-heading :deep(.ruas-select) { width: 145px; flex: 0 0 auto; }.analysis-counts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0; }.analysis-count { min-width: 0; padding: 10px; border-radius: 10px; background: #f4f8fc; }.analysis-count strong, .analysis-count span, .analysis-count small { display: block; }.analysis-count strong { font-size: 1.1rem; }.analysis-count span { margin-top: 2px; font-size: .72rem; font-weight: 800; }.analysis-count small { overflow: hidden; margin-top: 6px; color: #7c90aa; font-size: .68rem; text-overflow: ellipsis; white-space: nowrap; }.analysis-count.correct { border-left: 3px solid #2fa474; }.analysis-count.correct strong, .analysis-count.correct span { color: #21815e; }.analysis-count.incorrect { border-left: 3px solid #d56b6b; }.analysis-count.incorrect strong, .analysis-count.incorrect span { color: #b24b55; }.analysis-count.unanswered { border-left: 3px solid #d79a3b; }.analysis-count.unanswered strong, .analysis-count.unanswered span { color: #a86d1b; }.question-analysis-list { display: flex; flex-direction: column; gap: 8px; max-height: 330px; overflow: auto; padding-right: 3px; }.question-analysis-item { padding: 11px 12px; border: 1px solid #e2eaf3; border-left: 3px solid #b8c7d9; border-radius: 9px; background: #fbfdff; }.question-analysis-item.analysis-correct { border-left-color: #2fa474; }.question-analysis-item.analysis-incorrect { border-left-color: #d56b6b; }.question-analysis-item.analysis-unanswered { border-left-color: #d79a3b; }.question-analysis-title { display: flex; align-items: center; gap: 7px; }.question-analysis-title strong { color: #254d83; font-size: .77rem; }.question-analysis-title span { overflow: hidden; color: #8294aa; font-size: .68rem; text-overflow: ellipsis; white-space: nowrap; }.question-analysis-title b { margin-left: auto; padding: 3px 6px; border-radius: 999px; color: #55718f; background: #edf3f9; font-size: .62rem; white-space: nowrap; }.analysis-correct .question-analysis-title b { color: #21815e; background: #e2f7ed; }.analysis-incorrect .question-analysis-title b { color: #b24b55; background: #ffebeb; }.analysis-unanswered .question-analysis-title b { color: #a86d1b; background: #fff3d9; }.question-analysis-item p { margin: 8px 0; color: #405a76; font-size: .77rem; line-height: 1.45; }.answer-comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }.answer-comparison span { padding: 7px 8px; border-radius: 7px; color: #405a76; background: #f1f6fb; font-size: .7rem; }.answer-comparison small { display: block; margin-bottom: 3px; color: #8497ad; font-size: .63rem; font-weight: 700; }
-@media (max-width: 900px) { .filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 620px) { .report-toolbar { align-items: flex-start; flex-direction: column; }.toolbar-actions { width: 100%; }.toolbar-actions button { flex: 1; }.filters-panel .panel-heading { align-items: flex-start; }.filter-toggle { width: 100%; }.filters-panel .panel-heading { flex-direction: column; }.filter-grid { grid-template-columns: 1fr; }.search-field { grid-column: auto; }.filter-reset { width: 100%; }.summary-grid { grid-template-columns: 1fr 1fr; }.summary-card { min-height: 98px; padding: 13px; }.summary-card strong { font-size: 1.3rem; }.detail-stats { grid-template-columns: 1fr 1fr; }.detail-columns { grid-template-columns: 1fr; }.analysis-summary-heading { flex-direction: column; }.analysis-summary-heading :deep(.ruas-select) { width: 100%; }.analysis-counts { grid-template-columns: 1fr; }.answer-comparison { grid-template-columns: 1fr; }.table-heading { align-items: flex-start; flex-direction: column; }.report-table-actions { width: 100%; align-items: stretch; flex-direction: column; }.report-table-actions label { width: 100%; }.report-table-actions .print-note { display: none; } }
+@media (max-width: 900px) { .filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.simple-report-filters { grid-template-columns: 1fr 1fr; }.simple-report-filters > div { grid-column: 1 / -1; } }
+@media (max-width: 620px) { .report-toolbar { align-items: flex-start; flex-direction: column; }.toolbar-actions { width: 100%; }.toolbar-actions button { flex: 1; }.simple-report-header { flex-direction: column; }.simple-report-header .toolbar-actions { width: 100%; }.simple-report-filters { grid-template-columns: 1fr; }.simple-report-filters > div { grid-column: auto; }.filters-panel .panel-heading { align-items: flex-start; }.filter-toggle { width: 100%; }.filters-panel .panel-heading { flex-direction: column; }.filter-grid { grid-template-columns: 1fr; }.search-field { grid-column: auto; }.filter-reset { width: 100%; }.summary-grid { grid-template-columns: 1fr 1fr; }.summary-card { min-height: 98px; padding: 13px; }.summary-card strong { font-size: 1.3rem; }.simple-report-summary { grid-template-columns: 1fr; }.simple-report-summary article { min-height: 82px; }.simple-report-row { grid-template-columns: minmax(0, 1fr) auto auto 22px; gap: 8px; padding: 13px 12px; }.simple-report-row .status-badge { grid-column: 1 / 3; }.simple-report-accuracy { display: none; }.detail-stats { grid-template-columns: 1fr 1fr; }.detail-columns { grid-template-columns: 1fr; }.analysis-summary-heading { flex-direction: column; }.analysis-summary-heading :deep(.ruas-select) { width: 100%; }.analysis-counts { grid-template-columns: 1fr; }.answer-comparison { grid-template-columns: 1fr; }.table-heading { align-items: flex-start; flex-direction: column; }.report-table-actions { width: 100%; align-items: stretch; flex-direction: column; }.report-table-actions label { width: 100%; }.report-table-actions .print-note { display: none; } }
 @media print {
   :global(body) { background: #fff !important; }
   :global(.admin-view) { padding: 0 !important; }
