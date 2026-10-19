@@ -1,5 +1,5 @@
 <template>
-  <div :class="['admin-view', { 'editor-view': isEditorSession }]">
+  <div :class="['admin-view', { 'editor-view': isEditorSession, 'teacher-workspace-view': isEditorSession && activeSection === 'overview' }]">
     <ConfirmDialog :open="confirmOpen" :title="confirmTitle" :message="confirmMessage" :confirm-label="confirmLabel" @confirm="runConfirmation" @cancel="closeConfirmation" />
     <div v-if="!isAuthenticated" class="admin-header">
       <div>
@@ -69,20 +69,16 @@
             </div>
           </div>
 
-          <TeacherOnboardingWizard
+          <TeacherWorkspaceHome
             v-if="isEditorSession && activeSection === 'overview'"
-            :username="adminSession?.username ?? ''"
             :class-count="curriculum.classes.length"
-            :subject-count="curriculum.subjects.length"
             :assessment-type-count="curriculum.assessment_types.length"
-            :topic-count="topics.length"
+            :subject-count="curriculum.subjects.length"
             :question-count="questionTotal"
-            :secured-topic-count="securedTopicCount"
-            :scheduled-topic-count="scheduledTopicCount"
-            @navigate="selectSection"
+            @create="handleTeacherWorkspaceAction"
           />
 
-          <section v-if="activeSection === 'overview'" class="overview-section">
+          <section v-else-if="activeSection === 'overview'" class="overview-section">
             <div class="welcome-card">
               <div>
                 <span class="eyebrow">{{ isEditorSession ? 'DASHBOARD GURU' : 'DASHBOARD ADMIN' }}</span>
@@ -120,7 +116,7 @@
             </section>
           </section>
 
-          <CurriculumPanel v-else-if="activeSection === 'curriculum'" :admin-session="adminSession" @topics-updated="loadData" />
+          <CurriculumPanel v-else-if="activeSection === 'curriculum'" :admin-session="adminSession" :initial-form="isEditorSession ? curriculumFocus : null" @topics-updated="loadData" />
 
           <ReportsPanel v-else-if="activeSection === 'reports'" :can-reset="isAdminSession" />
 
@@ -409,7 +405,7 @@ import ReportsPanel from '@/components/ReportsPanel.vue';
 import RuasSelect from '@/components/RuasSelect.vue';
 import UsersPanel from '@/components/UsersPanel.vue';
 import TeacherRequestsPanel from '@/components/TeacherRequestsPanel.vue';
-import TeacherOnboardingWizard from '@/components/TeacherOnboardingWizard.vue';
+import TeacherWorkspaceHome from '@/components/TeacherWorkspaceHome.vue';
 import {
   adminLogin,
   createAdminQuestion,
@@ -434,6 +430,7 @@ import { connectAdminRealtime, dispatchAdminRealtimeEvent, type AdminRealtimeEve
 
 const router = useRouter();
 type AdminSection = 'overview' | 'curriculum' | 'questions' | 'schedule' | 'reports' | 'users' | 'teacher-requests';
+type TeacherWorkspaceAction = 'class' | 'assessment-type' | 'subject' | 'question';
 const navigation: Array<{ id: AdminSection; label: string; icon: string; title: string; description: string }> = [
   { id: 'overview', label: 'Ringkasan', icon: '⌂', title: 'Ringkasan', description: 'Pantau isi dan status asesmen RUAS.' },
   { id: 'curriculum', label: 'Struktur Asesmen', icon: '▦', title: 'Struktur Asesmen', description: 'Atur kelas, jenis asesmen, dan mata pelajaran.' },
@@ -450,6 +447,7 @@ const visibleNavigation = computed(() => isAdminSession.value ? navigation : nav
 const visibleMobilePrimaryNavigation = computed(() => visibleNavigation.value.filter((item) => ['overview', 'curriculum', 'questions', 'reports'].includes(item.id)));
 const visibleMobileSecondaryNavigation = computed(() => visibleNavigation.value.filter((item) => ['schedule', 'users', 'teacher-requests'].includes(item.id)));
 const activeSection = ref<AdminSection>('overview');
+const curriculumFocus = ref<'class' | 'type' | 'subject' | null>(null);
 const moreMenuOpen = ref(false);
 const currentSection = computed(() => navigation.find((item) => item.id === activeSection.value) ?? navigation[0]);
 const currentSectionTitle = computed(() => currentSection.value.title);
@@ -560,8 +558,6 @@ const scheduleGroups = computed(() => [
   { key: 'upcoming', label: 'Akan Datang', rows: scheduleRows.value.filter((row) => row.state === 'upcoming') },
   { key: 'ended', label: 'Sudah Berakhir', rows: scheduleRows.value.filter((row) => row.state === 'ended' || row.state === 'disabled') },
 ]);
-const securedTopicCount = computed(() => topics.value.filter((topic) => topic.token_configured).length);
-const scheduledTopicCount = computed(() => new Set(scheduleRows.value.filter((row) => row.topic_id !== null).map((row) => row.topic_id)).size);
 
 watch(search, () => {
   if (questionSearchTimer) clearTimeout(questionSearchTimer);
@@ -579,6 +575,16 @@ function selectSection(section: AdminSection) {
   activeSection.value = section;
   moreMenuOpen.value = false;
   errorMessage.value = '';
+}
+
+function handleTeacherWorkspaceAction(action: TeacherWorkspaceAction) {
+  if (action === 'question') {
+    startNew();
+    selectSection('questions');
+    return;
+  }
+  curriculumFocus.value = action === 'assessment-type' ? 'type' : action;
+  selectSection('curriculum');
 }
 
 function syncTopicAccessDrafts(rows: AdminTopic[]) {
@@ -1453,6 +1459,11 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .editor-view .filter-chip:hover, .editor-view .filter-chip.active { border-color: #7c3aed; background: #7c3aed; }
 .editor-view .pagination-btn { color: #6d28d9; }
 .editor-view .topic-access-summary { color: #6d28d9; }
+.teacher-workspace-view { padding: 0; background: #111115; }
+.teacher-workspace-view .admin-layout { display: block; max-width: none; }
+.teacher-workspace-view .admin-sidebar, .teacher-workspace-view .dashboard-header { display: none; }
+.teacher-workspace-view .admin-content { width: 100%; }
+.teacher-workspace-view .teacher-workspace-home { min-height: 100vh; border-radius: 0; box-shadow: none; }
 
 @media (max-width: 620px) {
   .schedule-panel { padding: 16px; }
@@ -1516,6 +1527,7 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
   .mobile-more-item:hover { background: #edf5ff; color: #1d5fc0; }
   .mobile-more-item > span:nth-child(2) { flex: 1; }
 }
+.teacher-workspace-view .mobile-bottom-nav, .teacher-workspace-view .mobile-more-menu, .teacher-workspace-view .mobile-more-backdrop { display: none !important; }
 @media print {
   .mobile-bottom-nav, .mobile-more-menu, .mobile-more-backdrop { display: none !important; }
 }

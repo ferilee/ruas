@@ -150,7 +150,7 @@ import {
 import type { AdminSession, AdminTopic, AdminTopicInput, AssessmentType, CurriculumClass, CurriculumData, Subject } from '@/types';
 import { ADMIN_REALTIME_EVENT, type AdminRealtimeEvent } from '@/lib/admin-realtime';
 
-const props = withDefaults(defineProps<{ topicOnly?: boolean; adminSession?: AdminSession | null }>(), { topicOnly: false, adminSession: null });
+const props = withDefaults(defineProps<{ topicOnly?: boolean; adminSession?: AdminSession | null; initialForm?: CurriculumFormModal | null }>(), { topicOnly: false, adminSession: null, initialForm: null });
 const curriculum = ref<CurriculumData>({ classes: [], assessment_types: [], subjects: [] });
 const loading = ref(true);
 const errorMessage = ref('');
@@ -258,6 +258,14 @@ function openTypeForm() { resetType(); mobileTab.value = 'types'; formModal.valu
 function openSubjectForm() { resetSubject(); mobileTab.value = 'subjects'; formModal.value = 'subject'; mobileFormOpen.value = true; }
 function openTopicForm() { resetTopic(); mobileTab.value = 'topics'; formModal.value = 'topic'; mobileFormOpen.value = true; }
 function closeMobileForm() { mobileFormOpen.value = false; }
+
+watch(() => props.initialForm, (initialForm) => {
+  if (!initialForm || props.topicOnly) return;
+  if (initialForm === 'class') openClassForm();
+  else if (initialForm === 'type') openTypeForm();
+  else if (initialForm === 'subject') openSubjectForm();
+}, { immediate: true });
+
 function askConfirmation(title: string, message: string, action: () => Promise<void>) { confirmTitle.value = title; confirmMessage.value = message; pendingConfirmation.value = action; confirmOpen.value = true; }
 function closeConfirmation() { confirmOpen.value = false; pendingConfirmation.value = null; }
 async function runConfirmation() { const action = pendingConfirmation.value; closeConfirmation(); if (action) await action(); }
