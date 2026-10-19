@@ -15,7 +15,7 @@
           <div><span class="modal-eyebrow">STRUKTUR ASESMEN</span><h2 :id="`${formModal}-form-title`">{{ formModalTitle }}</h2><p>{{ formModalDescription }}</p></div>
           <button type="button" class="modal-close-btn" aria-label="Tutup form" @click="closeMobileForm">×</button>
         </div>
-        <form v-if="formModal === 'class'" class="curriculum-form class-form modal-form" @submit.prevent="saveClass">
+        <form v-if="!topicOnly && formModal === 'class'" class="curriculum-form class-form modal-form" @submit.prevent="saveClass">
           <label><span>Kode kelas</span><input v-model.trim="classForm.slug" placeholder="Contoh: 11-tkj-a" required /></label>
           <label><span>Nama kelas</span><input v-model.trim="classForm.label" placeholder="Contoh: Kelas 11 TKJ A" required /></label>
           <label><span>Tingkat</span><input v-model.number="classForm.grade" type="number" min="1" max="12" placeholder="11" required /></label>
@@ -25,13 +25,13 @@
           <label><span>Urutan tampil</span><input v-model.number="classForm.display_order" type="number" min="1" placeholder="1" required /></label>
           <div class="form-actions"><button class="primary-btn" type="submit">{{ editingClassId ? 'Perbarui' : 'Tambah' }}</button><button class="secondary-btn" type="button" @click="closeMobileForm">Batal</button></div>
         </form>
-        <form v-else-if="formModal === 'type'" class="curriculum-form type-form modal-form" @submit.prevent="saveAssessmentType">
+        <form v-else-if="!topicOnly && formModal === 'type'" class="curriculum-form type-form modal-form" @submit.prevent="saveAssessmentType">
           <label><span>Slug</span><input v-model.trim="typeForm.slug" placeholder="Contoh: asesmen-ruas" required /></label>
           <label><span>Nama jenis asesmen</span><input v-model.trim="typeForm.label" placeholder="Contoh: Asesmen RUAS" required /></label>
           <label><span>Urutan tampil</span><input v-model.number="typeForm.display_order" type="number" min="1" placeholder="1" required /></label>
           <div class="form-actions"><button class="primary-btn" type="submit">{{ editingTypeId ? 'Perbarui' : 'Tambah' }}</button><button class="secondary-btn" type="button" @click="closeMobileForm">Batal</button></div>
         </form>
-        <form v-else-if="formModal === 'subject'" class="curriculum-form subject-form modal-form" @submit.prevent="saveSubject">
+        <form v-else-if="!topicOnly && formModal === 'subject'" class="curriculum-form subject-form modal-form" @submit.prevent="saveSubject">
           <label><span>Slug</span><input v-model.trim="subjectForm.slug" placeholder="Contoh: matematika" required /></label>
           <label><span>Nama mata pelajaran</span><input v-model.trim="subjectForm.label" placeholder="Contoh: Penalaran Matematika" required /></label>
           <label><span>Urutan tampil</span><input v-model.number="subjectForm.display_order" type="number" min="1" placeholder="1" required /></label>
@@ -63,7 +63,7 @@
     <div class="curriculum-heading">
       <div>
         <h2>Kurikulum</h2>
-        <p>Atur pilihan kelas, jenis asesmen, dan mata pelajaran pada halaman peserta.</p>
+        <p>{{ topicOnly ? 'Buat dan kelola topik yang berada dalam penetapan Anda.' : 'Atur pilihan kelas, jenis asesmen, dan mata pelajaran pada halaman peserta.' }}</p>
       </div>
       <button class="secondary-btn" type="button" :disabled="loading" @click="loadData">Muat ulang</button>
     </div>
@@ -73,7 +73,7 @@
     <div v-if="loading" class="curriculum-loading">Memuat kurikulum...</div>
 
     <div v-else>
-      <section class="curriculum-filter-panel" aria-label="Filter struktur asesmen">
+      <section v-if="!topicOnly" class="curriculum-filter-panel" aria-label="Filter struktur asesmen">
         <div class="curriculum-filter-heading">
           <div><strong>Filter struktur asesmen</strong><small>Pilih kombinasi untuk melihat bagian kurikulum yang relevan.</small></div>
           <button v-if="hasCurriculumFilter" class="filter-reset-button" type="button" @click="resetCurriculumFilters">Reset</button>
@@ -87,11 +87,11 @@
       </section>
 
       <div class="mobile-curriculum-tabs" role="tablist" aria-label="Kategori kurikulum">
-        <button v-for="tab in mobileTabs" :key="tab.value" type="button" role="tab" :aria-selected="mobileTab === tab.value" :class="['mobile-curriculum-tab', { active: mobileTab === tab.value }]" @click="mobileTab = tab.value">{{ tab.label }}</button>
+        <button v-for="tab in visibleMobileTabs" :key="tab.value" type="button" role="tab" :aria-selected="mobileTab === tab.value" :class="['mobile-curriculum-tab', { active: mobileTab === tab.value }]" @click="mobileTab = tab.value">{{ tab.label }}</button>
       </div>
 
       <div class="curriculum-grid">
-      <section :class="['curriculum-group', 'class-group', { 'mobile-active': mobileTab === 'classes', 'mobile-form-open': mobileFormOpen && mobileTab === 'classes' }]">
+      <section v-if="!topicOnly" :class="['curriculum-group', 'class-group', { 'mobile-active': mobileTab === 'classes', 'mobile-form-open': mobileFormOpen && mobileTab === 'classes' }]">
         <div class="curriculum-group-heading"><h3>Kelas</h3><button class="curriculum-add-btn" type="button" @click="openClassForm">＋ Tambah</button></div>
         <div class="curriculum-items">
           <div v-for="item in visibleClasses" :key="item.id" class="curriculum-item">
@@ -101,7 +101,7 @@
         </div>
       </section>
 
-      <section :class="['curriculum-group', { 'mobile-active': mobileTab === 'types', 'mobile-form-open': mobileFormOpen && mobileTab === 'types' }]">
+      <section v-if="!topicOnly" :class="['curriculum-group', { 'mobile-active': mobileTab === 'types', 'mobile-form-open': mobileFormOpen && mobileTab === 'types' }]">
         <div class="curriculum-group-heading"><h3>Jenis Asesmen</h3><button class="curriculum-add-btn" type="button" @click="openTypeForm">＋ Tambah</button></div>
         <div class="curriculum-items">
           <div v-for="item in visibleAssessmentTypes" :key="item.id" class="curriculum-item">
@@ -111,7 +111,7 @@
         </div>
       </section>
 
-      <section :class="['curriculum-group', 'subject-group', { 'mobile-active': mobileTab === 'subjects', 'mobile-form-open': mobileFormOpen && mobileTab === 'subjects' }]">
+      <section v-if="!topicOnly" :class="['curriculum-group', 'subject-group', { 'mobile-active': mobileTab === 'subjects', 'mobile-form-open': mobileFormOpen && mobileTab === 'subjects' }]">
         <div class="curriculum-group-heading"><h3>Mata Pelajaran</h3><button class="curriculum-add-btn" type="button" @click="openSubjectForm">＋ Tambah</button></div>
         <div class="curriculum-items">
           <div v-for="item in visibleSubjects" :key="item.id" class="curriculum-item">
@@ -150,6 +150,7 @@ import {
 import type { AdminTopic, AdminTopicInput, AssessmentType, CurriculumClass, CurriculumData, Subject } from '@/types';
 import { ADMIN_REALTIME_EVENT, type AdminRealtimeEvent } from '@/lib/admin-realtime';
 
+const props = withDefaults(defineProps<{ topicOnly?: boolean }>(), { topicOnly: false });
 const curriculum = ref<CurriculumData>({ classes: [], assessment_types: [], subjects: [] });
 const loading = ref(true);
 const errorMessage = ref('');
@@ -164,9 +165,9 @@ const editingTopicId = ref<number | null>(null);
 const topics = ref<AdminTopic[]>([]);
 type MobileCurriculumTab = 'classes' | 'types' | 'subjects' | 'topics';
 type CurriculumFormModal = 'class' | 'type' | 'subject' | 'topic';
-const mobileTab = ref<MobileCurriculumTab>('subjects');
+const mobileTab = ref<MobileCurriculumTab>(props.topicOnly ? 'topics' : 'subjects');
 const mobileFormOpen = ref(false);
-const formModal = ref<CurriculumFormModal>('subject');
+const formModal = ref<CurriculumFormModal>(props.topicOnly ? 'topic' : 'subject');
 const confirmOpen = ref(false);
 const confirmTitle = ref('Konfirmasi tindakan');
 const confirmMessage = ref('Apakah kamu yakin ingin melanjutkan?');
@@ -177,6 +178,7 @@ const mobileTabs: Array<{ value: MobileCurriculumTab; label: string }> = [
   { value: 'subjects', label: 'Mata Pelajaran' },
   { value: 'topics', label: 'Topik' },
 ];
+const visibleMobileTabs = computed(() => props.topicOnly ? mobileTabs.filter((tab) => tab.value === 'topics') : mobileTabs);
 const classForm = reactive<CurriculumClassInput>({ slug: '', label: '', academic_year: '2026/2027', grade: 10, program: '', section: null, display_order: 1 });
 const typeForm = reactive<CurriculumItemInput>({ slug: '', label: '', display_order: 1 });
 const subjectForm = reactive<CurriculumSubjectInput>({ slug: '', label: '', display_order: 1, max_attempts: 1, duration_minutes: 0, minimum_duration_minutes: 0, explanation_mode: 'hidden', show_correct_answer_on_wrong: false, class_id: null, assessment_type_id: null });

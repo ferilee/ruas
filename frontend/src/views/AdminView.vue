@@ -107,7 +107,7 @@
             </section>
           </section>
 
-          <CurriculumPanel v-else-if="activeSection === 'curriculum' && isAdminSession" @topics-updated="loadData" />
+          <CurriculumPanel v-else-if="activeSection === 'curriculum'" :topic-only="isEditorSession" @topics-updated="loadData" />
 
           <ReportsPanel v-else-if="activeSection === 'reports'" :can-reset="isAdminSession" />
 
@@ -245,6 +245,7 @@
             <fieldset :disabled="questionReadOnly" class="question-readonly-fieldset">
             <label>Topik
               <RuasSelect v-model="draft.topic_id" :options="topicOptions" placeholder="Pilih topik" aria-label="Topik soal" />
+              <span v-if="topics.length === 0" class="question-topic-empty">Belum ada topik. <button type="button" @click="selectSection('curriculum')">Buat topik terlebih dahulu</button> agar soal dapat disimpan.</span>
             </label>
             <fieldset class="topic-mapping-fieldset">
               <legend>Paket/topik yang menyertakan soal</legend>
@@ -426,7 +427,7 @@ const navigation: Array<{ id: AdminSection; label: string; icon: string; title: 
 const adminSession = ref<AdminSession | null>(null);
 const isAdminSession = computed(() => adminSession.value?.role === 'admin');
 const isEditorSession = computed(() => adminSession.value?.role === 'editor');
-const visibleNavigation = computed(() => isAdminSession.value ? navigation : navigation.filter((item) => item.id !== 'curriculum'));
+const visibleNavigation = computed(() => navigation);
 const visibleMobilePrimaryNavigation = computed(() => visibleNavigation.value.filter((item) => ['overview', 'curriculum', 'questions', 'reports'].includes(item.id)));
 const visibleMobileSecondaryNavigation = computed(() => visibleNavigation.value.filter((item) => ['schedule', 'users'].includes(item.id)));
 const activeSection = ref<AdminSection>('overview');
@@ -1412,6 +1413,8 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .question-owner-badge.editor-owner { color: #6d28d9; background: #f3e8ff; }
 .question-owner-badge.admin-owner { color: #2364ad; background: #eaf3ff; }
 .question-readonly-note { margin: 20px 20px 0; padding: 10px 12px; border: 1px solid #eadcff; border-radius: 9px; color: #6d28d9; background: #faf5ff; font-size: .78rem; line-height: 1.45; }
+.question-topic-empty { color: #7b91aa; font-size: .76rem; font-weight: 400; line-height: 1.4; }
+.question-topic-empty button { padding: 0; border: 0; color: #6d28d9; background: transparent; font: inherit; font-weight: 800; cursor: pointer; }
 .question-readonly-fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
 .question-readonly-fieldset:disabled { opacity: .82; }
 
