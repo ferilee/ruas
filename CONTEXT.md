@@ -15,3 +15,7 @@ Curriculum and assessment data created by a teacher. The creating teacher can ma
 ## Admin authority
 
 Admin can view and manage shared data and every teacher workspace, including access and account assignments.
+
+## Teacher access request
+
+A public request from a prospective teacher. It remains pending until Admin approves or rejects it. Approval creates an Editor account with a forced first-login password change.

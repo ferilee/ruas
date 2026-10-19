@@ -138,6 +138,8 @@
         <button type="button" :disabled="loading" @click="loginAsDemo"><span aria-hidden="true">▷</span> {{ loading && demoLoading ? 'Membuka demo...' : 'Coba mode demo' }}</button>
       </div>
 
+      <router-link to="/ajukan-guru" class="teacher-apply-link">Guru? Ajukan akses Editor</router-link>
+
       <div class="auth-divider" aria-hidden="true">
         <span></span>
         <small>RUANG ASESMEN</small>
@@ -249,9 +251,10 @@ async function login() {
       return;
     }
 
-    const data = await res.json() as { token: string; must_change_password?: boolean };
+    const data = await res.json() as { token: string; role?: 'admin' | 'editor' | 'participant'; must_change_password?: boolean };
     sessionStorage.setItem('auth_token', data.token);
     if (data.must_change_password) {
+      if (data.role === 'admin' || data.role === 'editor') sessionStorage.setItem('ruas_after_password_change', '/admin');
       await router.push('/change-password');
       return;
     }
@@ -905,4 +908,5 @@ async function loginAsDemo() {
   }
 }
 .demo-access { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 22px; padding: 13px 14px; border: 1px solid rgba(67, 125, 215, .28); border-radius: 14px; background: rgba(255, 255, 255, .46); text-align: left; }.demo-access strong, .demo-access small { display: block; }.demo-access strong { color: #244d88; font-size: .75rem; }.demo-access small { margin-top: 3px; color: #7188ac; font-size: .67rem; line-height: 1.35; }.demo-access button { flex: 0 0 auto; padding: 9px 11px; border: 1px solid #8eb9ec; border-radius: 9px; color: #246ac5; background: #fff; font: inherit; font-size: .72rem; font-weight: 800; cursor: pointer; }.demo-access button:disabled { cursor: wait; opacity: .6; }
+.teacher-apply-link { display: block; margin-top: 18px; color: #6d28d9; font-size: .78rem; font-weight: 800; text-align: center; text-decoration: none; }.teacher-apply-link:hover { text-decoration: underline; }
 </style>

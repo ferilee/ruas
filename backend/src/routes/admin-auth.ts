@@ -34,7 +34,7 @@ export function adminAuthRoutes(validPassword: string, pool: Pool) {
         return c.json({ error: 'unauthorized', message: 'Username atau password admin/guru salah.' }, 401);
       }
       if (user.must_change_password && !user.is_demo) {
-        return c.json({ error: 'password_change_required', message: 'Ganti sandi awal terlebih dahulu melalui halaman login peserta.' }, 403);
+        return c.json({ error: 'password_change_required', message: 'Ganti sandi awal terlebih dahulu melalui halaman login utama (/auth), lalu masuk kembali sebagai Admin/Guru.' }, 403);
       }
       return c.json({ token: createAdminToken({
         username: user.username,

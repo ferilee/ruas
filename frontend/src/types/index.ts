@@ -234,6 +234,23 @@ export interface AdminUserInput {
   is_demo: boolean;
 }
 
+export type TeacherAccessRequestStatus = 'pending' | 'approved' | 'rejected';
+
+export interface TeacherAccessRequest {
+  id: number;
+  username: string;
+  display_name: string;
+  contact: string | null;
+  requested_class: string | null;
+  requested_subject: string | null;
+  status: TeacherAccessRequestStatus;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  rejection_reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface UserImportSummary {
   inserted: number;
   updated: number;

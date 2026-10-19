@@ -49,7 +49,9 @@ async function submit() {
   saving.value = true;
   try {
     await changePassword(newPassword.value, confirmPassword.value);
-    await router.replace('/');
+    const destination = sessionStorage.getItem('ruas_after_password_change') ?? '/';
+    sessionStorage.removeItem('ruas_after_password_change');
+    await router.replace(destination);
   } catch (changeError) {
     error.value = changeError instanceof Error ? changeError.message : 'Sandi gagal diperbarui.';
   } finally {

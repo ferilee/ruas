@@ -113,6 +113,8 @@
 
           <UsersPanel v-else-if="activeSection === 'users'" :admin-session="adminSession" />
 
+          <TeacherRequestsPanel v-else-if="activeSection === 'teacher-requests'" />
+
           <section v-else-if="activeSection === 'schedule'" class="panel schedule-panel">
             <div class="schedule-hero">
               <span class="schedule-icon" aria-hidden="true">◷</span>
@@ -393,6 +395,7 @@ import CurriculumPanel from '@/components/CurriculumPanel.vue';
 import ReportsPanel from '@/components/ReportsPanel.vue';
 import RuasSelect from '@/components/RuasSelect.vue';
 import UsersPanel from '@/components/UsersPanel.vue';
+import TeacherRequestsPanel from '@/components/TeacherRequestsPanel.vue';
 import {
   adminLogin,
   createAdminQuestion,
@@ -415,7 +418,7 @@ import type { AdminSession } from '@/types';
 import { connectAdminRealtime, dispatchAdminRealtimeEvent, type AdminRealtimeEvent, type AdminRealtimeStatus } from '@/lib/admin-realtime';
 
 const router = useRouter();
-type AdminSection = 'overview' | 'curriculum' | 'questions' | 'schedule' | 'reports' | 'users';
+type AdminSection = 'overview' | 'curriculum' | 'questions' | 'schedule' | 'reports' | 'users' | 'teacher-requests';
 const navigation: Array<{ id: AdminSection; label: string; icon: string; title: string; description: string }> = [
   { id: 'overview', label: 'Ringkasan', icon: '⌂', title: 'Ringkasan', description: 'Pantau isi dan status asesmen RUAS.' },
   { id: 'curriculum', label: 'Struktur Asesmen', icon: '▦', title: 'Struktur Asesmen', description: 'Atur kelas, jenis asesmen, dan mata pelajaran.' },
@@ -423,13 +426,14 @@ const navigation: Array<{ id: AdminSection; label: string; icon: string; title: 
   { id: 'schedule', label: 'Jadwal Asesmen', icon: '◷', title: 'Jadwal Asesmen', description: 'Tentukan kapan peserta boleh memulai asesmen.' },
   { id: 'reports', label: 'Laporan', icon: '▤', title: 'Laporan Asesmen', description: 'Pantau hasil siswa dan ekspor laporan PDF.' },
   { id: 'users', label: 'Pengguna', icon: '♙', title: 'Pengguna', description: 'Tambah akun secara manual atau import dari CSV/JSON.' },
+  { id: 'teacher-requests', label: 'Pengajuan Guru', icon: '✦', title: 'Pengajuan Guru', description: 'Tinjau permintaan akses Editor dari guru.' },
 ];
 const adminSession = ref<AdminSession | null>(null);
 const isAdminSession = computed(() => adminSession.value?.role === 'admin');
 const isEditorSession = computed(() => adminSession.value?.role === 'editor');
-const visibleNavigation = computed(() => navigation);
+const visibleNavigation = computed(() => isAdminSession.value ? navigation : navigation.filter((item) => item.id !== 'teacher-requests'));
 const visibleMobilePrimaryNavigation = computed(() => visibleNavigation.value.filter((item) => ['overview', 'curriculum', 'questions', 'reports'].includes(item.id)));
-const visibleMobileSecondaryNavigation = computed(() => visibleNavigation.value.filter((item) => ['schedule', 'users'].includes(item.id)));
+const visibleMobileSecondaryNavigation = computed(() => visibleNavigation.value.filter((item) => ['schedule', 'users', 'teacher-requests'].includes(item.id)));
 const activeSection = ref<AdminSection>('overview');
 const moreMenuOpen = ref(false);
 const currentSection = computed(() => navigation.find((item) => item.id === activeSection.value) ?? navigation[0]);

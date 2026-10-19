@@ -11,6 +11,7 @@ import type {
   AdminReportData,
   AdminReportDetail,
   AdminReportFilters,
+  TeacherAccessRequest,
   AssessmentSchedule,
   AttemptQuestion,
   CurriculumData,
@@ -276,6 +277,41 @@ export async function adminLogin(username: string, password: string): Promise<Ad
   const data = await res.json() as { token: string; session: AdminSession };
   sessionStorage.setItem('admin_token', data.token);
   return data.session;
+}
+
+export interface TeacherAccessRequestInput {
+  username: string;
+  display_name: string;
+  password: string;
+  confirm_password: string;
+  contact?: string;
+  requested_class?: string;
+  requested_subject?: string;
+}
+
+export async function submitTeacherAccessRequest(input: TeacherAccessRequestInput): Promise<void> {
+  const res = await fetch(`${BASE}/teacher-requests`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ message: 'Gagal mengirim pengajuan.' }));
+    throw new Error(body.message || `HTTP ${res.status}`);
+  }
+}
+
+export async function fetchAdminTeacherAccessRequests(status: 'pending' | 'approved' | 'rejected' | 'all' = 'pending'): Promise<TeacherAccessRequest[]> {
+  const data = await adminRequest<{ requests: TeacherAccessRequest[] }>(`/admin/teacher-requests?status=${status}`);
+  return data.requests;
+}
+
+export async function reviewAdminTeacherAccessRequest(id: number, action: 'approve' | 'reject', rejectionReason?: string): Promise<'approved' | 'rejected'> {
+  const data = await adminRequest<{ status: 'approved' | 'rejected' }>(`/admin/teacher-requests/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ action, rejection_reason: rejectionReason ?? '' }),
+  });
+  return data.status;
 }
 
 export async function fetchAdminQuestions(filters: { search?: string; topic_id?: number; type?: AdminQuestionListItem['type']; difficulty?: AdminQuestionListItem['difficulty']; status?: 'active' | 'archived' | 'all'; page?: number; page_size?: number } = {}): Promise<AdminQuestionPage> {

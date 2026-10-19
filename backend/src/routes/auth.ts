@@ -90,7 +90,7 @@ export function authRoutes(validUsername: string, validPassword: string, pool?: 
 
     const token = databaseUser?.is_demo ? createDemoToken(databaseUser.username) : createToken(databaseUser?.username ?? parsed.data.username);
     if (databaseUser) {
-      return c.json({ token, must_change_password: Boolean(databaseUser.must_change_password && !databaseUser.is_demo) });
+      return c.json({ token, role: databaseUser.role, must_change_password: Boolean(databaseUser.must_change_password && !databaseUser.is_demo) });
     }
     return c.json({ token });
   });

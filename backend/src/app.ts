@@ -22,6 +22,8 @@ import { requireAdminRole } from './middleware/require-admin-role';
 import type { AdminSession } from './lib/admin-auth-store';
 import { adminReportRoutes } from './routes/admin-reports';
 import { adminRealtimeRoutes } from './routes/admin-realtime';
+import { teacherAccessRequestRoutes } from './routes/teacher-access-requests';
+import { adminTeacherRequestRoutes } from './routes/admin-teacher-requests';
 import { publishRealtimeEvent } from './lib/realtime-events';
 import type { Pool } from './db/connection';
 import type { MediaStorage } from './services/media-storage';
@@ -77,6 +79,7 @@ export function createApp(config: AppConfig) {
   });
 
   app.route('/api/auth', authRoutes(config.appUsername ?? '', config.appPassword, config.pool));
+  app.route('/api/teacher-requests', teacherAccessRequestRoutes(config.pool));
   app.route('/api/admin/auth', adminAuthRoutes(config.adminPassword ?? '', config.pool));
 
   const authMiddleware = createRequireAuth(config.pool, config.appPassword);
@@ -98,6 +101,8 @@ export function createApp(config: AppConfig) {
   app.use('/api/admin/users/*', requireAdminAuth);
   app.use('/api/admin/reports', requireAdminAuth);
   app.use('/api/admin/realtime', requireAdminAuth);
+  app.use('/api/admin/teacher-requests', requireAdminAuth);
+  app.use('/api/admin/teacher-requests/*', requireAdminAuth);
   app.use('/api/admin/reports/reset', requireAdminRole('admin'));
   app.use('/api/admin/reports/reset/*', requireAdminRole('admin'));
 
@@ -129,6 +134,7 @@ export function createApp(config: AppConfig) {
   app.route('/api/admin/users', adminUserRoutes(config.pool));
   app.route('/api/admin/reports', adminReportRoutes(config.pool));
   app.route('/api/admin/realtime', adminRealtimeRoutes());
+  app.route('/api/admin/teacher-requests', adminTeacherRequestRoutes(config.pool));
 
   if (process.env.NODE_ENV === 'production') {
     const distDir = '../frontend/dist';
@@ -162,5 +168,6 @@ function realtimeResource(path: string) {
   if (path.startsWith('/api/admin/topics')) return 'topics';
   if (path.startsWith('/api/admin/schedule')) return 'schedule';
   if (path.startsWith('/api/admin/curriculum')) return 'curriculum';
+  if (path.startsWith('/api/admin/teacher-requests')) return 'teacher-requests';
   return 'data';
 }
