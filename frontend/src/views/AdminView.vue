@@ -154,6 +154,20 @@
                 <ReportsPanel :can-reset="false" :simple="true" />
               </section>
             </div>
+            <div v-if="teacherWorkspaceModal === 'questions'" class="teacher-workspace-modal-backdrop" role="presentation" @click.self="closeTeacherWorkspaceModal">
+              <section class="teacher-workspace-modal teacher-question-modal" role="dialog" aria-modal="true" aria-labelledby="teacher-question-list-title">
+                <TeacherQuestionListModal :questions="questions" :question-total="questionTotal" @close="closeTeacherWorkspaceModal" @create="createQuestionFromList" @edit="editQuestionFromList" />
+              </section>
+            </div>
+            <div v-if="teacherWorkspaceModal === 'curriculum'" class="teacher-workspace-modal-backdrop" role="presentation" @click.self="closeTeacherWorkspaceModal">
+              <section class="teacher-workspace-modal teacher-curriculum-modal" role="dialog" aria-modal="true" aria-labelledby="teacher-curriculum-list-title">
+                <div class="teacher-workspace-modal-heading">
+                  <div><span class="modal-eyebrow">STRUKTUR ASESMEN</span><h2 id="teacher-curriculum-list-title">Struktur Asesmen</h2><p>Kelola kelas, mata pelajaran, jenis asesmen, dan topik.</p></div>
+                  <button class="teacher-workspace-modal-close" type="button" aria-label="Tutup struktur asesmen" @click="closeTeacherWorkspaceModal">×</button>
+                </div>
+                <CurriculumPanel :admin-session="adminSession" @topics-updated="loadData" />
+              </section>
+            </div>
           </template>
 
           <section v-else-if="activeSection === 'overview'" class="overview-section">
@@ -484,6 +498,7 @@ import RuasSelect from '@/components/RuasSelect.vue';
 import UsersPanel from '@/components/UsersPanel.vue';
 import TeacherRequestsPanel from '@/components/TeacherRequestsPanel.vue';
 import TeacherWorkspaceHome from '@/components/TeacherWorkspaceHome.vue';
+import TeacherQuestionListModal from '@/components/TeacherQuestionListModal.vue';
 import {
   adminLogin,
   createAdminQuestion,
@@ -528,7 +543,7 @@ const visibleMobileSecondaryNavigation = computed(() => visibleNavigation.value.
 const activeSection = ref<AdminSection>('overview');
 const curriculumFocus = ref<'class' | 'type' | 'subject' | 'topic' | null>(null);
 const teacherQuestionFlow = ref(false);
-const teacherWorkspaceModal = ref<'schedule' | 'users' | 'reports' | null>(null);
+const teacherWorkspaceModal = ref<'schedule' | 'users' | 'reports' | 'questions' | 'curriculum' | null>(null);
 const moreMenuOpen = ref(false);
 const currentSection = computed(() => navigation.find((item) => item.id === activeSection.value) ?? navigation[0]);
 const currentSectionTitle = computed(() => currentSection.value.title);
@@ -679,7 +694,7 @@ function handleTeacherWorkspaceAction(action: TeacherWorkspaceAction) {
 function handleTeacherWorkspaceNavigation(section: 'curriculum' | 'questions' | 'reports' | 'schedule' | 'users') {
   teacherQuestionFlow.value = false;
   curriculumFocus.value = null;
-  if (isEditorSession.value && (section === 'schedule' || section === 'users' || section === 'reports')) {
+  if (isEditorSession.value && (section === 'schedule' || section === 'users' || section === 'reports' || section === 'questions' || section === 'curriculum')) {
     teacherWorkspaceModal.value = section;
     moreMenuOpen.value = false;
     return;
@@ -689,6 +704,18 @@ function handleTeacherWorkspaceNavigation(section: 'curriculum' | 'questions' | 
 
 function closeTeacherWorkspaceModal() {
   teacherWorkspaceModal.value = null;
+}
+
+function createQuestionFromList() {
+  closeTeacherWorkspaceModal();
+  handleTeacherWorkspaceAction('question');
+}
+
+async function editQuestionFromList(id: number) {
+  closeTeacherWorkspaceModal();
+  teacherQuestionFlow.value = true;
+  selectSection('questions');
+  await editQuestion(id);
 }
 
 function syncTopicAccessDrafts(rows: AdminTopic[]) {
@@ -1700,6 +1727,8 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .teacher-workspace-modal :deep(.panel) { box-shadow: none; }
 .teacher-schedule-modal { width: min(100%, 1080px); }
 .teacher-report-modal { width: min(100%, 1080px); }
+.teacher-question-modal { width: min(100%, 900px); }
+.teacher-curriculum-modal { width: min(100%, 1120px); }
 .teacher-report-modal .reports-panel { gap: 14px; }
 .teacher-report-modal .simple-report-header { border: 0; border-radius: 0; padding: 0 0 16px; background: transparent; }
 .teacher-report-modal .simple-report-filters, .teacher-report-modal .simple-report-summary, .teacher-report-modal .simple-report-results { border-color: #3d3c43; }
