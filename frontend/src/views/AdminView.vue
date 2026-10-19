@@ -76,7 +76,10 @@
               :subject-count="curriculum.subjects.length"
               :topic-count="topics.length"
               :question-count="questionTotal"
+              :schedule-count="scheduleRows.length"
+              :participant-count="participantCount"
               @create="handleTeacherWorkspaceAction"
+              @navigate="handleTeacherWorkspaceNavigation"
             />
             <CurriculumPanel
               v-if="curriculumFocus"
@@ -422,6 +425,7 @@ import {
   fetchAdminAuthStatus,
   fetchAdminQuestion,
   fetchAdminQuestions,
+  fetchAdminParticipantCount,
   fetchAdminSchedule,
   fetchAdminTopics,
   fetchAdminCurriculum,
@@ -493,6 +497,7 @@ const questionPage = ref(1);
 const questionPageSize = ref(25);
 const questionTotal = ref(0);
 const questionTotalPages = ref(1);
+const participantCount = ref(0);
 const questionFormOpen = ref(false);
 const importFormOpen = ref(false);
 const questionMedia = ref<QuestionMedia[]>([]);
@@ -601,6 +606,12 @@ function handleTeacherWorkspaceAction(action: TeacherWorkspaceAction) {
   const form = action === 'assessment-type' ? 'type' : action;
   curriculumFocus.value = null;
   void nextTick(() => { curriculumFocus.value = form; });
+}
+
+function handleTeacherWorkspaceNavigation(section: 'curriculum' | 'questions' | 'reports' | 'schedule' | 'users') {
+  teacherQuestionFlow.value = false;
+  curriculumFocus.value = null;
+  selectSection(section);
 }
 
 function syncTopicAccessDrafts(rows: AdminTopic[]) {
@@ -827,11 +838,12 @@ function goToQuestionPage(page: number) {
 
 async function loadData() {
   try {
-    const [questionRows, topicRows, schedules, curriculumData] = await Promise.all([
+    const [questionRows, topicRows, schedules, curriculumData, participantTotal] = await Promise.all([
       fetchAdminQuestions(),
       fetchAdminTopics(),
       fetchAdminSchedule(),
       fetchAdminCurriculum(),
+      fetchAdminParticipantCount().catch(() => 0),
     ]);
     questions.value = questionRows.questions;
     questionPage.value = questionRows.page;
@@ -842,6 +854,7 @@ async function loadData() {
     curriculum.value = curriculumData;
     syncTopicAccessDrafts(topicRows);
     scheduleRows.value = schedules;
+    participantCount.value = participantTotal;
     const selectedId = scheduleTopicId.value ?? topics.value[0]?.id ?? null;
     scheduleTopicId.value = selectedId;
     loadScheduleDraft(scheduleRows.value.find((row) => row.topic_id === selectedId) ?? null);
