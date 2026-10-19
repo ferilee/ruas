@@ -16,4 +16,5 @@ export const subjects = mysqlTable('subjects', {
   shuffle_options: boolean('shuffle_options').notNull().default(false),
   class_id: int('class_id').references(() => educationClasses.id),
   assessment_type_id: int('assessment_type_id').references(() => assessmentTypes.id),
+  created_by: varchar('created_by', { length: 100 }),
 });

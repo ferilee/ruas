@@ -9,4 +9,5 @@ export const educationClasses = mysqlTable('education_classes', {
   program: varchar('program', { length: 50 }).notNull().default('Umum'),
   section: varchar('section', { length: 20 }),
   display_order: int('display_order').notNull(),
+  created_by: varchar('created_by', { length: 100 }),
 });

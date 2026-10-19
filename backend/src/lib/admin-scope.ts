@@ -5,6 +5,7 @@ interface ScopedUser {
   is_demo: number | boolean;
   subject_id: number | null;
   class_id: number | null;
+  created_by?: string | null;
 }
 
 export function isAdmin(session: AdminSession | undefined) {
@@ -13,12 +14,14 @@ export function isAdmin(session: AdminSession | undefined) {
 
 export function topicMatchesAdminScope(
   session: AdminSession | undefined,
-  topic: { subject_id: number; class_ids: number[] },
+  topic: { subject_id: number; class_ids: number[]; created_by?: string | null; subject_created_by?: string | null; class_created_by?: Array<string | null> },
 ) {
   if (isAdmin(session)) return true;
+  if (topic.created_by && topic.created_by !== session?.username && topic.created_by !== 'env-admin') return false;
+  if (topic.created_by === session?.username || topic.subject_created_by === session?.username) return true;
   if (session?.subject_id !== topic.subject_id) return false;
   if (session.class_id === null || topic.class_ids.length === 0) return true;
-  return topic.class_ids.includes(session.class_id);
+  return topic.class_ids.includes(session.class_id) || Boolean(topic.class_created_by?.includes(session.username));
 }
 
 export function topicInputMatchesAdminScope(
@@ -33,9 +36,10 @@ export function topicInputMatchesAdminScope(
 
 export function rowMatchesAdminScope(
   session: AdminSession | undefined,
-  row: { subject_id: number; class_id: number | null },
+  row: { subject_id: number; class_id: number | null; subject_created_by?: string | null; class_created_by?: string | null; topic_created_by?: string | null; participant_created_by?: string | null },
 ) {
   if (isAdmin(session)) return true;
+  if (row.subject_created_by === session?.username || row.class_created_by === session?.username || row.topic_created_by === session?.username || row.participant_created_by === session?.username) return true;
   if (session?.subject_id !== row.subject_id) return false;
   return session.class_id === null || row.class_id === null || row.class_id === session.class_id;
 }
@@ -47,6 +51,7 @@ export function participantScopeForAdmin(session: AdminSession | undefined) {
 
 export function userMatchesAdminScope(session: AdminSession | undefined, user: ScopedUser) {
   if (isAdmin(session)) return true;
+  if (user.created_by === session?.username) return true;
   return Boolean(
     session &&
       session.subject_id !== null &&

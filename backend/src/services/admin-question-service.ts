@@ -352,11 +352,13 @@ export async function listAdminTopics(db: AdminDb) {
       id: topics.id,
       subject_id: topics.subject_id,
       subject_label: schema.subjects.label,
+      subject_created_by: schema.subjects.created_by,
       slug: topics.slug,
       label: topics.label,
       display_order: topics.display_order,
       requires_token: topics.requires_token,
       token_hash: topics.token_hash,
+      created_by: topics.created_by,
     })
     .from(topics)
     .innerJoin(schema.subjects, eq(topics.subject_id, schema.subjects.id))
@@ -364,15 +366,15 @@ export async function listAdminTopics(db: AdminDb) {
 
   const mappings = rows.length > 0
     ? await db
-      .select({ topic_id: schema.topicClasses.topic_id, class_id: schema.topicClasses.class_id, class_label: schema.educationClasses.label })
+      .select({ topic_id: schema.topicClasses.topic_id, class_id: schema.topicClasses.class_id, class_label: schema.educationClasses.label, class_created_by: schema.educationClasses.created_by })
       .from(schema.topicClasses)
       .innerJoin(schema.educationClasses, eq(schema.topicClasses.class_id, schema.educationClasses.id))
       .where(inArray(schema.topicClasses.topic_id, rows.map((row) => row.id)))
     : [];
-  const mappingsByTopic = new Map<number, Array<{ class_id: number; class_label: string }>>();
+  const mappingsByTopic = new Map<number, Array<{ class_id: number; class_label: string; class_created_by: string | null }>>();
   for (const mapping of mappings) {
     const current = mappingsByTopic.get(mapping.topic_id) ?? [];
-    current.push({ class_id: mapping.class_id, class_label: mapping.class_label });
+    current.push({ class_id: mapping.class_id, class_label: mapping.class_label, class_created_by: mapping.class_created_by });
     mappingsByTopic.set(mapping.topic_id, current);
   }
 
@@ -382,6 +384,7 @@ export async function listAdminTopics(db: AdminDb) {
       ...topic,
       class_ids: classMappings.map((mapping) => mapping.class_id),
       class_labels: classMappings.map((mapping) => mapping.class_label),
+      class_created_by: classMappings.map((mapping) => mapping.class_created_by),
       token_configured: Boolean(token_hash),
     };
   });
@@ -415,7 +418,7 @@ function normalizedClassIds(classIds: number[]) {
 
 export type CreateAdminTopicResult = number | 'invalid_subject' | 'invalid_class';
 
-export async function createAdminTopic(db: AdminDb, input: AdminTopicInput): Promise<CreateAdminTopicResult> {
+export async function createAdminTopic(db: AdminDb, input: AdminTopicInput, createdBy: string | null = null): Promise<CreateAdminTopicResult> {
   if (!(await subjectExists(db, input.subject_id))) return 'invalid_subject';
   const classIds = normalizedClassIds(input.class_ids);
   if (!(await classesExist(db, classIds))) return 'invalid_class';
@@ -425,6 +428,7 @@ export async function createAdminTopic(db: AdminDb, input: AdminTopicInput): Pro
       slug: input.slug,
       label: input.label,
       display_order: input.display_order,
+      created_by: createdBy,
     });
     if (classIds.length > 0) {
       await tx.insert(schema.topicClasses).values(classIds.map((classId) => ({ topic_id: Number(inserted.insertId), class_id: classId })));

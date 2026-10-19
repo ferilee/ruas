@@ -10,6 +10,7 @@ export interface Subject {
   show_correct_answer_on_wrong: boolean;
   class_id?: number | null;
   assessment_type_id?: number | null;
+  created_by?: string | null;
 }
 
 export type ExplanationMode = 'after_answer' | 'after_exam' | 'hidden';
@@ -23,6 +24,7 @@ export interface CurriculumClass {
   program: string;
   section: string | null;
   display_order: number;
+  created_by?: string | null;
 }
 
 export interface AssessmentType {
@@ -30,6 +32,7 @@ export interface AssessmentType {
   slug: string;
   label: string;
   display_order: number;
+  created_by?: string | null;
 }
 
 export interface CurriculumData {
@@ -154,6 +157,7 @@ export interface AdminTopic {
   id: number;
   subject_id: number;
   subject_label: string;
+  subject_created_by?: string | null;
   class_ids: number[];
   class_labels: string[];
   slug: string;
@@ -162,6 +166,7 @@ export interface AdminTopic {
   requires_token: boolean;
   token_configured: boolean;
   token?: string;
+  created_by?: string | null;
 }
 
 export interface AdminTopicInput {
@@ -215,6 +220,7 @@ export interface AdminUser {
   must_change_password: boolean;
   created_at: string;
   updated_at: string;
+  created_by?: string | null;
 }
 
 export interface AdminUserInput {

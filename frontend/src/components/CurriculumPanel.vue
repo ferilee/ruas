@@ -95,8 +95,8 @@
         <div class="curriculum-group-heading"><h3>Kelas</h3><button class="curriculum-add-btn" type="button" @click="openClassForm">＋ Tambah</button></div>
         <div class="curriculum-items">
           <div v-for="item in visibleClasses" :key="item.id" class="curriculum-item">
-            <div><strong>{{ item.label }}</strong><small>{{ item.slug }} · Tingkat {{ item.grade }} · {{ item.program }}{{ item.section ? ` ${item.section}` : '' }} · {{ item.academic_year }}</small></div>
-            <div class="item-actions"><button type="button" @click="editClass(item)">Edit</button><button type="button" class="delete-action" @click="removeClass(item.id)">Hapus</button></div>
+            <div><strong>{{ item.label }}</strong><small>{{ item.slug }} · Tingkat {{ item.grade }} · {{ item.program }}{{ item.section ? ` ${item.section}` : '' }} · {{ item.academic_year }} · {{ ownerLabel(item) }}</small></div>
+            <div v-if="canManage(item)" class="item-actions"><button type="button" @click="editClass(item)">Edit</button><button type="button" class="delete-action" @click="removeClass(item.id)">Hapus</button></div>
           </div>
         </div>
       </section>
@@ -105,8 +105,8 @@
         <div class="curriculum-group-heading"><h3>Jenis Asesmen</h3><button class="curriculum-add-btn" type="button" @click="openTypeForm">＋ Tambah</button></div>
         <div class="curriculum-items">
           <div v-for="item in visibleAssessmentTypes" :key="item.id" class="curriculum-item">
-            <div><strong>{{ item.label }}</strong><small>{{ item.slug }}</small></div>
-            <div class="item-actions"><button type="button" @click="editType(item)">Edit</button><button type="button" class="delete-action" @click="removeType(item.id)">Hapus</button></div>
+            <div><strong>{{ item.label }}</strong><small>{{ item.slug }} · {{ ownerLabel(item) }}</small></div>
+            <div v-if="canManage(item)" class="item-actions"><button type="button" @click="editType(item)">Edit</button><button type="button" class="delete-action" @click="removeType(item.id)">Hapus</button></div>
           </div>
         </div>
       </section>
@@ -115,8 +115,8 @@
         <div class="curriculum-group-heading"><h3>Mata Pelajaran</h3><button class="curriculum-add-btn" type="button" @click="openSubjectForm">＋ Tambah</button></div>
         <div class="curriculum-items">
           <div v-for="item in visibleSubjects" :key="item.id" class="curriculum-item">
-            <div><strong>{{ item.label }}</strong><small>{{ item.slug }} · {{ scopeLabel(item) }} · {{ attemptsLabel(item.max_attempts) }} · {{ durationLabel(item.duration_minutes) }} · {{ minimumDurationLabel(item.minimum_duration_minutes) }} · {{ explanationModeLabel(item.explanation_mode) }} · Soal dan opsi diacak tiap attempt</small></div>
-            <div class="item-actions"><button type="button" @click="editSubject(item)">Edit</button><button type="button" class="delete-action" @click="removeSubject(item.id)">Hapus</button></div>
+            <div><strong>{{ item.label }}</strong><small>{{ item.slug }} · {{ scopeLabel(item) }} · {{ attemptsLabel(item.max_attempts) }} · {{ durationLabel(item.duration_minutes) }} · {{ minimumDurationLabel(item.minimum_duration_minutes) }} · {{ explanationModeLabel(item.explanation_mode) }} · {{ ownerLabel(item) }} · Soal dan opsi diacak tiap attempt</small></div>
+            <div v-if="canManage(item)" class="item-actions"><button type="button" @click="editSubject(item)">Edit</button><button type="button" class="delete-action" @click="removeSubject(item.id)">Hapus</button></div>
           </div>
         </div>
       </section>
@@ -125,8 +125,8 @@
         <div class="curriculum-group-heading"><h3>Topik</h3><button class="curriculum-add-btn" type="button" @click="openTopicForm">＋ Tambah</button></div>
         <div class="curriculum-items">
           <div v-for="item in visibleTopics" :key="item.id" class="curriculum-item">
-            <div><strong>{{ item.label }}</strong><small>{{ item.slug }} · {{ item.subject_label }} · {{ item.class_labels.length ? item.class_labels.join(', ') : 'Semua kelas' }} · {{ item.token_configured ? 'Token aktif' : 'Tanpa token' }}</small></div>
-            <div class="item-actions"><button type="button" @click="editTopic(item)">Edit</button><button type="button" class="delete-action" @click="removeTopic(item.id)">Hapus</button></div>
+            <div><strong>{{ item.label }}</strong><small>{{ item.slug }} · {{ item.subject_label }} · {{ item.class_labels.length ? item.class_labels.join(', ') : 'Semua kelas' }} · {{ item.token_configured ? 'Token aktif' : 'Tanpa token' }} · {{ ownerLabel(item) }}</small></div>
+            <div v-if="canManage(item)" class="item-actions"><button type="button" @click="editTopic(item)">Edit</button><button type="button" class="delete-action" @click="removeTopic(item.id)">Hapus</button></div>
           </div>
           <p v-if="visibleTopics.length === 0" class="curriculum-empty">Belum ada topik yang sesuai filter.</p>
         </div>
@@ -147,10 +147,10 @@ import {
   fetchAdminCurriculum, updateAdminAssessmentType, updateAdminClass, updateAdminSubject, updateAdminTopic,
   type CurriculumClassInput, type CurriculumItemInput, type CurriculumSubjectInput,
 } from '@/api/client';
-import type { AdminTopic, AdminTopicInput, AssessmentType, CurriculumClass, CurriculumData, Subject } from '@/types';
+import type { AdminSession, AdminTopic, AdminTopicInput, AssessmentType, CurriculumClass, CurriculumData, Subject } from '@/types';
 import { ADMIN_REALTIME_EVENT, type AdminRealtimeEvent } from '@/lib/admin-realtime';
 
-const props = withDefaults(defineProps<{ topicOnly?: boolean }>(), { topicOnly: false });
+const props = withDefaults(defineProps<{ topicOnly?: boolean; adminSession?: AdminSession | null }>(), { topicOnly: false, adminSession: null });
 const curriculum = ref<CurriculumData>({ classes: [], assessment_types: [], subjects: [] });
 const loading = ref(true);
 const errorMessage = ref('');
@@ -324,6 +324,14 @@ function attemptsLabel(value: number) { return value === 0 ? 'Attempts tak terba
 function durationLabel(value: number) { return value === 0 ? 'Tanpa batas waktu' : `${value} menit`; }
 function minimumDurationLabel(value: number) { return value > 0 ? `Minimum ${value} menit` : 'Boleh kumpul kapan saja'; }
 function explanationModeLabel(value: Subject['explanation_mode']) { return { after_answer: 'Pembahasan setelah menjawab', after_exam: 'Pembahasan setelah asesmen', hidden: 'Pembahasan disembunyikan' }[value] ?? 'Pembahasan disembunyikan'; }
+function canManage(resource: { created_by?: string | null }) {
+  return !props.adminSession || props.adminSession.role === 'admin' || resource.created_by === props.adminSession.username;
+}
+function ownerLabel(resource: { created_by?: string | null }) {
+  if (resource.created_by === props.adminSession?.username) return 'Milik Anda';
+  if (resource.created_by && resource.created_by !== 'env-admin') return `Milik ${resource.created_by}`;
+  return 'Admin / bersama';
+}
 async function loadData() {
   loading.value = true;
   try {

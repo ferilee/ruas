@@ -14,6 +14,7 @@ export type UserRole = 'admin' | 'editor' | 'participant';
 export interface ParticipantScope {
   subject_id: number;
   class_id: number | null;
+  owner_username?: string;
 }
 
 export interface UserInput {
@@ -42,6 +43,7 @@ export function toPublicUser(user: typeof users.$inferSelect, classLabel?: strin
     role: user.role,
     active: Boolean(user.active),
     is_demo: Boolean(user.is_demo),
+    created_by: user.created_by,
     must_change_password: Boolean(user.must_change_password),
     created_at: user.created_at,
     updated_at: user.updated_at,
@@ -64,11 +66,15 @@ function userSearchCondition(search?: string) {
 }
 
 function userWhere(search?: string, scope?: ParticipantScope) {
+  const assignedScope = scope
+    ? and(
+        eq(users.subject_id, scope.subject_id),
+        scope.class_id !== null && scope.class_id !== undefined ? eq(users.class_id, scope.class_id) : undefined,
+      )
+    : undefined;
   const conditions = [
     userSearchCondition(search),
-    scope ? eq(users.role, 'participant') : undefined,
-    scope ? eq(users.subject_id, scope.subject_id) : undefined,
-    scope?.class_id !== null && scope?.class_id !== undefined ? eq(users.class_id, scope.class_id) : undefined,
+    scope ? and(eq(users.role, 'participant'), scope.owner_username ? or(eq(users.created_by, scope.owner_username), assignedScope) : assignedScope) : undefined,
   ].filter((condition): condition is NonNullable<typeof condition> => Boolean(condition));
 
   return conditions.length > 0 ? and(...conditions) : undefined;
@@ -124,7 +130,7 @@ async function clearDemoUser(db: UserDb) {
   await db.update(users).set({ is_demo: 0, updated_at: new Date() }).where(eq(users.is_demo, 1));
 }
 
-export async function createUser(db: UserDb, input: UserInput) {
+export async function createUser(db: UserDb, input: UserInput, createdBy: string | null = null) {
   if (input.is_demo) await clearDemoUser(db);
   const [result] = await db.insert(users).values({
     username: input.username,
@@ -136,6 +142,7 @@ export async function createUser(db: UserDb, input: UserInput) {
     active: input.active ? 1 : 0,
     is_demo: input.is_demo ? 1 : 0,
     must_change_password: input.is_demo ? 0 : 1,
+    created_by: createdBy,
   });
   return findUserById(db, Number(result.insertId));
 }

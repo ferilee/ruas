@@ -165,7 +165,7 @@ export function adminUserRoutes(pool: Pool) {
 
   function editorScope(c: Context): ParticipantScope | null {
     const current = session(c);
-    return current?.role === 'editor' ? participantScopeForAdmin(current) : null;
+    return current?.role === 'editor' ? { ...(participantScopeForAdmin(current) ?? { subject_id: -1, class_id: null }), owner_username: current.username } : null;
   }
 
   function editorMessage(c: Context) {
@@ -174,16 +174,17 @@ export function adminUserRoutes(pool: Pool) {
       : 'Siswa berada di luar kelas atau mata pelajaran yang ditetapkan.';
   }
 
-  function scopeInput(c: Context, input: UserInput): { input?: UserInput; message?: string } {
+  async function scopeInput(c: Context, input: UserInput): Promise<{ input?: UserInput; message?: string }> {
     const current = session(c);
     if (!current || current.role === 'admin') return { input };
-    if (current.subject_id === null) return { message: 'Akun guru belum diberi mata pelajaran.' };
     if (input.role !== 'participant' || input.is_demo) return { message: 'Guru hanya dapat membuat akun Peserta non-demo.' };
-    const classId = current.class_id ?? input.class_id;
-    if (classId === null || (current.class_id !== null && input.class_id !== null && input.class_id !== current.class_id)) {
-      return { message: editorMessage(c) };
-    }
-    return { input: { ...input, role: 'participant' as const, is_demo: false, subject_id: current.subject_id, class_id: classId } };
+    if (input.subject_id === null || input.class_id === null) return { message: 'Guru harus memilih mata pelajaran dan kelas miliknya.' };
+    const [subject] = await db.select({ id: subjects.id, created_by: subjects.created_by }).from(subjects).where(eq(subjects.id, input.subject_id)).limit(1);
+    const [educationClass] = await db.select({ id: educationClasses.id, created_by: educationClasses.created_by }).from(educationClasses).where(eq(educationClasses.id, input.class_id)).limit(1);
+    const subjectAllowed = subject && (subject.created_by === null || subject.created_by === 'env-admin' || subject.created_by === current.username || subject.id === current.subject_id);
+    const classAllowed = educationClass && (educationClass.created_by === null || educationClass.created_by === 'env-admin' || educationClass.created_by === current.username || educationClass.id === current.class_id);
+    if (!subjectAllowed || !classAllowed) return { message: editorMessage(c) };
+    return { input: { ...input, role: 'participant' as const, is_demo: false, subject_id: input.subject_id, class_id: input.class_id } };
   }
 
   async function findScopedUser(c: Context, id: number) {
@@ -227,7 +228,7 @@ export function adminUserRoutes(pool: Pool) {
   app.post('/', async (c) => {
     const parsed = createUserSchema.safeParse(await c.req.json());
     if (!parsed.success) return c.json({ error: 'invalid_body', message: 'Data pengguna tidak valid.' }, 400);
-    const scoped = scopeInput(c, parsed.data);
+    const scoped = await scopeInput(c, parsed.data);
     if (!scoped.input) return c.json({ error: 'admin_forbidden', message: scoped.message }, 403);
     if (scoped.input.class_id && !(await classExists(db, scoped.input.class_id))) return c.json({ error: 'invalid_reference', message: 'Kelas tidak ditemukan.' }, 400);
     if (scoped.input.subject_id && !(await subjectExists(db, scoped.input.subject_id))) return c.json({ error: 'invalid_reference', message: 'Mata pelajaran tidak ditemukan.' }, 400);
@@ -235,7 +236,7 @@ export function adminUserRoutes(pool: Pool) {
     if (duplicate) {
       return c.json({ error: 'duplicate_username', message: 'Username sudah digunakan.' }, 409);
     }
-    const user = await createUser(db, scoped.input);
+    const user = await createUser(db, scoped.input, session(c)?.role === 'editor' ? session(c)?.username ?? null : null);
     return c.json({ user: user ? toPublicUser(user) : null }, 201);
   });
 
@@ -262,7 +263,7 @@ export function adminUserRoutes(pool: Pool) {
       } else if (parsed.data.subject_id && !(await subjectExists(db, parsed.data.subject_id))) {
         summary.errors.push(`Baris ${index + 1}: mata pelajaran tidak ditemukan.`);
       } else {
-        const scoped = scopeInput(c, parsed.data);
+        const scoped = await scopeInput(c, parsed.data);
         if (!scoped.input) summary.errors.push(`Baris ${index + 1}: ${scoped.message}`);
         else if (!scoped.input.password) summary.errors.push(`Baris ${index + 1}: password wajib diisi.`);
         else validRows.push({ row: scoped.input as ImportRow, line: index + 1 });
@@ -272,7 +273,9 @@ export function adminUserRoutes(pool: Pool) {
     for (const { row, line } of validRows) {
       const [existing] = await db.select().from(users).where(eq(users.username, row.username)).limit(1);
       if (existing) {
-        if (parsedRequest.data.mode === 'upsert') summary.updated += 1;
+        if (session(c)?.role === 'editor' && !userMatchesAdminScope(session(c), existing)) {
+          summary.errors.push(`Baris ${line}: pengguna berada di luar workspace Anda.`);
+        } else if (parsedRequest.data.mode === 'upsert') summary.updated += 1;
         else {
           summary.skipped += 1;
           summary.errors.push(`Baris ${line}: username ${row.username} sudah ada.`);
@@ -285,10 +288,10 @@ export function adminUserRoutes(pool: Pool) {
     if (!parsedRequest.data.dry_run) {
       for (const { row } of validRows) {
         const [existing] = await db.select().from(users).where(eq(users.username, row.username)).limit(1);
-        if (existing && parsedRequest.data.mode === 'upsert') {
+        if (existing && parsedRequest.data.mode === 'upsert' && (!session(c) || session(c)?.role !== 'editor' || userMatchesAdminScope(session(c), existing))) {
           await updateUser(db, existing.id, row);
         } else if (!existing) {
-          await createUser(db, row);
+          await createUser(db, row, session(c)?.role === 'editor' ? session(c)?.username ?? null : null);
         }
       }
     }
@@ -350,7 +353,7 @@ export function adminUserRoutes(pool: Pool) {
     if (scopedExisting.response) return scopedExisting.response;
     const existing = scopedExisting.existing;
     if (!existing) return c.json({ error: 'not_found', message: 'Pengguna tidak ditemukan.' }, 404);
-    const scoped = scopeInput(c, parsed.data);
+    const scoped = await scopeInput(c, parsed.data);
     if (!scoped.input) return c.json({ error: 'admin_forbidden', message: scoped.message }, 403);
     if (scoped.input.class_id && !(await classExists(db, scoped.input.class_id))) return c.json({ error: 'invalid_reference', message: 'Kelas tidak ditemukan.' }, 400);
     if (scoped.input.subject_id && !(await subjectExists(db, scoped.input.subject_id))) return c.json({ error: 'invalid_reference', message: 'Mata pelajaran tidak ditemukan.' }, 400);
@@ -361,10 +364,10 @@ export function adminUserRoutes(pool: Pool) {
   });
 
   app.delete('/:id', async (c) => {
-    if (session(c)?.role === 'editor') return c.json({ error: 'admin_forbidden', message: 'Menghapus pengguna hanya dapat dilakukan Admin.' }, 403);
     const id = parseId(c.req.param('id'));
     if (!id) return c.json({ error: 'invalid_param', message: 'ID pengguna tidak valid.' }, 400);
-    if (!(await findUserById(db, id))) return c.json({ error: 'not_found', message: 'Pengguna tidak ditemukan.' }, 404);
+    const scoped = await findScopedUser(c, id);
+    if (scoped.response) return scoped.response;
     await deleteUser(db, id);
     return c.json({ deleted: true });
   });

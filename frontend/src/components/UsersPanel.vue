@@ -14,10 +14,8 @@
         <form class="user-form" @submit.prevent="saveUser">
           <label>Username<input v-model.trim="form.username" required autocomplete="off" placeholder="Contoh: P130100230" /></label>
           <label>Nama tampilan<input v-model.trim="form.display_name" required placeholder="Nama peserta" /></label>
-          <label v-if="!isEditor || editorClassId === null">Kelas peserta<RuasSelect v-model="form.class_id" :options="classOptions" aria-label="Kelas peserta" /></label>
-          <p v-else class="scope-note">Kelas: {{ classLabel(editorClassId ?? 0) }}</p>
-          <label v-if="!isEditor">Mata pelajaran peserta<RuasSelect v-model="form.subject_id" :options="subjectOptions" aria-label="Mata pelajaran peserta" /></label>
-          <p v-else class="scope-note">Mata pelajaran: {{ subjectLabel(editorSubjectId) }}</p>
+          <label>Kelas peserta<RuasSelect v-model="form.class_id" :options="classOptions" aria-label="Kelas peserta" /></label>
+          <label>Mata pelajaran peserta<RuasSelect v-model="form.subject_id" :options="subjectOptions" aria-label="Mata pelajaran peserta" /></label>
           <label>Password {{ editingId === null ? '' : '(kosongkan jika tidak diubah)' }}<input v-model="form.password" :required="editingId === null" type="password" autocomplete="new-password" placeholder="Password akun" /></label>
           <label v-if="isEditor" class="active-field"><span>Status</span><span class="check-line"><input v-model="form.active" type="checkbox" /> Aktif</span></label>
           <div v-if="!isEditor" class="user-fields-row">
@@ -65,7 +63,7 @@
       <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
       <div v-if="loading" class="panel-empty">Memuat pengguna...</div>
       <div v-else-if="users.length === 0" class="panel-empty">Belum ada pengguna.</div>
-      <div v-else class="user-table-wrap"><table class="user-table"><thead><tr><th v-if="!isEditor" class="selection-column"><input type="checkbox" :checked="allUsersSelected" aria-label="Pilih semua pengguna" @change="toggleAllUsers" /></th><th>Pengguna</th><th>Peran / penetapan</th><th>Status</th><th>Aksi</th></tr></thead><tbody><tr v-for="user in users" :key="user.id"><td v-if="!isEditor" class="selection-column"><input type="checkbox" :checked="isUserSelected(user.id)" :aria-label="`Pilih ${user.display_name}`" @change="toggleUser(user.id)" /></td><td class="user-identity"><strong>{{ user.display_name }}</strong><small>{{ user.username }}</small></td><td class="user-assignment"><span class="role-badge">{{ roleLabel(user.role) }}</span><span v-if="user.is_demo" class="demo-badge">Demo publik</span><small>Kelas: {{ user.class_label || 'Belum ditetapkan' }}</small><small>Mapel: {{ subjectLabel(user.subject_id) }}</small></td><td class="user-status"><span :class="['status-badge', { inactive: !user.active }]">{{ user.active ? 'Aktif' : 'Nonaktif' }}</span><span v-if="user.must_change_password" class="password-status-badge">Wajib ubah sandi</span></td><td class="user-actions"><button class="text-button" type="button" @click="editUser(user)">Edit</button><button v-if="!user.is_demo" class="text-button" type="button" @click="resetPassword(user)">Reset sandi</button><button v-if="!isEditor" class="danger-link" type="button" @click="removeUser(user)">Hapus</button></td></tr></tbody></table></div>
+      <div v-else class="user-table-wrap"><table class="user-table"><thead><tr><th v-if="!isEditor" class="selection-column"><input type="checkbox" :checked="allUsersSelected" aria-label="Pilih semua pengguna" @change="toggleAllUsers" /></th><th>Pengguna</th><th>Peran / penetapan</th><th>Status</th><th>Aksi</th></tr></thead><tbody><tr v-for="user in users" :key="user.id"><td v-if="!isEditor" class="selection-column"><input type="checkbox" :checked="isUserSelected(user.id)" :aria-label="`Pilih ${user.display_name}`" @change="toggleUser(user.id)" /></td><td class="user-identity"><strong>{{ user.display_name }}</strong><small>{{ user.username }}</small></td><td class="user-assignment"><span class="role-badge">{{ roleLabel(user.role) }}</span><span v-if="user.is_demo" class="demo-badge">Demo publik</span><small>Kelas: {{ user.class_label || 'Belum ditetapkan' }}</small><small>Mapel: {{ subjectLabel(user.subject_id) }}</small></td><td class="user-status"><span :class="['status-badge', { inactive: !user.active }]">{{ user.active ? 'Aktif' : 'Nonaktif' }}</span><span v-if="user.must_change_password" class="password-status-badge">Wajib ubah sandi</span></td><td class="user-actions"><button class="text-button" type="button" @click="editUser(user)">Edit</button><button v-if="!user.is_demo" class="text-button" type="button" @click="resetPassword(user)">Reset sandi</button><button v-if="!isEditor || user.created_by === props.adminSession?.username" class="danger-link" type="button" @click="removeUser(user)">Hapus</button></td></tr></tbody></table></div>
     </div>
   </section>
 </template>
@@ -117,8 +115,8 @@ const confirmLabel = ref('OK');
 const confirmPhrase = ref<string | undefined>(undefined);
 const pendingConfirmation = ref<(() => Promise<void>) | null>(null);
 const form = reactive<AdminUserInput>({ username: '', password: '', display_name: '', class_id: editorClassId.value, subject_id: editorSubjectId.value, role: 'participant', active: true, is_demo: false });
-const classOptions = computed(() => [{ value: null, label: 'Belum ditetapkan' }, ...classes.value.map((item) => ({ value: item.id, label: `${item.label} · ${item.academic_year}` }))]);
-const subjectOptions = computed(() => [{ value: null, label: 'Belum ditetapkan' }, ...subjects.value.map((subject) => ({ value: subject.id, label: subject.label }))]);
+const classOptions = computed(() => [{ value: null, label: 'Belum ditetapkan' }, ...classes.value.filter((item) => !isEditor.value || item.created_by === props.adminSession?.username || item.created_by === null || item.created_by === 'env-admin' || item.id === editorClassId.value).map((item) => ({ value: item.id, label: `${item.label} · ${item.academic_year}` }))]);
+const subjectOptions = computed(() => [{ value: null, label: 'Belum ditetapkan' }, ...subjects.value.filter((subject) => !isEditor.value || subject.created_by === props.adminSession?.username || subject.created_by === null || subject.created_by === 'env-admin' || subject.id === editorSubjectId.value).map((subject) => ({ value: subject.id, label: subject.label }))]);
 const roleOptions = [
   { value: 'participant', label: 'Peserta' },
   { value: 'editor', label: 'Editor' },
@@ -135,7 +133,7 @@ function resetForm() { Object.assign(form, { username: '', password: '', display
 function openNewUser() { resetForm(); userFormOpen.value = true; }
 function closeUserForm() { userFormOpen.value = false; }
 function openFilePicker() { fileInput.value?.click(); }
-function editUser(user: AdminUser) { Object.assign(form, { username: user.username, password: '', display_name: user.display_name, class_id: isEditor.value ? editorClassId.value ?? user.class_id : user.class_id, subject_id: isEditor.value ? editorSubjectId.value : user.subject_id, role: isEditor.value ? 'participant' : user.role, active: user.active, is_demo: isEditor.value ? false : user.is_demo }); editingId.value = user.id; formMessage.value = ''; userFormOpen.value = true; window.scrollTo({ top: 0, behavior: 'smooth' }); }
+function editUser(user: AdminUser) { Object.assign(form, { username: user.username, password: '', display_name: user.display_name, class_id: user.class_id, subject_id: user.subject_id, role: isEditor.value ? 'participant' : user.role, active: user.active, is_demo: isEditor.value ? false : user.is_demo }); editingId.value = user.id; formMessage.value = ''; userFormOpen.value = true; window.scrollTo({ top: 0, behavior: 'smooth' }); }
 function askConfirmation(title: string, message: string, action: () => Promise<void>, label = 'OK', phrase?: string) { confirmTitle.value = title; confirmMessage.value = message; confirmLabel.value = label; confirmPhrase.value = phrase; pendingConfirmation.value = action; confirmOpen.value = true; }
 function closeConfirmation() { confirmOpen.value = false; confirmPhrase.value = undefined; pendingConfirmation.value = null; }
 async function runConfirmation() { const action = pendingConfirmation.value; closeConfirmation(); if (action) await action(); }

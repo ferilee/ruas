@@ -54,11 +54,8 @@ export function adminReportRoutes(pool: Pool) {
     examDb ??= createExamDb(pool);
     await expireOverdueAttempts(examDb);
     const session = c.get('adminSession');
-    if (session?.role === 'editor' && session.subject_id === null) {
-      return c.json({ filters: parsed.data, summary: summarizeReport([], parsed.data.score_policy), class_statistics: [], rows: [] });
-    }
     const rows = await listReportAttempts(db, session?.role === 'editor'
-      ? { ...parsed.data, scope_subject_id: session.subject_id ?? undefined, scope_class_id: session.class_id }
+      ? { ...parsed.data, scope_subject_id: session.subject_id ?? undefined, scope_class_id: session.class_id, scope_owner_username: session.username }
       : parsed.data);
     return c.json({ filters: parsed.data, summary: summarizeReport(rows, parsed.data.score_policy), class_statistics: summarizeReportByClass(rows, parsed.data.score_policy), rows });
   });

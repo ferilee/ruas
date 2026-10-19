@@ -1,6 +1,9 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
+import { eq, inArray } from 'drizzle-orm';
+import type { Context } from 'hono';
 import type { Pool } from '@/db/connection';
+import * as schema from '@/db/schema';
 import {
   createAdminDb,
   createAdminTopic,
@@ -28,9 +31,31 @@ function parseId(value: string) {
   return Number.isInteger(id) && id > 0 ? id : null;
 }
 
+function canUseResource(c: Context, resource: { created_by?: string | null } | null | undefined) {
+  const session = c.get('adminSession');
+  if (!session || session.role === 'admin') return true;
+  return resource?.created_by === null || resource?.created_by === undefined || resource?.created_by === 'env-admin' || resource?.created_by === session.username;
+}
+
+function canManageTopic(c: Context, topic: { created_by?: string | null } | null | undefined) {
+  const session = c.get('adminSession');
+  return !session || session.role === 'admin' || topic?.created_by === session.username;
+}
+
 export function adminTopicsRoutes(pool: Pool) {
   const db = createAdminDb(pool);
   const app = new Hono();
+
+  async function inputIsAllowed(c: Context, input: { subject_id: number; class_ids: number[] }) {
+    const session = c.get('adminSession');
+    if (!session || session.role === 'admin') return true;
+    const [subject] = await db.select({ id: schema.subjects.id, created_by: schema.subjects.created_by }).from(schema.subjects).where(eq(schema.subjects.id, input.subject_id)).limit(1);
+    if (!subject || !canUseResource(c, subject)) return false;
+    if (session?.role === 'editor' && subject.created_by !== session.username && !topicInputMatchesAdminScope(session, input)) return false;
+    if (input.class_ids.length === 0) return true;
+    const classRows = await db.select({ id: schema.educationClasses.id, created_by: schema.educationClasses.created_by }).from(schema.educationClasses).where(inArray(schema.educationClasses.id, input.class_ids));
+    return classRows.length === input.class_ids.length && classRows.every((row) => canUseResource(c, row));
+  }
 
   app.get('/', async (c) => {
     const session = c.get('adminSession');
@@ -41,11 +66,14 @@ export function adminTopicsRoutes(pool: Pool) {
   app.post('/', async (c) => {
     const parsed = topicSchema.safeParse(await c.req.json());
     if (!parsed.success) return c.json({ error: 'invalid_body', message: 'Data topik tidak valid.' }, 400);
-    if (!topicInputMatchesAdminScope(c.get('adminSession'), parsed.data)) {
+    if (!(await inputIsAllowed(c, parsed.data))) {
       return c.json({ error: 'admin_forbidden', message: 'Topik harus berada pada mata pelajaran dan kelas yang ditetapkan untuk akun ini.' }, 403);
     }
     try {
-      const id = await createAdminTopic(db, parsed.data);
+      const session = c.get('adminSession');
+      const id = session?.role === 'editor'
+        ? await createAdminTopic(db, parsed.data, session.username)
+        : await createAdminTopic(db, parsed.data);
       if (id === 'invalid_subject') return c.json({ error: 'invalid_reference', message: 'Mata pelajaran tidak ditemukan.' }, 400);
       if (id === 'invalid_class') return c.json({ error: 'invalid_reference', message: 'Salah satu kelas topik tidak ditemukan.' }, 400);
       return c.json({ id }, 201);
@@ -61,7 +89,7 @@ export function adminTopicsRoutes(pool: Pool) {
     if (!id || !parsed.success) return c.json({ error: 'invalid_body', message: 'Data topik tidak valid.' }, 400);
     const session = c.get('adminSession');
     const existing = session?.role === 'editor' ? (await listAdminTopics(db)).find((topic) => topic.id === id) : null;
-    if (session?.role === 'editor' && (!existing || !topicMatchesAdminScope(session, existing) || !topicInputMatchesAdminScope(session, parsed.data))) {
+    if (session?.role === 'editor' && (!existing || !topicMatchesAdminScope(session, existing) || !canManageTopic(c, existing) || !(await inputIsAllowed(c, parsed.data)))) {
       return c.json({ error: 'admin_forbidden', message: 'Topik berada di luar penetapan akun ini.' }, 403);
     }
     try {
@@ -83,6 +111,7 @@ export function adminTopicsRoutes(pool: Pool) {
     if (session?.role === 'editor') {
       const existing = (await listAdminTopics(db)).find((topic) => topic.id === id);
       if (!existing) return c.json({ error: 'not_found', message: 'Topik tidak ditemukan.' }, 404);
+      if (!canManageTopic(c, existing)) return c.json({ error: 'admin_forbidden', message: 'Topik bersama hanya dapat dihapus Admin.' }, 403);
       if (!topicMatchesAdminScope(session, existing)) return c.json({ error: 'admin_forbidden', message: 'Topik berada di luar penetapan akun ini.' }, 403);
     }
     const result = await deleteAdminTopic(db, id);
@@ -99,6 +128,7 @@ export function adminTopicsRoutes(pool: Pool) {
     if (session?.role === 'editor') {
       const existing = (await listAdminTopics(db)).find((topic) => topic.id === id);
       if (!existing) return c.json({ error: 'not_found', message: 'Topik tidak ditemukan.' }, 404);
+      if (!canManageTopic(c, existing)) return c.json({ error: 'admin_forbidden', message: 'Akses topik bersama hanya dapat diubah Admin.' }, 403);
       if (!topicMatchesAdminScope(session, existing)) return c.json({ error: 'admin_forbidden', message: 'Topik berada di luar penetapan akun ini.' }, 403);
     }
 

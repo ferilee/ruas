@@ -29,6 +29,7 @@ export interface ReportFilters {
   search?: string;
   scope_subject_id?: number;
   scope_class_id?: number | null;
+  scope_owner_username?: string;
 }
 
 type ReportDb = ReturnType<typeof drizzle>;
@@ -129,6 +130,11 @@ export async function listReportAttempts(db: ReportDb, filters: ReportFilters) {
       subject_id: subjects.id,
       subject_label: subjects.label,
       subject_class_id: subjectClasses.id,
+      subject_created_by: subjects.created_by,
+      subject_class_created_by: subjectClasses.created_by,
+      topic_created_by: topics.created_by,
+      participant_created_by: users.created_by,
+      user_class_created_by: userClasses.created_by,
       subject_class_label: subjectClasses.label,
       assessment_type_id: assessmentTypes.id,
       assessment_type_label: assessmentTypes.label,
@@ -159,19 +165,29 @@ export async function listReportAttempts(db: ReportDb, filters: ReportFilters) {
     .where(eq(participantProfiles.is_demo, 0))
     .orderBy(desc(examAttempts.started_at), desc(examAttempts.id));
 
-  const normalizedRows = rows.map(({ user_class_id, user_class_label, subject_class_id, subject_class_label, ...row }) => ({
+  const normalizedRows = rows.map(({ user_class_id, user_class_label, subject_class_id, subject_class_label, subject_class_created_by, user_class_created_by, ...row }) => ({
     ...row,
     class_id: user_class_id ?? subject_class_id,
     class_label: user_class_label ?? subject_class_label,
+    class_created_by: user_class_created_by ?? subject_class_created_by,
   }));
   const search = filters.search?.trim().toLowerCase();
   return normalizedRows
     .filter((row) => filters.status === 'all' || row.status === filters.status)
     .filter((row) => !filters.subject_id || row.subject_id === filters.subject_id)
-    .filter((row) => !filters.scope_subject_id || row.subject_id === filters.scope_subject_id)
+    .filter((row) => {
+      if (!filters.scope_owner_username) return (!filters.scope_subject_id || row.subject_id === filters.scope_subject_id)
+        && (!filters.scope_class_id || row.class_id === null || row.class_id === filters.scope_class_id);
+      const owned = row.subject_created_by === filters.scope_owner_username
+        || row.class_created_by === filters.scope_owner_username
+        || row.topic_created_by === filters.scope_owner_username
+        || row.participant_created_by === filters.scope_owner_username;
+      const assigned = (!filters.scope_subject_id || row.subject_id === filters.scope_subject_id)
+        && (!filters.scope_class_id || row.class_id === null || row.class_id === filters.scope_class_id);
+      return owned || assigned;
+    })
     .filter((row) => !filters.topic_id || row.topic_id === filters.topic_id)
     .filter((row) => !filters.class_id || row.class_id === filters.class_id)
-    .filter((row) => !filters.scope_class_id || row.class_id === null || row.class_id === filters.scope_class_id)
     .filter((row) => !filters.assessment_type_id || row.assessment_type_id === filters.assessment_type_id)
     .filter((row) => inDateRange(row.started_at, filters.from, filters.to))
     .filter((row) => {

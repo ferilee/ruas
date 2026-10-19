@@ -9,4 +9,5 @@ export const topics = mysqlTable('topics', {
   display_order: int('display_order').notNull(),
   requires_token: boolean('requires_token').notNull().default(true),
   token_hash: varchar('token_hash', { length: 64 }),
+  created_by: varchar('created_by', { length: 100 }),
 });

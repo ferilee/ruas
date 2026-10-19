@@ -101,13 +101,13 @@
               </div>
               <div class="quick-action-grid">
                 <button type="button" @click="startNew(); selectSection('questions')"><strong>＋ Tambah soal</strong><span>Buat soal baru dan pembahasannya.</span></button>
-                <button v-if="isAdminSession" type="button" @click="selectSection('curriculum')"><strong>▣ Atur kurikulum</strong><span>Kelola kelas, asesmen, dan mata pelajaran.</span></button>
+                <button type="button" @click="selectSection('curriculum')"><strong>▣ Atur kurikulum</strong><span>Kelola kelas, asesmen, dan mata pelajaran.</span></button>
                 <button type="button" @click="selectSection('schedule')"><strong>◷ Atur jadwal</strong><span>Tentukan kapan asesmen dibuka.</span></button>
               </div>
             </section>
           </section>
 
-          <CurriculumPanel v-else-if="activeSection === 'curriculum'" :topic-only="isEditorSession" @topics-updated="loadData" />
+          <CurriculumPanel v-else-if="activeSection === 'curriculum'" :admin-session="adminSession" @topics-updated="loadData" />
 
           <ReportsPanel v-else-if="activeSection === 'reports'" :can-reset="isAdminSession" />
 
@@ -554,7 +554,6 @@ watch([difficultyFilter, questionTypeFilter, questionStatusFilter, questionTopic
 });
 
 function selectSection(section: AdminSection) {
-  if (!isAdminSession.value && section === 'curriculum') return;
   activeSection.value = section;
   moreMenuOpen.value = false;
   errorMessage.value = '';
