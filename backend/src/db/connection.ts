@@ -1,7 +1,7 @@
 import mysql from 'mysql2/promise';
 import { loadConfig } from '../config';
 
-export function createPool() {
+export function createPool(options: { multipleStatements?: boolean } = {}) {
   const config = loadConfig();
 
   return mysql.createPool({
@@ -12,6 +12,7 @@ export function createPool() {
     database: config.DB_NAME,
     connectionLimit: 10,
     namedPlaceholders: true,
+    multipleStatements: options.multipleStatements ?? false,
   });
 }
 

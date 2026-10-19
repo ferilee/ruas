@@ -7,7 +7,12 @@ import { createMediaStorage } from './services/media-storage';
 
 const pool = createPool();
 
-await applyMigrations(pool);
+const migrationPool = createPool({ multipleStatements: true });
+try {
+  await applyMigrations(migrationPool);
+} finally {
+  await migrationPool.end();
+}
 
 const examDb = createExamDb(pool);
 const runAttemptExpiry = async () => {

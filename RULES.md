@@ -1,6 +1,6 @@
 # RULES — RUAS Belajar
 
-> Dokumen ini WAIB dibaca oleh siapa pun (manusia atau AI) sebelum
+> Dokumen ini WAJIB dibaca oleh siapa pun (manusia atau AI) sebelum
 > mengerjakan perubahan pada project ini. Setiap model/editor baru
 > WAJIB membaca dan mematuhi aturan ini.
 

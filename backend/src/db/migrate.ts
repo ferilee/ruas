@@ -14,7 +14,7 @@ export async function applyMigrations(pool: Pool) {
 }
 
 if (import.meta.main) {
-  const pool = createPool();
+  const pool = createPool({ multipleStatements: true });
 
   applyMigrations(pool)
     .then(() => pool.end())
