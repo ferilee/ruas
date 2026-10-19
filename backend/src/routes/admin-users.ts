@@ -38,8 +38,13 @@ function validateDemoRole(value: { is_demo: boolean; role: z.infer<typeof roleSc
     context.addIssue({ code: 'custom', path: ['is_demo'], message: 'Akun demo harus memiliki peran peserta.' });
   }
 }
-const createUserSchema = userFieldsSchema.superRefine(validateDemoRole);
-const updateUserSchema = userFieldsSchema.extend({ password: z.string().max(200).optional() }).superRefine(validateDemoRole);
+function validateEditorAssignment(value: { role: z.infer<typeof roleSchema>; subject_id: number | null }, context: z.RefinementCtx) {
+  if (value.role === 'editor' && value.subject_id === null) {
+    context.addIssue({ code: 'custom', path: ['subject_id'], message: 'Akun guru wajib diberi mata pelajaran.' });
+  }
+}
+const createUserSchema = userFieldsSchema.superRefine(validateDemoRole).superRefine(validateEditorAssignment);
+const updateUserSchema = userFieldsSchema.extend({ password: z.string().max(200).optional() }).superRefine(validateDemoRole).superRefine(validateEditorAssignment);
 const importRequestSchema = z.object({
   data: z.unknown(),
   mode: z.enum(['insert', 'upsert']).default('insert'),

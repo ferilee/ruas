@@ -233,3 +233,12 @@ export async function hasUsers(db: UserDb) {
   const [user] = await db.select({ id: users.id }).from(users).limit(1);
   return Boolean(user);
 }
+
+export async function hasAdminUsers(db: UserDb) {
+  const [user] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(and(eq(users.active, 1), or(eq(users.role, 'admin'), eq(users.role, 'editor'))))
+    .limit(1);
+  return Boolean(user);
+}

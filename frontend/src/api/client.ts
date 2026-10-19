@@ -7,6 +7,7 @@ import type {
   AdminTopicInput,
   AdminUser,
   AdminUserInput,
+  AdminSession,
   AdminReportData,
   AdminReportDetail,
   AdminReportFilters,
@@ -250,18 +251,21 @@ export async function fetchTopic(topicId: number): Promise<Topic> {
   return data.topic;
 }
 
-export async function fetchAdminAuthStatus(): Promise<boolean> {
-  const res = await fetch(`${BASE}/admin/auth`);
-  if (!res.ok) return false;
-  const data = await res.json() as { admin_auth_enabled?: boolean };
-  return Boolean(data.admin_auth_enabled);
+export async function fetchAdminAuthStatus(): Promise<{ enabled: boolean; session: AdminSession | null }> {
+  const headers: Record<string, string> = {};
+  const token = sessionStorage.getItem('admin_token');
+  if (token) headers['x-admin-token'] = token;
+  const res = await fetch(`${BASE}/admin/auth`, { headers });
+  if (!res.ok) return { enabled: false, session: null };
+  const data = await res.json() as { admin_auth_enabled?: boolean; session?: AdminSession | null };
+  return { enabled: Boolean(data.admin_auth_enabled), session: data.session ?? null };
 }
 
-export async function adminLogin(password: string): Promise<void> {
+export async function adminLogin(username: string, password: string): Promise<AdminSession> {
   const res = await fetch(`${BASE}/admin/auth`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ password }),
+    body: JSON.stringify({ username: username.trim() || undefined, password }),
   });
 
   if (!res.ok) {
@@ -269,8 +273,9 @@ export async function adminLogin(password: string): Promise<void> {
     throw new Error(body.message || `HTTP ${res.status}`);
   }
 
-  const data = await res.json() as { token: string };
+  const data = await res.json() as { token: string; session: AdminSession };
   sessionStorage.setItem('admin_token', data.token);
+  return data.session;
 }
 
 export async function fetchAdminQuestions(filters: { search?: string; topic_id?: number; type?: AdminQuestionListItem['type']; difficulty?: AdminQuestionListItem['difficulty']; status?: 'active' | 'archived' | 'all'; page?: number; page_size?: number } = {}): Promise<AdminQuestionPage> {

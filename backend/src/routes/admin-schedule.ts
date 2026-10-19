@@ -8,6 +8,8 @@ import {
   createAssessmentScheduleDb,
   listAssessmentSchedulesFromDb,
 } from '@/services/assessment-schedule-service';
+import { createAdminDb, listAdminTopics } from '@/services/admin-question-service';
+import { topicMatchesAdminScope } from '@/lib/admin-scope';
 
 const updateScheduleSchema = z.object({
   start_at: z
@@ -32,10 +34,15 @@ function parseId(value: string) {
 
 export function adminScheduleRoutes(pool: Pool) {
   const db = createAssessmentScheduleDb(pool);
+  const adminDb = createAdminDb(pool);
   const app = new Hono();
 
   app.get('/', async (c) => {
-    return c.json({ schedules: await listAssessmentSchedulesFromDb(db) });
+    const schedules = await listAssessmentSchedulesFromDb(db);
+    const session = c.get('adminSession');
+    if (!session || session.role === 'admin') return c.json({ schedules });
+    const allowedIds = new Set((await listAdminTopics(adminDb)).filter((topic) => topicMatchesAdminScope(session, topic)).map((topic) => topic.id));
+    return c.json({ schedules: schedules.filter((schedule) => allowedIds.has(schedule.topic_id)) });
   });
 
   app.put('/:topicId', async (c) => {
@@ -44,6 +51,11 @@ export function adminScheduleRoutes(pool: Pool) {
     if (!topicId || !parsed.success) return c.json({ error: 'invalid_body', message: 'Data jadwal asesmen tidak valid.' }, 400);
     const [topic] = await db.select({ id: topics.id }).from(topics).where(eq(topics.id, topicId)).limit(1);
     if (!topic) return c.json({ error: 'not_found', message: 'Topik tidak ditemukan.' }, 404);
+    const session = c.get('adminSession');
+    if (session?.role === 'editor') {
+      const scopedTopic = (await listAdminTopics(adminDb)).find((item) => item.id === topicId);
+      if (!scopedTopic || !topicMatchesAdminScope(session, scopedTopic)) return c.json({ error: 'admin_forbidden', message: 'Jadwal berada di luar penetapan akun ini.' }, 403);
+    }
 
     const startAt = parsed.data.start_at ? new Date(parsed.data.start_at) : null;
     const endAt = parsed.data.end_at ? new Date(parsed.data.end_at) : null;
@@ -60,6 +72,11 @@ export function adminScheduleRoutes(pool: Pool) {
   app.delete('/:topicId', async (c) => {
     const topicId = parseId(c.req.param('topicId'));
     if (!topicId) return c.json({ error: 'invalid_param', message: 'Topik tidak valid.' }, 400);
+    const session = c.get('adminSession');
+    if (session?.role === 'editor') {
+      const scopedTopic = (await listAdminTopics(adminDb)).find((item) => item.id === topicId);
+      if (!scopedTopic || !topicMatchesAdminScope(session, scopedTopic)) return c.json({ error: 'admin_forbidden', message: 'Jadwal berada di luar penetapan akun ini.' }, 403);
+    }
     await db.delete(assessmentSchedule).where(eq(assessmentSchedule.topic_id, topicId));
     return c.json({ deleted: true });
   });

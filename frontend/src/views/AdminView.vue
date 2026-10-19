@@ -18,8 +18,9 @@
 
     <form v-else-if="!isAuthenticated" class="login-card" @submit.prevent="login">
       <h2>Masuk ke editor</h2>
-      <p>Gunakan password editor yang dikonfigurasi di <code>ADMIN_PASSWORD</code>.</p>
-      <input v-model="password" type="password" placeholder="Password admin" autofocus />
+      <p>Gunakan akun admin atau akun guru yang sudah dibuat oleh admin.</p>
+      <input v-model.trim="username" type="text" placeholder="Username admin/guru (kosongkan untuk ADMIN_PASSWORD)" autocomplete="username" autofocus />
+      <input v-model="password" type="password" placeholder="Password" autocomplete="current-password" />
       <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
       <button class="primary-btn" type="submit" :disabled="loading || !password">
         {{ loading ? 'Memverifikasi...' : 'Masuk' }}
@@ -39,7 +40,7 @@
           <p class="sidebar-label">MENU UTAMA</p>
           <nav class="admin-nav" aria-label="Navigasi admin">
             <button
-              v-for="item in navigation"
+              v-for="item in visibleNavigation"
               :key="item.id"
               type="button"
               :class="['nav-item', { active: activeSection === item.id }]"
@@ -78,7 +79,7 @@
               <button class="primary-btn" type="button" @click="selectSection('questions')">Kelola Bank Soal</button>
             </div>
             <div class="stats-grid">
-              <button class="stat-card" type="button" @click="selectSection('curriculum')">
+              <button v-if="isAdminSession" class="stat-card" type="button" @click="selectSection('curriculum')">
                 <span class="stat-icon blue">▦</span>
                 <span><strong>Struktur Asesmen</strong><small>Atur kelas dan mata pelajaran</small></span>
                 <b>→</b>
@@ -100,17 +101,17 @@
               </div>
               <div class="quick-action-grid">
                 <button type="button" @click="startNew(); selectSection('questions')"><strong>＋ Tambah soal</strong><span>Buat soal baru dan pembahasannya.</span></button>
-                <button type="button" @click="selectSection('curriculum')"><strong>▣ Atur kurikulum</strong><span>Kelola kelas, asesmen, dan mata pelajaran.</span></button>
+                <button v-if="isAdminSession" type="button" @click="selectSection('curriculum')"><strong>▣ Atur kurikulum</strong><span>Kelola kelas, asesmen, dan mata pelajaran.</span></button>
                 <button type="button" @click="selectSection('schedule')"><strong>◷ Atur jadwal</strong><span>Tentukan kapan asesmen dibuka.</span></button>
               </div>
             </section>
           </section>
 
-          <CurriculumPanel v-else-if="activeSection === 'curriculum'" @topics-updated="loadData" />
+          <CurriculumPanel v-else-if="activeSection === 'curriculum' && isAdminSession" @topics-updated="loadData" />
 
-          <ReportsPanel v-else-if="activeSection === 'reports'" />
+          <ReportsPanel v-else-if="activeSection === 'reports'" :can-reset="isAdminSession" />
 
-          <UsersPanel v-else-if="activeSection === 'users'" />
+          <UsersPanel v-else-if="activeSection === 'users' && isAdminSession" />
 
           <section v-else-if="activeSection === 'schedule'" class="panel schedule-panel">
             <div class="schedule-hero">
@@ -352,7 +353,7 @@
 
       <nav class="mobile-bottom-nav no-print" aria-label="Navigasi admin mobile">
         <button
-          v-for="item in mobilePrimaryNavigation"
+          v-for="item in visibleMobilePrimaryNavigation"
           :key="item.id"
           type="button"
           :class="['mobile-nav-item', { active: activeSection === item.id }]"
@@ -370,7 +371,7 @@
       <div v-if="moreMenuOpen" class="mobile-more-backdrop" @click="moreMenuOpen = false"></div>
       <section v-if="moreMenuOpen" class="mobile-more-menu" aria-label="Menu admin lainnya">
         <div class="mobile-more-heading"><strong>Menu lainnya</strong><button type="button" aria-label="Tutup menu" @click="moreMenuOpen = false">×</button></div>
-        <button v-for="item in mobileSecondaryNavigation" :key="item.id" type="button" class="mobile-more-item" @click="selectSection(item.id)">
+        <button v-for="item in visibleMobileSecondaryNavigation" :key="item.id" type="button" class="mobile-more-item" @click="selectSection(item.id)">
           <span class="mobile-nav-icon" aria-hidden="true">{{ item.icon }}</span><span>{{ item.label }}</span><span aria-hidden="true">›</span>
         </button>
       </section>
@@ -406,6 +407,7 @@ import {
   updateAdminSchedule,
 } from '@/api/client';
 import type { AdminQuestionInput, AdminQuestionListItem, AdminTopic, AssessmentSchedule, ImportSummary, QuestionMedia } from '@/types';
+import type { AdminSession } from '@/types';
 import { connectAdminRealtime, dispatchAdminRealtimeEvent, type AdminRealtimeEvent, type AdminRealtimeStatus } from '@/lib/admin-realtime';
 
 const router = useRouter();
@@ -418,8 +420,11 @@ const navigation: Array<{ id: AdminSection; label: string; icon: string; title: 
   { id: 'reports', label: 'Laporan', icon: '▤', title: 'Laporan Asesmen', description: 'Pantau hasil siswa dan ekspor laporan PDF.' },
   { id: 'users', label: 'Pengguna', icon: '♙', title: 'Pengguna', description: 'Tambah akun secara manual atau import dari CSV/JSON.' },
 ];
-const mobilePrimaryNavigation = navigation.filter((item) => ['overview', 'curriculum', 'questions', 'reports'].includes(item.id));
-const mobileSecondaryNavigation = navigation.filter((item) => ['schedule', 'users'].includes(item.id));
+const adminSession = ref<AdminSession | null>(null);
+const isAdminSession = computed(() => adminSession.value?.role === 'admin');
+const visibleNavigation = computed(() => isAdminSession.value ? navigation : navigation.filter((item) => !['curriculum', 'users'].includes(item.id)));
+const visibleMobilePrimaryNavigation = computed(() => visibleNavigation.value.filter((item) => ['overview', 'curriculum', 'questions', 'reports'].includes(item.id)));
+const visibleMobileSecondaryNavigation = computed(() => visibleNavigation.value.filter((item) => ['schedule', 'users'].includes(item.id)));
 const activeSection = ref<AdminSection>('overview');
 const moreMenuOpen = ref(false);
 const currentSection = computed(() => navigation.find((item) => item.id === activeSection.value) ?? navigation[0]);
@@ -428,6 +433,7 @@ const currentSectionDescription = computed(() => currentSection.value.descriptio
 const adminEnabled = ref(false);
 const authLoading = ref(true);
 const isAuthenticated = ref(Boolean(sessionStorage.getItem('admin_token')));
+const username = ref('');
 const password = ref('');
 const loading = ref(false);
 const saving = ref(false);
@@ -540,6 +546,7 @@ watch([difficultyFilter, questionTypeFilter, questionStatusFilter, questionTopic
 });
 
 function selectSection(section: AdminSection) {
+  if (!isAdminSession.value && ['curriculum', 'users'].includes(section)) return;
   activeSection.value = section;
   moreMenuOpen.value = false;
   errorMessage.value = '';
@@ -677,7 +684,8 @@ async function login() {
   loading.value = true;
   errorMessage.value = '';
   try {
-    await adminLogin(password.value);
+    adminSession.value = await adminLogin(username.value, password.value);
+    username.value = '';
     password.value = '';
     isAuthenticated.value = true;
     await loadData();
@@ -692,6 +700,7 @@ async function login() {
 function logout() {
   stopRealtime();
   sessionStorage.removeItem('admin_token');
+  adminSession.value = null;
   isAuthenticated.value = false;
   router.replace('/admin');
 }
@@ -1086,7 +1095,13 @@ function applyImport() {
 
 onMounted(async () => {
   try {
-    adminEnabled.value = await fetchAdminAuthStatus();
+    const authStatus = await fetchAdminAuthStatus();
+    adminEnabled.value = authStatus.enabled;
+    adminSession.value = authStatus.session;
+    if (!adminSession.value && isAuthenticated.value) {
+      sessionStorage.removeItem('admin_token');
+      isAuthenticated.value = false;
+    }
     if (adminEnabled.value && isAuthenticated.value) {
       await loadData();
       startRealtime();

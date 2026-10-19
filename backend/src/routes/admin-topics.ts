@@ -9,6 +9,7 @@ import {
   updateAdminTopic,
   updateAdminTopicAccess,
 } from '@/services/admin-question-service';
+import { topicInputMatchesAdminScope, topicMatchesAdminScope } from '@/lib/admin-scope';
 
 const topicAccessSchema = z.object({
   token: z.string().trim().max(100).optional(),
@@ -31,11 +32,18 @@ export function adminTopicsRoutes(pool: Pool) {
   const db = createAdminDb(pool);
   const app = new Hono();
 
-  app.get('/', async (c) => c.json({ topics: await listAdminTopics(db) }));
+  app.get('/', async (c) => {
+    const session = c.get('adminSession');
+    const topics = await listAdminTopics(db);
+    return c.json({ topics: session?.role === 'editor' ? topics.filter((topic) => topicMatchesAdminScope(session, topic)) : topics });
+  });
 
   app.post('/', async (c) => {
     const parsed = topicSchema.safeParse(await c.req.json());
     if (!parsed.success) return c.json({ error: 'invalid_body', message: 'Data topik tidak valid.' }, 400);
+    if (!topicInputMatchesAdminScope(c.get('adminSession'), parsed.data)) {
+      return c.json({ error: 'admin_forbidden', message: 'Topik harus berada pada mata pelajaran dan kelas yang ditetapkan untuk akun ini.' }, 403);
+    }
     try {
       const id = await createAdminTopic(db, parsed.data);
       if (id === 'invalid_subject') return c.json({ error: 'invalid_reference', message: 'Mata pelajaran tidak ditemukan.' }, 400);
@@ -51,6 +59,11 @@ export function adminTopicsRoutes(pool: Pool) {
     const id = parseId(c.req.param('id'));
     const parsed = topicSchema.safeParse(await c.req.json());
     if (!id || !parsed.success) return c.json({ error: 'invalid_body', message: 'Data topik tidak valid.' }, 400);
+    const session = c.get('adminSession');
+    const existing = session?.role === 'editor' ? (await listAdminTopics(db)).find((topic) => topic.id === id) : null;
+    if (session?.role === 'editor' && (!existing || !topicMatchesAdminScope(session, existing) || !topicInputMatchesAdminScope(session, parsed.data))) {
+      return c.json({ error: 'admin_forbidden', message: 'Topik berada di luar penetapan akun ini.' }, 403);
+    }
     try {
       const result = await updateAdminTopic(db, id, parsed.data);
       if (result === 'not_found') return c.json({ error: 'not_found', message: 'Topik tidak ditemukan.' }, 404);
@@ -66,6 +79,12 @@ export function adminTopicsRoutes(pool: Pool) {
   app.delete('/:id', async (c) => {
     const id = parseId(c.req.param('id'));
     if (!id) return c.json({ error: 'invalid_param', message: 'ID topik tidak valid.' }, 400);
+    const session = c.get('adminSession');
+    if (session?.role === 'editor') {
+      const existing = (await listAdminTopics(db)).find((topic) => topic.id === id);
+      if (!existing) return c.json({ error: 'not_found', message: 'Topik tidak ditemukan.' }, 404);
+      if (!topicMatchesAdminScope(session, existing)) return c.json({ error: 'admin_forbidden', message: 'Topik berada di luar penetapan akun ini.' }, 403);
+    }
     const result = await deleteAdminTopic(db, id);
     if (result === 'not_found') return c.json({ error: 'not_found', message: 'Topik tidak ditemukan.' }, 404);
     if (result === 'in_use') return c.json({ error: 'in_use', message: 'Topik sudah dipakai dalam riwayat asesmen dan tidak dapat dihapus.' }, 409);
@@ -76,6 +95,12 @@ export function adminTopicsRoutes(pool: Pool) {
     const id = parseId(c.req.param('id'));
     const parsed = topicAccessSchema.safeParse(await c.req.json());
     if (!id || !parsed.success) return c.json({ error: 'invalid_body', message: 'Pengaturan token topik tidak valid.' }, 400);
+    const session = c.get('adminSession');
+    if (session?.role === 'editor') {
+      const existing = (await listAdminTopics(db)).find((topic) => topic.id === id);
+      if (!existing) return c.json({ error: 'not_found', message: 'Topik tidak ditemukan.' }, 404);
+      if (!topicMatchesAdminScope(session, existing)) return c.json({ error: 'admin_forbidden', message: 'Topik berada di luar penetapan akun ini.' }, 403);
+    }
 
     const updated = await updateAdminTopicAccess(db, id, parsed.data);
     if (!updated) return c.json({ error: 'not_found', message: 'Topik tidak ditemukan.' }, 404);

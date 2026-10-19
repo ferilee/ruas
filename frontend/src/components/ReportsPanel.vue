@@ -10,7 +10,7 @@
       <div class="toolbar-actions">
         <button class="secondary-btn" type="button" :disabled="loading" @click="loadReport">Muat ulang</button>
         <button class="primary-btn" type="button" :disabled="loading || rows.length === 0" @click="exportPdf">Ekspor PDF</button>
-        <button class="danger-btn" type="button" :disabled="resetting || resetCount === 0" @click="openResetConfirmation">{{ resetting ? 'Mereset...' : `Reset hasil (${resetCount})` }}</button>
+        <button v-if="props.canReset" class="danger-btn" type="button" :disabled="resetting || resetCount === 0" @click="openResetConfirmation">{{ resetting ? 'Mereset...' : `Reset hasil (${resetCount})` }}</button>
       </div>
     </div>
 
@@ -155,6 +155,8 @@ import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import RuasSelect from '@/components/RuasSelect.vue';
 import type { AdminReportClassStatistic, AdminReportDetail, AdminReportFilters, AdminReportQuestionStatus, AdminReportRow, AdminReportSummary, AdminTopic, CurriculumData } from '@/types';
 import { ADMIN_REALTIME_EVENT, type AdminRealtimeEvent } from '@/lib/admin-realtime';
+
+const props = withDefaults(defineProps<{ canReset?: boolean }>(), { canReset: true });
 
 const emptySummary: AdminReportSummary = { total_attempts: 0, completed_attempts: 0, in_progress_attempts: 0, abandoned_attempts: 0, average_score: 0, average_accuracy: 0, average_time_seconds: 0, total_violations: 0 };
 const curriculum = reactive<CurriculumData>({ classes: [], assessment_types: [], subjects: [] });
@@ -376,7 +378,7 @@ function handleRealtime(event: Event) {
   const detail = (event as CustomEvent<AdminRealtimeEvent>).detail;
   if (detail?.resource !== 'attempts' && detail?.resource !== 'reports') return;
   realtimeRefreshing.value = true;
-  void Promise.all([loadReport(), loadResetCount()]).finally(() => {
+  void Promise.all([loadReport(), props.canReset ? loadResetCount() : Promise.resolve()]).finally(() => {
     realtimeRefreshing.value = false;
   });
 }
@@ -389,7 +391,7 @@ onMounted(async () => {
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Gagal memuat filter kurikulum.';
   }
-  await Promise.all([loadReport(), loadResetCount()]);
+  await Promise.all([loadReport(), props.canReset ? loadResetCount() : Promise.resolve()]);
   window.addEventListener(ADMIN_REALTIME_EVENT, handleRealtime);
 });
 

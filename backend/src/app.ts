@@ -18,6 +18,8 @@ import { questionsRoutes } from './routes/questions';
 import { createRequireAuth } from './middleware/require-auth';
 import { adminUserRoutes } from './routes/admin-users';
 import { requireAdminAuth } from './middleware/require-admin-auth';
+import { requireAdminRole } from './middleware/require-admin-role';
+import type { AdminSession } from './lib/admin-auth-store';
 import { adminReportRoutes } from './routes/admin-reports';
 import { adminRealtimeRoutes } from './routes/admin-realtime';
 import { publishRealtimeEvent } from './lib/realtime-events';
@@ -28,6 +30,7 @@ declare module 'hono' {
   interface ContextVariableMap {
     requestId: string;
     authUsername: string | undefined;
+    adminSession: AdminSession | undefined;
   }
 }
 
@@ -74,7 +77,7 @@ export function createApp(config: AppConfig) {
   });
 
   app.route('/api/auth', authRoutes(config.appUsername ?? '', config.appPassword, config.pool));
-  app.route('/api/admin/auth', adminAuthRoutes(config.adminPassword ?? ''));
+  app.route('/api/admin/auth', adminAuthRoutes(config.adminPassword ?? '', config.pool));
 
   const authMiddleware = createRequireAuth(config.pool, config.appPassword);
   app.use('/api/subjects', authMiddleware);
@@ -95,6 +98,12 @@ export function createApp(config: AppConfig) {
   app.use('/api/admin/users/*', requireAdminAuth);
   app.use('/api/admin/reports', requireAdminAuth);
   app.use('/api/admin/realtime', requireAdminAuth);
+  app.use('/api/admin/curriculum', async (c, next) => c.req.method === 'GET' ? next() : requireAdminRole('admin')(c, next));
+  app.use('/api/admin/curriculum/*', async (c, next) => c.req.method === 'GET' ? next() : requireAdminRole('admin')(c, next));
+  app.use('/api/admin/users', requireAdminRole('admin'));
+  app.use('/api/admin/users/*', requireAdminRole('admin'));
+  app.use('/api/admin/reports/reset', requireAdminRole('admin'));
+  app.use('/api/admin/reports/reset/*', requireAdminRole('admin'));
 
   app.onError((err, c) => {
     const requestId = c.get('requestId') ?? 'unknown';

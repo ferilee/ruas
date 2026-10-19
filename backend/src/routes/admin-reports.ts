@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { Pool } from '@/db/connection';
 import { createExamDb, expireOverdueAttempts } from '@/services/exam-service';
 import { countReportAttempts, createReportDb, getReportDetail, listReportAttempts, resetAllReportData, summarizeReport, summarizeReportByClass } from '@/services/report-service';
+import { rowMatchesAdminScope } from '@/lib/admin-scope';
 
 const querySchema = z.object({
   status: z.enum(['all', 'in_progress', 'completed', 'abandoned']).default('completed'),
@@ -52,7 +53,13 @@ export function adminReportRoutes(pool: Pool) {
     }
     examDb ??= createExamDb(pool);
     await expireOverdueAttempts(examDb);
-    const rows = await listReportAttempts(db, parsed.data);
+    const session = c.get('adminSession');
+    if (session?.role === 'editor' && session.subject_id === null) {
+      return c.json({ filters: parsed.data, summary: summarizeReport([], parsed.data.score_policy), class_statistics: [], rows: [] });
+    }
+    const rows = await listReportAttempts(db, session?.role === 'editor'
+      ? { ...parsed.data, scope_subject_id: session.subject_id ?? undefined, scope_class_id: session.class_id }
+      : parsed.data);
     return c.json({ filters: parsed.data, summary: summarizeReport(rows, parsed.data.score_policy), class_statistics: summarizeReportByClass(rows, parsed.data.score_policy), rows });
   });
 
@@ -61,6 +68,7 @@ export function adminReportRoutes(pool: Pool) {
     if (!id) return c.json({ error: 'invalid_param', message: 'ID percobaan tidak valid.' }, 400);
     const report = await getReportDetail(db, id);
     if (!report) return c.json({ error: 'not_found', message: 'Hasil asesmen tidak ditemukan.' }, 404);
+    if (!rowMatchesAdminScope(c.get('adminSession'), report)) return c.json({ error: 'not_found', message: 'Hasil asesmen tidak ditemukan.' }, 404);
     return c.json({ report });
   });
 

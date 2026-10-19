@@ -42,6 +42,7 @@ export interface AdminQuestionListFilters {
   status?: 'active' | 'archived' | 'all';
   page?: number;
   page_size?: number;
+  topic_ids?: number[];
 }
 
 export interface AdminQuestionPage {
@@ -69,6 +70,7 @@ export async function listAdminQuestions(db: AdminDb, filters: AdminQuestionList
     ));
   }
   if (filters.topic_id) conditions.push(eq(schema.topicQuestions.topic_id, filters.topic_id));
+  if (filters.topic_ids) conditions.push(filters.topic_ids.length > 0 ? inArray(schema.topicQuestions.topic_id, filters.topic_ids) : eq(questions.id, -1));
   if (filters.type) conditions.push(eq(questions.type, filters.type));
   if (filters.difficulty) conditions.push(eq(questions.difficulty, filters.difficulty));
   if (filters.status !== 'all') conditions.push(filters.status === 'archived' ? isNotNull(questions.archived_at) : isNull(questions.archived_at));
@@ -107,7 +109,11 @@ export async function listAdminQuestions(db: AdminDb, filters: AdminQuestionList
     .select({ question_id: schema.topicQuestions.question_id, topic_id: topics.id, topic_slug: topics.slug, topic_label: topics.label })
     .from(schema.topicQuestions)
     .innerJoin(topics, eq(schema.topicQuestions.topic_id, topics.id))
-    .where(and(inArray(schema.topicQuestions.question_id, questionIds), eq(schema.topicQuestions.enabled, true)))
+    .where(and(
+      inArray(schema.topicQuestions.question_id, questionIds),
+      eq(schema.topicQuestions.enabled, true),
+      filters.topic_ids ? (filters.topic_ids.length > 0 ? inArray(schema.topicQuestions.topic_id, filters.topic_ids) : eq(schema.topicQuestions.question_id, -1)) : undefined,
+    ))
     .orderBy(schema.topicQuestions.display_order, topics.display_order, topics.id);
   const mappingsByQuestion = new Map<number, typeof mappings>();
   for (const mapping of mappings) mappingsByQuestion.set(mapping.question_id, [...(mappingsByQuestion.get(mapping.question_id) ?? []), mapping]);
@@ -140,7 +146,7 @@ export async function listAdminQuestions(db: AdminDb, filters: AdminQuestionList
   };
 }
 
-export async function findAdminQuestion(db: AdminDb, questionId: number): Promise<AdminQuestionDetail | null> {
+export async function findAdminQuestion(db: AdminDb, questionId: number, visibleTopicIds?: number[]): Promise<AdminQuestionDetail | null> {
   const [row] = await db
     .select({
       id: questions.id,
@@ -162,7 +168,11 @@ export async function findAdminQuestion(db: AdminDb, questionId: number): Promis
     .select({ topic_id: topics.id, topic_slug: topics.slug, topic_label: topics.label })
     .from(schema.topicQuestions)
     .innerJoin(topics, eq(schema.topicQuestions.topic_id, topics.id))
-    .where(and(eq(schema.topicQuestions.question_id, questionId), eq(schema.topicQuestions.enabled, true)))
+    .where(and(
+      eq(schema.topicQuestions.question_id, questionId),
+      eq(schema.topicQuestions.enabled, true),
+      visibleTopicIds ? (visibleTopicIds.length > 0 ? inArray(schema.topicQuestions.topic_id, visibleTopicIds) : eq(schema.topicQuestions.question_id, -1)) : undefined,
+    ))
     .orderBy(schema.topicQuestions.display_order, topics.display_order, topics.id);
   const primary = mappings.find((mapping) => mapping.topic_id === row.topic_id) ?? mappings[0];
   const options = await db
@@ -485,6 +495,7 @@ export async function importAdminQuestions(
   questionsToImport: ImportQuestion[],
   mode: 'insert' | 'upsert',
   dryRun: boolean,
+  allowedTopicSlugs?: string[],
 ): Promise<ImportSummary> {
   const topicRows = await db.select({ id: topics.id, slug: topics.slug }).from(topics);
   const topicMap = new Map(topicRows.map((topic) => [topic.slug, topic.id]));
@@ -504,6 +515,10 @@ export async function importAdminQuestions(
     const topicId = topicMap.get(question.topic_slug);
     if (!topicId) {
       errors.push(`Soal ke-${index + 1} merujuk ke topic_slug "${question.topic_slug}" yang tidak ada.`);
+      continue;
+    }
+    if (allowedTopicSlugs && !allowedTopicSlugs.includes(question.topic_slug)) {
+      errors.push(`Soal ke-${index + 1} berada di luar penetapan akun editor.`);
       continue;
     }
 

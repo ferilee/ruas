@@ -27,6 +27,8 @@ export interface ReportFilters {
   from?: string;
   to?: string;
   search?: string;
+  scope_subject_id?: number;
+  scope_class_id?: number | null;
 }
 
 type ReportDb = ReturnType<typeof drizzle>;
@@ -166,8 +168,10 @@ export async function listReportAttempts(db: ReportDb, filters: ReportFilters) {
   return normalizedRows
     .filter((row) => filters.status === 'all' || row.status === filters.status)
     .filter((row) => !filters.subject_id || row.subject_id === filters.subject_id)
+    .filter((row) => !filters.scope_subject_id || row.subject_id === filters.scope_subject_id)
     .filter((row) => !filters.topic_id || row.topic_id === filters.topic_id)
     .filter((row) => !filters.class_id || row.class_id === filters.class_id)
+    .filter((row) => !filters.scope_class_id || row.class_id === null || row.class_id === filters.scope_class_id)
     .filter((row) => !filters.assessment_type_id || row.assessment_type_id === filters.assessment_type_id)
     .filter((row) => inDateRange(row.started_at, filters.from, filters.to))
     .filter((row) => {

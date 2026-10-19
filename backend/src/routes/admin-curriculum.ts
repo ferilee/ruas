@@ -63,7 +63,20 @@ export function adminCurriculumRoutes(pool: Pool) {
   const db = createCurriculumDb(pool);
   const app = new Hono();
 
-  app.get('/', async (c) => c.json(await listCurriculum(db)));
+  app.get('/', async (c) => {
+    const data = await listCurriculum(db);
+    const session = c.get('adminSession');
+    if (!session || session.role === 'admin') return c.json(data);
+    const subjectsInScope = session.subject_id === null
+      ? []
+      : data.subjects.filter((subject) => subject.id === session.subject_id);
+    const assessmentTypeIds = new Set(subjectsInScope.map((subject) => subject.assessment_type_id).filter((id): id is number => id !== null));
+    return c.json({
+      classes: session.class_id === null ? data.classes : data.classes.filter((item) => item.id === session.class_id),
+      assessment_types: data.assessment_types.filter((item) => assessmentTypeIds.has(item.id)),
+      subjects: subjectsInScope,
+    });
+  });
 
   app.post('/classes', async (c) => {
     const parsed = classSchema.safeParse(await c.req.json());

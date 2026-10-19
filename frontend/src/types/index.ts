@@ -189,6 +189,16 @@ export interface ImportSummary {
 
 export type UserRole = 'admin' | 'editor' | 'participant';
 
+export type AdminRole = 'admin' | 'editor';
+
+export interface AdminSession {
+  username: string;
+  display_name: string;
+  role: AdminRole;
+  subject_id: number | null;
+  class_id: number | null;
+}
+
 export interface AdminUser {
   id: number;
   username: string;
