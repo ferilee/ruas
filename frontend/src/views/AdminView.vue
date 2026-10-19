@@ -145,6 +145,15 @@
                 </section>
               </section>
             </div>
+            <div v-if="teacherWorkspaceModal === 'reports'" class="teacher-workspace-modal-backdrop" role="presentation" @click.self="closeTeacherWorkspaceModal">
+              <section class="teacher-workspace-modal teacher-report-modal" role="dialog" aria-modal="true" aria-labelledby="teacher-report-modal-title">
+                <div class="teacher-workspace-modal-heading">
+                  <div><span class="modal-eyebrow">RUANG KERJA GURU</span><h2 id="teacher-report-modal-title">Laporan Asesmen</h2><p>Lihat hasil siswa dengan langkah yang sederhana.</p></div>
+                  <button class="teacher-workspace-modal-close" type="button" aria-label="Tutup laporan asesmen" @click="closeTeacherWorkspaceModal">×</button>
+                </div>
+                <ReportsPanel :can-reset="false" :simple="true" />
+              </section>
+            </div>
           </template>
 
           <section v-else-if="activeSection === 'overview'" class="overview-section">
@@ -519,7 +528,7 @@ const visibleMobileSecondaryNavigation = computed(() => visibleNavigation.value.
 const activeSection = ref<AdminSection>('overview');
 const curriculumFocus = ref<'class' | 'type' | 'subject' | 'topic' | null>(null);
 const teacherQuestionFlow = ref(false);
-const teacherWorkspaceModal = ref<'schedule' | 'users' | null>(null);
+const teacherWorkspaceModal = ref<'schedule' | 'users' | 'reports' | null>(null);
 const moreMenuOpen = ref(false);
 const currentSection = computed(() => navigation.find((item) => item.id === activeSection.value) ?? navigation[0]);
 const currentSectionTitle = computed(() => currentSection.value.title);
@@ -670,7 +679,7 @@ function handleTeacherWorkspaceAction(action: TeacherWorkspaceAction) {
 function handleTeacherWorkspaceNavigation(section: 'curriculum' | 'questions' | 'reports' | 'schedule' | 'users') {
   teacherQuestionFlow.value = false;
   curriculumFocus.value = null;
-  if (isEditorSession.value && (section === 'schedule' || section === 'users')) {
+  if (isEditorSession.value && (section === 'schedule' || section === 'users' || section === 'reports')) {
     teacherWorkspaceModal.value = section;
     moreMenuOpen.value = false;
     return;
@@ -1690,6 +1699,10 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .teacher-workspace-modal :deep(.users-grid) { gap: 14px; }
 .teacher-workspace-modal :deep(.panel) { box-shadow: none; }
 .teacher-schedule-modal { width: min(100%, 1080px); }
+.teacher-report-modal { width: min(100%, 1080px); }
+.teacher-report-modal .reports-panel { gap: 14px; }
+.teacher-report-modal .simple-report-header { border: 0; border-radius: 0; padding: 0 0 16px; background: transparent; }
+.teacher-report-modal .simple-report-filters, .teacher-report-modal .simple-report-summary, .teacher-report-modal .simple-report-results { border-color: #3d3c43; }
 .workspace-schedule-panel { padding: 0; border: 0; box-shadow: none; }
 .workspace-schedule-panel .schedule-layout { grid-template-columns: minmax(250px, .75fr) minmax(0, 1.25fr); }
 .workspace-schedule-panel .schedule-editor-form, .workspace-schedule-panel .schedule-list-card { background: #25252a; }
