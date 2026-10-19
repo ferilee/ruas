@@ -6,21 +6,25 @@
         <div class="panel-heading">
           <div>
             <h2>{{ editingId === null ? 'Tambah pengguna' : `Edit pengguna #${editingId}` }}</h2>
-            <p>Akun, kelas, dan penetapan mata pelajaran disimpan aman di database.</p>
+            <p v-if="isEditor">Tambahkan siswa yang berada pada penetapan kelas dan mata pelajaran Anda.</p>
+            <p v-else>Akun, kelas, dan penetapan mata pelajaran disimpan aman di database.</p>
           </div>
           <div class="user-form-actions"><button v-if="editingId !== null" class="text-button" type="button" @click="resetForm">Batal</button><button class="panel-collapse-button" type="button" @click="closeUserForm">Sembunyikan</button><button class="mobile-close-button" type="button" aria-label="Tutup form pengguna" @click="closeUserForm">×</button></div>
         </div>
         <form class="user-form" @submit.prevent="saveUser">
           <label>Username<input v-model.trim="form.username" required autocomplete="off" placeholder="Contoh: P130100230" /></label>
           <label>Nama tampilan<input v-model.trim="form.display_name" required placeholder="Nama peserta" /></label>
-          <label>Kelas peserta<RuasSelect v-model="form.class_id" :options="classOptions" aria-label="Kelas peserta" /></label>
-          <label>Mata pelajaran peserta<RuasSelect v-model="form.subject_id" :options="subjectOptions" aria-label="Mata pelajaran peserta" /></label>
+          <label v-if="!isEditor || editorClassId === null">Kelas peserta<RuasSelect v-model="form.class_id" :options="classOptions" aria-label="Kelas peserta" /></label>
+          <p v-else class="scope-note">Kelas: {{ classLabel(editorClassId ?? 0) }}</p>
+          <label v-if="!isEditor">Mata pelajaran peserta<RuasSelect v-model="form.subject_id" :options="subjectOptions" aria-label="Mata pelajaran peserta" /></label>
+          <p v-else class="scope-note">Mata pelajaran: {{ subjectLabel(editorSubjectId) }}</p>
           <label>Password {{ editingId === null ? '' : '(kosongkan jika tidak diubah)' }}<input v-model="form.password" :required="editingId === null" type="password" autocomplete="new-password" placeholder="Password akun" /></label>
-          <div class="user-fields-row">
+          <label v-if="isEditor" class="active-field"><span>Status</span><span class="check-line"><input v-model="form.active" type="checkbox" /> Aktif</span></label>
+          <div v-if="!isEditor" class="user-fields-row">
             <label>Peran<RuasSelect v-model="form.role" :options="roleOptions" aria-label="Peran pengguna" /></label>
             <label class="active-field"><span>Status</span><span class="check-line"><input v-model="form.active" type="checkbox" /> Aktif</span></label>
           </div>
-          <label class="demo-field"><span>Mode demo</span><span class="check-line"><input v-model="form.is_demo" type="checkbox" /> Jadikan satu-satunya akun demo publik</span><small>Hanya untuk peran Peserta. Data percobaan akun demo tidak masuk laporan dan akan direset saat demo dibuka.</small></label>
+          <label v-if="!isEditor" class="demo-field"><span>Mode demo</span><span class="check-line"><input v-model="form.is_demo" type="checkbox" /> Jadikan satu-satunya akun demo publik</span><small>Hanya untuk peran Peserta. Data percobaan akun demo tidak masuk laporan dan akan direset saat demo dibuka.</small></label>
           <p v-if="formMessage" :class="formMessageType === 'error' ? 'error-text' : 'success-text'">{{ formMessage }}</p>
           <button class="primary-btn full-btn" type="submit" :disabled="saving"><span aria-hidden="true">＋</span> {{ saving ? 'Menyimpan...' : editingId === null ? 'Tambah Pengguna' : 'Simpan Perubahan' }}</button>
         </form>
@@ -28,7 +32,7 @@
 
       <div class="panel import-users-panel" :class="{ open: importPanelOpen }">
         <div class="panel-heading">
-          <div><h2>Import pengguna</h2><p>CSV: <code>username,password,display_name,role,active,class_id,class_code,subject_id</code></p></div>
+          <div><h2>Import pengguna</h2><p v-if="isEditor">Semua baris akan dibuat sebagai Peserta pada scope Anda.</p><p v-else>CSV: <code>username,password,display_name,role,active,class_id,class_code,subject_id</code></p></div>
           <div class="import-panel-actions"><label class="import-mode-field"><span>Mode import</span><RuasSelect v-model="importMode" :options="importModeOptions" aria-label="Mode import pengguna" /></label><button class="panel-collapse-button" type="button" @click="importPanelOpen = false">Sembunyikan</button></div>
         </div>
         <div class="import-step"><span class="step-number">1</span><div><strong>Pilih file atau tempel data</strong><small>Gunakan format CSV atau JSON.</small></div></div>
@@ -50,8 +54,8 @@
 
     <div class="panel users-list-panel">
       <div class="panel-heading users-list-heading"><div><h2>Daftar pengguna</h2><p>{{ users.length }} akun ditemukan.</p></div><div class="user-list-actions"><div class="user-search"><span class="search-icon" aria-hidden="true">⌕</span><input v-model="search" placeholder="Cari username, nama, atau kelas" @keyup.enter="loadUsers" /><button class="search-button" type="button" aria-label="Cari pengguna" title="Cari" @click="loadUsers">Cari</button></div><div class="user-panel-toggles"><button class="panel-toggle-button" type="button" @click="openNewUser">＋ {{ userFormOpen ? 'Edit pengguna' : 'Tambah pengguna' }}</button><button class="panel-toggle-button secondary" type="button" @click="importPanelOpen = !importPanelOpen">{{ importPanelOpen ? 'Sembunyikan import' : 'Import pengguna' }}</button></div></div></div>
-      <div v-if="participantCount > 0" class="danger-zone"><div><strong>Hapus semua peserta</strong><small>{{ participantCount }} akun peserta akan dihapus. Akun admin/editor dan laporan asesmen tetap aman.</small></div><button class="danger-zone-button" type="button" :disabled="deletingAll" @click="removeAllParticipants">{{ deletingAll ? 'Menghapus...' : 'Hapus semua peserta' }}</button></div>
-      <div v-if="users.length" class="bulk-assignment-bar">
+      <div v-if="!isEditor && participantCount > 0" class="danger-zone"><div><strong>Hapus semua peserta</strong><small>{{ participantCount }} akun peserta akan dihapus. Akun admin/editor dan laporan asesmen tetap aman.</small></div><button class="danger-zone-button" type="button" :disabled="deletingAll" @click="removeAllParticipants">{{ deletingAll ? 'Menghapus...' : 'Hapus semua peserta' }}</button></div>
+      <div v-if="!isEditor && users.length" class="bulk-assignment-bar">
         <div class="bulk-assignment-copy"><strong>Penetapan massal</strong><small>{{ selectedUserIds.length ? `${selectedUserIds.length} pengguna dipilih` : 'Cari kelas atau identitas pengguna, lalu pilih semua hasil.' }}</small></div>
         <button class="select-all-button" type="button" @click="toggleAllUsers">{{ allUsersSelected ? 'Batalkan semua' : 'Pilih semua hasil' }}</button>
         <div class="bulk-action-row"><RuasSelect v-model="bulkClassId" :options="classOptions" placeholder="Pilih kelas" aria-label="Kelas penetapan massal" /><button class="primary-btn bulk-apply-button" type="button" :disabled="bulkSaving || selectedUserIds.length === 0 || bulkClassId === undefined" @click="applyBulkClass">{{ bulkSaving ? 'Menyimpan...' : 'Tetapkan kelas' }}</button></div>
@@ -61,7 +65,7 @@
       <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
       <div v-if="loading" class="panel-empty">Memuat pengguna...</div>
       <div v-else-if="users.length === 0" class="panel-empty">Belum ada pengguna.</div>
-      <div v-else class="user-table-wrap"><table class="user-table"><thead><tr><th class="selection-column"><input type="checkbox" :checked="allUsersSelected" aria-label="Pilih semua pengguna" @change="toggleAllUsers" /></th><th>Pengguna</th><th>Peran / penetapan</th><th>Status</th><th>Aksi</th></tr></thead><tbody><tr v-for="user in users" :key="user.id"><td class="selection-column"><input type="checkbox" :checked="isUserSelected(user.id)" :aria-label="`Pilih ${user.display_name}`" @change="toggleUser(user.id)" /></td><td class="user-identity"><strong>{{ user.display_name }}</strong><small>{{ user.username }}</small></td><td class="user-assignment"><span class="role-badge">{{ roleLabel(user.role) }}</span><span v-if="user.is_demo" class="demo-badge">Demo publik</span><small>Kelas: {{ user.class_label || 'Belum ditetapkan' }}</small><small>Mapel: {{ subjectLabel(user.subject_id) }}</small></td><td class="user-status"><span :class="['status-badge', { inactive: !user.active }]">{{ user.active ? 'Aktif' : 'Nonaktif' }}</span><span v-if="user.must_change_password" class="password-status-badge">Wajib ubah sandi</span></td><td class="user-actions"><button class="text-button" type="button" @click="editUser(user)">Edit</button><button v-if="!user.is_demo" class="text-button" type="button" @click="resetPassword(user)">Reset sandi</button><button class="danger-link" type="button" @click="removeUser(user)">Hapus</button></td></tr></tbody></table></div>
+      <div v-else class="user-table-wrap"><table class="user-table"><thead><tr><th v-if="!isEditor" class="selection-column"><input type="checkbox" :checked="allUsersSelected" aria-label="Pilih semua pengguna" @change="toggleAllUsers" /></th><th>Pengguna</th><th>Peran / penetapan</th><th>Status</th><th>Aksi</th></tr></thead><tbody><tr v-for="user in users" :key="user.id"><td v-if="!isEditor" class="selection-column"><input type="checkbox" :checked="isUserSelected(user.id)" :aria-label="`Pilih ${user.display_name}`" @change="toggleUser(user.id)" /></td><td class="user-identity"><strong>{{ user.display_name }}</strong><small>{{ user.username }}</small></td><td class="user-assignment"><span class="role-badge">{{ roleLabel(user.role) }}</span><span v-if="user.is_demo" class="demo-badge">Demo publik</span><small>Kelas: {{ user.class_label || 'Belum ditetapkan' }}</small><small>Mapel: {{ subjectLabel(user.subject_id) }}</small></td><td class="user-status"><span :class="['status-badge', { inactive: !user.active }]">{{ user.active ? 'Aktif' : 'Nonaktif' }}</span><span v-if="user.must_change_password" class="password-status-badge">Wajib ubah sandi</span></td><td class="user-actions"><button class="text-button" type="button" @click="editUser(user)">Edit</button><button v-if="!user.is_demo" class="text-button" type="button" @click="resetPassword(user)">Reset sandi</button><button v-if="!isEditor" class="danger-link" type="button" @click="removeUser(user)">Hapus</button></td></tr></tbody></table></div>
     </div>
   </section>
 </template>
@@ -71,8 +75,13 @@ import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { assignAdminUsersClass, assignAdminUsersSubject, createAdminUser, deleteAdminUser, deleteAllAdminParticipants, fetchAdminCurriculum, fetchAdminParticipantCount, fetchAdminUsers, importAdminUsers, resetAdminUserPassword, updateAdminUser } from '@/api/client';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import RuasSelect from '@/components/RuasSelect.vue';
-import type { AdminUser, AdminUserInput, CurriculumClass, Subject, UserImportSummary, UserRole } from '@/types';
+import type { AdminSession, AdminUser, AdminUserInput, CurriculumClass, Subject, UserImportSummary, UserRole } from '@/types';
 import { ADMIN_REALTIME_EVENT, type AdminRealtimeEvent } from '@/lib/admin-realtime';
+
+const props = defineProps<{ adminSession: AdminSession | null }>();
+const isEditor = computed(() => props.adminSession?.role === 'editor');
+const editorClassId = computed(() => props.adminSession?.class_id ?? null);
+const editorSubjectId = computed(() => props.adminSession?.subject_id ?? null);
 
 const users = ref<AdminUser[]>([]);
 const participantCount = ref(0);
@@ -107,7 +116,7 @@ const confirmMessage = ref('Apakah kamu yakin ingin melanjutkan?');
 const confirmLabel = ref('OK');
 const confirmPhrase = ref<string | undefined>(undefined);
 const pendingConfirmation = ref<(() => Promise<void>) | null>(null);
-const form = reactive<AdminUserInput>({ username: '', password: '', display_name: '', class_id: null, subject_id: null, role: 'participant', active: true, is_demo: false });
+const form = reactive<AdminUserInput>({ username: '', password: '', display_name: '', class_id: editorClassId.value, subject_id: editorSubjectId.value, role: 'participant', active: true, is_demo: false });
 const classOptions = computed(() => [{ value: null, label: 'Belum ditetapkan' }, ...classes.value.map((item) => ({ value: item.id, label: `${item.label} · ${item.academic_year}` }))]);
 const subjectOptions = computed(() => [{ value: null, label: 'Belum ditetapkan' }, ...subjects.value.map((subject) => ({ value: subject.id, label: subject.label }))]);
 const roleOptions = [
@@ -122,11 +131,11 @@ const importModeOptions = [
 const allUsersSelected = computed(() => users.value.length > 0 && users.value.every((user) => selectedUserIds.value.includes(user.id)));
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
-function resetForm() { Object.assign(form, { username: '', password: '', display_name: '', class_id: null, subject_id: null, role: 'participant', active: true, is_demo: false }); editingId.value = null; formMessage.value = ''; userFormOpen.value = false; }
+function resetForm() { Object.assign(form, { username: '', password: '', display_name: '', class_id: editorClassId.value, subject_id: editorSubjectId.value, role: 'participant', active: true, is_demo: false }); editingId.value = null; formMessage.value = ''; userFormOpen.value = false; }
 function openNewUser() { resetForm(); userFormOpen.value = true; }
 function closeUserForm() { userFormOpen.value = false; }
 function openFilePicker() { fileInput.value?.click(); }
-function editUser(user: AdminUser) { Object.assign(form, { username: user.username, password: '', display_name: user.display_name, class_id: user.class_id, subject_id: user.subject_id, role: user.role, active: user.active, is_demo: user.is_demo }); editingId.value = user.id; formMessage.value = ''; userFormOpen.value = true; window.scrollTo({ top: 0, behavior: 'smooth' }); }
+function editUser(user: AdminUser) { Object.assign(form, { username: user.username, password: '', display_name: user.display_name, class_id: isEditor.value ? editorClassId.value ?? user.class_id : user.class_id, subject_id: isEditor.value ? editorSubjectId.value : user.subject_id, role: isEditor.value ? 'participant' : user.role, active: user.active, is_demo: isEditor.value ? false : user.is_demo }); editingId.value = user.id; formMessage.value = ''; userFormOpen.value = true; window.scrollTo({ top: 0, behavior: 'smooth' }); }
 function askConfirmation(title: string, message: string, action: () => Promise<void>, label = 'OK', phrase?: string) { confirmTitle.value = title; confirmMessage.value = message; confirmLabel.value = label; confirmPhrase.value = phrase; pendingConfirmation.value = action; confirmOpen.value = true; }
 function closeConfirmation() { confirmOpen.value = false; confirmPhrase.value = undefined; pendingConfirmation.value = null; }
 async function runConfirmation() { const action = pendingConfirmation.value; closeConfirmation(); if (action) await action(); }
@@ -222,6 +231,7 @@ onUnmounted(() => window.removeEventListener(ADMIN_REALTIME_EVENT, handleRealtim
 .active-field { justify-content: end; }
 .check-line { display: flex; align-items: center; gap: 8px; min-height: 42px; color: #43648d; font-weight: 500; }
 .demo-field small { color: #7890ac; font-size: .68rem; font-weight: 400; line-height: 1.4; }
+.scope-note { margin: 0; padding: 10px 12px; border: 1px solid #d9e5f2; border-radius: 9px; color: #42628c; background: #f8fbff; font-size: .78rem; font-weight: 700; }
 .check-line input { width: auto; }
 .text-button { border: 0; padding: 6px 0; color: #1d69c5; background: transparent; font: inherit; font-weight: 700; cursor: pointer; }
 .import-users-panel .panel-heading > div { min-width: 0; }

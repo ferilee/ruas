@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import type { Context } from 'hono';
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import { educationClasses } from '@/db/schema/education-classes';
@@ -19,8 +20,11 @@ import {
   updateUser,
   assignSubjectToUsers,
   assignClassToUsers,
+  type ParticipantScope,
+  type UserInput,
 } from '@/services/user-service';
 import { revokeTokensForUsername } from '@/lib/auth-store';
+import { participantScopeForAdmin, userMatchesAdminScope } from '@/lib/admin-scope';
 
 const roleSchema = z.enum(['admin', 'editor', 'participant']);
 const userFieldsSchema = z.object({
@@ -155,11 +159,56 @@ export function adminUserRoutes(pool: Pool) {
   const db = createUserDb(pool);
   const app = new Hono();
 
-  app.get('/', async (c) => c.json({ users: await listUsers(db, c.req.query('search')) }));
+  function session(c: Context) {
+    return c.get('adminSession');
+  }
 
-  app.get('/participants/count', async (c) => c.json({ count: await countParticipantUsers(db) }));
+  function editorScope(c: Context): ParticipantScope | null {
+    const current = session(c);
+    return current?.role === 'editor' ? participantScopeForAdmin(current) : null;
+  }
+
+  function editorMessage(c: Context) {
+    return session(c)?.subject_id === null
+      ? 'Akun guru belum diberi mata pelajaran.'
+      : 'Siswa berada di luar kelas atau mata pelajaran yang ditetapkan.';
+  }
+
+  function scopeInput(c: Context, input: UserInput): { input?: UserInput; message?: string } {
+    const current = session(c);
+    if (!current || current.role === 'admin') return { input };
+    if (current.subject_id === null) return { message: 'Akun guru belum diberi mata pelajaran.' };
+    if (input.role !== 'participant' || input.is_demo) return { message: 'Guru hanya dapat membuat akun Peserta non-demo.' };
+    const classId = current.class_id ?? input.class_id;
+    if (classId === null || (current.class_id !== null && input.class_id !== null && input.class_id !== current.class_id)) {
+      return { message: editorMessage(c) };
+    }
+    return { input: { ...input, role: 'participant' as const, is_demo: false, subject_id: current.subject_id, class_id: classId } };
+  }
+
+  async function findScopedUser(c: Context, id: number) {
+    const existing = await findUserById(db, id);
+    if (!existing) return { response: c.json({ error: 'not_found', message: 'Pengguna tidak ditemukan.' }, 404) };
+    if (!userMatchesAdminScope(session(c), existing)) {
+      return { response: c.json({ error: 'admin_forbidden', message: 'Pengguna berada di luar penetapan akun ini.' }, 403) };
+    }
+    return { existing };
+  }
+
+  app.get('/', async (c) => {
+    const current = session(c);
+    if (current?.role === 'editor' && !editorScope(c)) return c.json({ users: [] });
+    return c.json({ users: await listUsers(db, c.req.query('search'), editorScope(c) ?? undefined) });
+  });
+
+  app.get('/participants/count', async (c) => {
+    const current = session(c);
+    if (current?.role === 'editor' && !editorScope(c)) return c.json({ count: 0 });
+    return c.json({ count: await countParticipantUsers(db, editorScope(c) ?? undefined) });
+  });
 
   app.delete('/participants', async (c) => {
+    if (session(c)?.role === 'editor') return c.json({ error: 'admin_forbidden', message: 'Menghapus seluruh peserta hanya dapat dilakukan Admin.' }, 403);
     let body: unknown = {};
     try {
       body = await c.req.json();
@@ -178,13 +227,15 @@ export function adminUserRoutes(pool: Pool) {
   app.post('/', async (c) => {
     const parsed = createUserSchema.safeParse(await c.req.json());
     if (!parsed.success) return c.json({ error: 'invalid_body', message: 'Data pengguna tidak valid.' }, 400);
-    if (parsed.data.class_id && !(await classExists(db, parsed.data.class_id))) return c.json({ error: 'invalid_reference', message: 'Kelas tidak ditemukan.' }, 400);
-    if (parsed.data.subject_id && !(await subjectExists(db, parsed.data.subject_id))) return c.json({ error: 'invalid_reference', message: 'Mata pelajaran tidak ditemukan.' }, 400);
-    const [duplicate] = await db.select({ id: users.id }).from(users).where(eq(users.username, parsed.data.username)).limit(1);
+    const scoped = scopeInput(c, parsed.data);
+    if (!scoped.input) return c.json({ error: 'admin_forbidden', message: scoped.message }, 403);
+    if (scoped.input.class_id && !(await classExists(db, scoped.input.class_id))) return c.json({ error: 'invalid_reference', message: 'Kelas tidak ditemukan.' }, 400);
+    if (scoped.input.subject_id && !(await subjectExists(db, scoped.input.subject_id))) return c.json({ error: 'invalid_reference', message: 'Mata pelajaran tidak ditemukan.' }, 400);
+    const [duplicate] = await db.select({ id: users.id }).from(users).where(eq(users.username, scoped.input.username)).limit(1);
     if (duplicate) {
       return c.json({ error: 'duplicate_username', message: 'Username sudah digunakan.' }, 409);
     }
-    const user = await createUser(db, parsed.data);
+    const user = await createUser(db, scoped.input);
     return c.json({ user: user ? toPublicUser(user) : null }, 201);
   });
 
@@ -211,7 +262,10 @@ export function adminUserRoutes(pool: Pool) {
       } else if (parsed.data.subject_id && !(await subjectExists(db, parsed.data.subject_id))) {
         summary.errors.push(`Baris ${index + 1}: mata pelajaran tidak ditemukan.`);
       } else {
-        validRows.push({ row: parsed.data, line: index + 1 });
+        const scoped = scopeInput(c, parsed.data);
+        if (!scoped.input) summary.errors.push(`Baris ${index + 1}: ${scoped.message}`);
+        else if (!scoped.input.password) summary.errors.push(`Baris ${index + 1}: password wajib diisi.`);
+        else validRows.push({ row: scoped.input as ImportRow, line: index + 1 });
       }
     }
 
@@ -246,7 +300,9 @@ export function adminUserRoutes(pool: Pool) {
     const id = parseId(c.req.param('id'));
     if (!id) return c.json({ error: 'invalid_param', message: 'ID pengguna tidak valid.' }, 400);
 
-    const existing = await findUserById(db, id);
+    const scoped = await findScopedUser(c, id);
+    if (scoped.response) return scoped.response;
+    const existing = scoped.existing;
     if (!existing) return c.json({ error: 'not_found', message: 'Pengguna tidak ditemukan.' }, 404);
     const result = await resetUserPassword(db, id);
     if (result && 'demoAccount' in result) {
@@ -257,6 +313,7 @@ export function adminUserRoutes(pool: Pool) {
   });
 
   app.patch('/bulk-subject', async (c) => {
+    if (session(c)?.role === 'editor') return c.json({ error: 'admin_forbidden', message: 'Penetapan massal hanya dapat dilakukan Admin.' }, 403);
     const parsed = bulkSubjectSchema.safeParse(await c.req.json());
     if (!parsed.success) return c.json({ error: 'invalid_body', message: 'Pilihan pengguna atau mata pelajaran tidak valid.' }, 400);
     if (parsed.data.subject_id !== null && !(await subjectExists(db, parsed.data.subject_id))) {
@@ -268,6 +325,7 @@ export function adminUserRoutes(pool: Pool) {
   });
 
   app.patch('/bulk-class', async (c) => {
+    if (session(c)?.role === 'editor') return c.json({ error: 'admin_forbidden', message: 'Penetapan massal hanya dapat dilakukan Admin.' }, 403);
     const parsed = z.object({
       user_ids: z.array(z.coerce.number().int().positive()).min(1).max(500).optional(),
       search: z.string().max(100).optional(),
@@ -288,17 +346,22 @@ export function adminUserRoutes(pool: Pool) {
     const id = parseId(c.req.param('id'));
     const parsed = updateUserSchema.safeParse(await c.req.json());
     if (!id || !parsed.success) return c.json({ error: 'invalid_body', message: 'Data pengguna tidak valid.' }, 400);
-    if (parsed.data.class_id && !(await classExists(db, parsed.data.class_id))) return c.json({ error: 'invalid_reference', message: 'Kelas tidak ditemukan.' }, 400);
-    if (parsed.data.subject_id && !(await subjectExists(db, parsed.data.subject_id))) return c.json({ error: 'invalid_reference', message: 'Mata pelajaran tidak ditemukan.' }, 400);
-    const existing = await findUserById(db, id);
+    const scopedExisting = await findScopedUser(c, id);
+    if (scopedExisting.response) return scopedExisting.response;
+    const existing = scopedExisting.existing;
     if (!existing) return c.json({ error: 'not_found', message: 'Pengguna tidak ditemukan.' }, 404);
-    const duplicate = await db.select({ id: users.id }).from(users).where(eq(users.username, parsed.data.username)).limit(1);
+    const scoped = scopeInput(c, parsed.data);
+    if (!scoped.input) return c.json({ error: 'admin_forbidden', message: scoped.message }, 403);
+    if (scoped.input.class_id && !(await classExists(db, scoped.input.class_id))) return c.json({ error: 'invalid_reference', message: 'Kelas tidak ditemukan.' }, 400);
+    if (scoped.input.subject_id && !(await subjectExists(db, scoped.input.subject_id))) return c.json({ error: 'invalid_reference', message: 'Mata pelajaran tidak ditemukan.' }, 400);
+    const duplicate = await db.select({ id: users.id }).from(users).where(eq(users.username, scoped.input.username)).limit(1);
     if (duplicate[0] && duplicate[0].id !== id) return c.json({ error: 'duplicate_username', message: 'Username sudah digunakan.' }, 409);
-    const user = await updateUser(db, id, parsed.data);
+    const user = await updateUser(db, id, scoped.input);
     return c.json({ user: user ? toPublicUser(user) : null });
   });
 
   app.delete('/:id', async (c) => {
+    if (session(c)?.role === 'editor') return c.json({ error: 'admin_forbidden', message: 'Menghapus pengguna hanya dapat dilakukan Admin.' }, 403);
     const id = parseId(c.req.param('id'));
     if (!id) return c.json({ error: 'invalid_param', message: 'ID pengguna tidak valid.' }, 400);
     if (!(await findUserById(db, id))) return c.json({ error: 'not_found', message: 'Pengguna tidak ditemukan.' }, 404);

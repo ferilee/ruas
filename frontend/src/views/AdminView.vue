@@ -111,7 +111,7 @@
 
           <ReportsPanel v-else-if="activeSection === 'reports'" :can-reset="isAdminSession" />
 
-          <UsersPanel v-else-if="activeSection === 'users' && isAdminSession" />
+          <UsersPanel v-else-if="activeSection === 'users'" :admin-session="adminSession" />
 
           <section v-else-if="activeSection === 'schedule'" class="panel schedule-panel">
             <div class="schedule-hero">
@@ -422,7 +422,7 @@ const navigation: Array<{ id: AdminSection; label: string; icon: string; title: 
 ];
 const adminSession = ref<AdminSession | null>(null);
 const isAdminSession = computed(() => adminSession.value?.role === 'admin');
-const visibleNavigation = computed(() => isAdminSession.value ? navigation : navigation.filter((item) => !['curriculum', 'users'].includes(item.id)));
+const visibleNavigation = computed(() => isAdminSession.value ? navigation : navigation.filter((item) => item.id !== 'curriculum'));
 const visibleMobilePrimaryNavigation = computed(() => visibleNavigation.value.filter((item) => ['overview', 'curriculum', 'questions', 'reports'].includes(item.id)));
 const visibleMobileSecondaryNavigation = computed(() => visibleNavigation.value.filter((item) => ['schedule', 'users'].includes(item.id)));
 const activeSection = ref<AdminSection>('overview');
@@ -546,7 +546,7 @@ watch([difficultyFilter, questionTypeFilter, questionStatusFilter, questionTopic
 });
 
 function selectSection(section: AdminSection) {
-  if (!isAdminSession.value && ['curriculum', 'users'].includes(section)) return;
+  if (!isAdminSession.value && section === 'curriculum') return;
   activeSection.value = section;
   moreMenuOpen.value = false;
   errorMessage.value = '';

@@ -11,6 +11,11 @@ type UserDb = ReturnType<typeof drizzle>;
 
 export type UserRole = 'admin' | 'editor' | 'participant';
 
+export interface ParticipantScope {
+  subject_id: number;
+  class_id: number | null;
+}
+
 export interface UserInput {
   username: string;
   password?: string;
@@ -58,23 +63,34 @@ function userSearchCondition(search?: string) {
     : undefined;
 }
 
-export async function listUsers(db: UserDb, search?: string) {
+function userWhere(search?: string, scope?: ParticipantScope) {
+  const conditions = [
+    userSearchCondition(search),
+    scope ? eq(users.role, 'participant') : undefined,
+    scope ? eq(users.subject_id, scope.subject_id) : undefined,
+    scope?.class_id !== null && scope?.class_id !== undefined ? eq(users.class_id, scope.class_id) : undefined,
+  ].filter((condition): condition is NonNullable<typeof condition> => Boolean(condition));
+
+  return conditions.length > 0 ? and(...conditions) : undefined;
+}
+
+export async function listUsers(db: UserDb, search?: string, scope?: ParticipantScope) {
   const rows = await db
     .select({ user: users, class_label: educationClasses.label })
     .from(users)
     .leftJoin(educationClasses, eq(users.class_id, educationClasses.id))
-    .where(userSearchCondition(search))
+    .where(userWhere(search, scope))
     .orderBy(asc(users.display_name), asc(users.id));
 
   return rows.map(({ user, class_label }) => toPublicUser(user, class_label));
 }
 
-export async function listUserIds(db: UserDb, search?: string) {
+export async function listUserIds(db: UserDb, search?: string, scope?: ParticipantScope) {
   const rows = await db
     .select({ id: users.id })
     .from(users)
     .leftJoin(educationClasses, eq(users.class_id, educationClasses.id))
-    .where(userSearchCondition(search));
+    .where(userWhere(search, scope));
 
   return rows.map((row) => row.id);
 }
@@ -214,8 +230,8 @@ export async function deleteUser(db: UserDb, id: number) {
   await db.delete(users).where(eq(users.id, id));
 }
 
-export async function countParticipantUsers(db: UserDb) {
-  const rows = await db.select({ id: users.id }).from(users).where(eq(users.role, 'participant'));
+export async function countParticipantUsers(db: UserDb, scope?: ParticipantScope) {
+  const rows = await db.select({ id: users.id }).from(users).where(scope ? userWhere(undefined, scope) : eq(users.role, 'participant'));
   return rows.length;
 }
 

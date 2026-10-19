@@ -100,8 +100,6 @@ export function createApp(config: AppConfig) {
   app.use('/api/admin/realtime', requireAdminAuth);
   app.use('/api/admin/curriculum', async (c, next) => c.req.method === 'GET' ? next() : requireAdminRole('admin')(c, next));
   app.use('/api/admin/curriculum/*', async (c, next) => c.req.method === 'GET' ? next() : requireAdminRole('admin')(c, next));
-  app.use('/api/admin/users', requireAdminRole('admin'));
-  app.use('/api/admin/users/*', requireAdminRole('admin'));
   app.use('/api/admin/reports/reset', requireAdminRole('admin'));
   app.use('/api/admin/reports/reset/*', requireAdminRole('admin'));
 
