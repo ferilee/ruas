@@ -1,5 +1,5 @@
 <template>
-  <div class="admin-view">
+  <div :class="['admin-view', { 'editor-view': isEditorSession }]">
     <ConfirmDialog :open="confirmOpen" :title="confirmTitle" :message="confirmMessage" :confirm-label="confirmLabel" @confirm="runConfirmation" @cancel="closeConfirmation" />
     <div v-if="!isAuthenticated" class="admin-header">
       <div>
@@ -33,7 +33,7 @@
           <div class="sidebar-brand">
             <span class="sidebar-mark">R</span>
             <div>
-              <strong>RUAS Admin</strong>
+              <strong>{{ isEditorSession ? 'RUAS Guru' : 'RUAS Admin' }}</strong>
               <small>Ruang Asesmen</small>
             </div>
           </div>
@@ -72,9 +72,9 @@
           <section v-if="activeSection === 'overview'" class="overview-section">
             <div class="welcome-card">
               <div>
-                <span class="eyebrow">DASHBOARD EDITOR</span>
-                <h2>Selamat datang di Admin RUAS</h2>
-                <p>Kelola struktur asesmen, bank soal, dan jadwal dari satu tempat.</p>
+                <span class="eyebrow">{{ isEditorSession ? 'DASHBOARD GURU' : 'DASHBOARD ADMIN' }}</span>
+                <h2>{{ isEditorSession ? 'Selamat datang di Ruang Guru' : 'Selamat datang di Admin RUAS' }}</h2>
+                <p>{{ isEditorSession ? 'Kelola siswa, topik, bank soal, dan jadwal sesuai penetapan Anda.' : 'Kelola struktur asesmen, bank soal, dan jadwal dari satu tempat.' }}</p>
               </div>
               <button class="primary-btn" type="button" @click="selectSection('questions')">Kelola Bank Soal</button>
             </div>
@@ -219,7 +219,7 @@
             type="button"
             @click="editQuestion(item.id)"
           >
-            <span class="question-row-top"><span class="question-number">#{{ item.id }}</span><span class="topic-badge">{{ item.topic_labels.length > 1 ? `${item.topic_labels.length} topik` : item.topic_label }}</span><span class="question-type-badge">{{ questionTypeLabel(item.type) }}</span><span v-if="item.archived_at" class="question-status-badge">Diarsipkan</span><span class="question-menu" aria-hidden="true">⋮</span></span>
+            <span class="question-row-top"><span class="question-number">#{{ item.id }}</span><span class="topic-badge">{{ item.topic_labels.length > 1 ? `${item.topic_labels.length} topik` : item.topic_label }}</span><span class="question-type-badge">{{ questionTypeLabel(item.type) }}</span><span :class="['question-owner-badge', item.creator_role === 'editor' ? 'editor-owner' : 'admin-owner']">{{ item.creator_role === 'editor' ? `Editor · ${item.creator_display_name || item.created_by}` : 'Admin / Sistem' }}</span><span v-if="item.archived_at" class="question-status-badge">Diarsipkan</span><span class="question-menu" aria-hidden="true">⋮</span></span>
             <strong><MathText :text="item.question_text" /></strong>
             <span class="question-row-bottom"><span :class="['difficulty-badge', `difficulty-${item.difficulty}`]">{{ difficultyLabel(item.difficulty) }}</span><span v-if="item.external_id" class="row-id">{{ item.external_id }}</span></span>
           </button>
@@ -237,10 +237,12 @@
         <div class="panel form-panel" :class="{ open: questionFormOpen }">
           <div class="panel-heading">
             <h2>{{ editingId === null ? 'Soal Baru' : `Edit Soal #${editingId}` }}</h2>
-            <div class="form-heading-actions"><button v-if="editingId !== null" type="button" :class="editingArchivedAt ? 'restore-link' : 'archive-link'" @click="toggleQuestionArchive">{{ editingArchivedAt ? 'Pulihkan' : 'Arsipkan' }}</button><button v-if="editingId !== null" type="button" class="danger-link" @click="removeQuestion">Hapus</button><button class="close-form-btn" type="button" aria-label="Tutup form soal" @click="closeQuestionForm">×</button></div>
+            <div class="form-heading-actions"><button v-if="editingId !== null && canManageEditingQuestion" type="button" :class="editingArchivedAt ? 'restore-link' : 'archive-link'" @click="toggleQuestionArchive">{{ editingArchivedAt ? 'Pulihkan' : 'Arsipkan' }}</button><button v-if="editingId !== null && canManageEditingQuestion" type="button" class="danger-link" @click="removeQuestion">Hapus</button><button class="close-form-btn" type="button" aria-label="Tutup form soal" @click="closeQuestionForm">×</button></div>
           </div>
 
           <form @submit.prevent="saveQuestion">
+            <p v-if="questionReadOnly" class="question-readonly-note">Soal ini dibuat oleh Admin dan hanya dapat dilihat oleh Editor.</p>
+            <fieldset :disabled="questionReadOnly" class="question-readonly-fieldset">
             <label>Topik
               <RuasSelect v-model="draft.topic_id" :options="topicOptions" placeholder="Pilih topik" aria-label="Topik soal" />
             </label>
@@ -324,6 +326,7 @@
             <button class="primary-btn full-btn" type="submit" :disabled="saving">
               {{ saving ? 'Menyimpan...' : 'Simpan Soal' }}
             </button>
+            </fieldset>
           </form>
         </div>
           </section>
@@ -422,6 +425,7 @@ const navigation: Array<{ id: AdminSection; label: string; icon: string; title: 
 ];
 const adminSession = ref<AdminSession | null>(null);
 const isAdminSession = computed(() => adminSession.value?.role === 'admin');
+const isEditorSession = computed(() => adminSession.value?.role === 'editor');
 const visibleNavigation = computed(() => isAdminSession.value ? navigation : navigation.filter((item) => item.id !== 'curriculum'));
 const visibleMobilePrimaryNavigation = computed(() => visibleNavigation.value.filter((item) => ['overview', 'curriculum', 'questions', 'reports'].includes(item.id)));
 const visibleMobileSecondaryNavigation = computed(() => visibleNavigation.value.filter((item) => ['schedule', 'users'].includes(item.id)));
@@ -508,6 +512,9 @@ const questionRangeStart = computed(() => questionTotal.value === 0 ? 0 : (quest
 const questionRangeEnd = computed(() => Math.min(questionTotal.value, questionPage.value * questionPageSize.value));
 const editingId = ref<number | null>(null);
 const editingArchivedAt = ref<string | null>(null);
+const editingQuestionCreatedBy = ref<string | null>(null);
+const canManageEditingQuestion = computed(() => editingId.value === null || isAdminSession.value || editingQuestionCreatedBy.value === adminSession.value?.username);
+const questionReadOnly = computed(() => editingId.value !== null && !canManageEditingQuestion.value);
 const importText = ref('');
 const parsedImport = ref<unknown>(null);
 const importMode = ref<'insert' | 'upsert'>('insert');
@@ -641,6 +648,7 @@ function resetDraft() {
   mediaCaption.value = '';
   editingId.value = null;
   editingArchivedAt.value = null;
+  editingQuestionCreatedBy.value = null;
   formMessage.value = '';
 }
 
@@ -900,6 +908,7 @@ async function editQuestion(id: number) {
       options: question.options,
     });
     editingArchivedAt.value = question.archived_at;
+    editingQuestionCreatedBy.value = question.created_by;
     questionMedia.value = question.media ?? [];
     mediaAltText.value = '';
     mediaCaption.value = '';
@@ -1387,6 +1396,37 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .schedule-hint {
   margin-top: -4px;
 }
+
+.question-owner-badge {
+  display: inline-flex;
+  max-width: min(220px, 30vw);
+  overflow: hidden;
+  align-items: center;
+  padding: 4px 7px;
+  border-radius: 999px;
+  font-size: .67rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.question-owner-badge.editor-owner { color: #6d28d9; background: #f3e8ff; }
+.question-owner-badge.admin-owner { color: #2364ad; background: #eaf3ff; }
+.question-readonly-note { margin: 20px 20px 0; padding: 10px 12px; border: 1px solid #eadcff; border-radius: 9px; color: #6d28d9; background: #faf5ff; font-size: .78rem; line-height: 1.45; }
+.question-readonly-fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.question-readonly-fieldset:disabled { opacity: .82; }
+
+.editor-view .sidebar-mark { background: linear-gradient(145deg, #8b5cf6, #5b21b6); box-shadow: 0 8px 16px rgba(109, 40, 217, .22); }
+.editor-view .sidebar-brand strong, .editor-view .page-title, .editor-view .login-card h2, .editor-view .panel h2 { color: #6d28d9; }
+.editor-view .nav-item:hover { color: #6d28d9; background: #f3e8ff; }
+.editor-view .nav-item.active { background: linear-gradient(100deg, #8b5cf6, #6d28d9); box-shadow: 0 9px 18px rgba(109, 40, 217, .2); }
+.editor-view .sidebar-help { background: #f5edff; }
+.editor-view .sidebar-help strong { color: #6d28d9; }
+.editor-view .welcome-card { background: linear-gradient(115deg, #6d28d9, #a855f7); box-shadow: 0 14px 28px rgba(109, 40, 217, .2); }
+.editor-view .primary-btn { background: #6d28d9; }
+.editor-view .secondary-btn { color: #6d28d9; }
+.editor-view .filter-chip:hover, .editor-view .filter-chip.active { border-color: #7c3aed; background: #7c3aed; }
+.editor-view .pagination-btn { color: #6d28d9; }
+.editor-view .topic-access-summary { color: #6d28d9; }
 
 @media (max-width: 620px) {
   .schedule-panel { padding: 16px; }

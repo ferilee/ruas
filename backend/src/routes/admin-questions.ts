@@ -62,7 +62,21 @@ export function adminQuestionRoutes(pool: Pool, mediaStorage: MediaStorage | nul
     const allowed = await allowedTopicIds(c);
     if (allowed === null) return true;
     const question = await findAdminQuestion(db, questionId);
-    return Boolean(question && question.topic_ids.some((topicId) => allowed.includes(topicId)));
+    if (!question || !question.topic_ids.some((topicId) => allowed.includes(topicId))) return false;
+    const session = c.get('adminSession');
+    return session?.role !== 'editor'
+      || question.created_by === session.username
+      || question.creator_role === 'admin'
+      || question.created_by === 'env-admin'
+      || question.created_by === null;
+  }
+
+  async function questionIsOwnedByEditor(c: Context, questionId: number) {
+    const allowed = await allowedTopicIds(c);
+    if (allowed === null) return true;
+    const question = await findAdminQuestion(db, questionId);
+    const session = c.get('adminSession');
+    return Boolean(question && question.topic_ids.some((topicId) => allowed.includes(topicId)) && session?.role === 'editor' && question.created_by === session.username);
   }
 
   async function inputIsAllowed(c: Context, input: { topic_id: number; topic_ids?: number[] }) {
@@ -76,7 +90,13 @@ export function adminQuestionRoutes(pool: Pool, mediaStorage: MediaStorage | nul
   app.get('/', async (c) => {
     const parsed = questionListQuerySchema.safeParse(c.req.query());
     if (!parsed.success) return c.json({ error: 'invalid_query', message: parsed.error.issues[0]?.message ?? 'Filter soal tidak valid.' }, 400);
-    return c.json(await listAdminQuestions(db, { ...parsed.data, topic_ids: await allowedTopicIds(c) ?? undefined }));
+    const topicIds = await allowedTopicIds(c);
+    const session = c.get('adminSession');
+    return c.json(await listAdminQuestions(db, {
+      ...parsed.data,
+      ...(topicIds === null ? {} : { topic_ids: topicIds }),
+      ...(session?.role === 'editor' ? { created_by: session.username } : {}),
+    }));
   });
 
   app.get('/:id', async (c) => {
@@ -94,7 +114,7 @@ export function adminQuestionRoutes(pool: Pool, mediaStorage: MediaStorage | nul
   app.patch('/:id/archive', async (c) => {
     const id = parseQuestionIdParam(c.req.param('id'));
     if (id === null) return c.json({ error: 'invalid_param', message: 'ID soal tidak valid.' }, 400);
-    if (!(await questionIsAllowed(c, id))) return c.json({ error: 'not_found', message: 'Soal tidak ditemukan.' }, 404);
+    if (!(await questionIsOwnedByEditor(c, id))) return c.json({ error: 'admin_forbidden', message: 'Editor hanya dapat mengelola soal yang dibuat sendiri.' }, 403);
 
     const body = await readJson(c);
     if (!body || typeof body.archived !== 'boolean') {
@@ -113,7 +133,7 @@ export function adminQuestionRoutes(pool: Pool, mediaStorage: MediaStorage | nul
     if (questionId === null) return c.json({ error: 'invalid_param', message: 'ID soal tidak valid.' }, 400);
     const question = await findAdminQuestion(db, questionId);
     if (!question) return c.json({ error: 'not_found', message: 'Soal tidak ditemukan.' }, 404);
-    if (!(await questionIsAllowed(c, questionId))) return c.json({ error: 'not_found', message: 'Soal tidak ditemukan.' }, 404);
+    if (!(await questionIsOwnedByEditor(c, questionId))) return c.json({ error: 'admin_forbidden', message: 'Editor hanya dapat mengelola gambar pada soal yang dibuat sendiri.' }, 403);
 
     const body = await c.req.parseBody();
     const fileValue = body.file;
@@ -166,7 +186,7 @@ export function adminQuestionRoutes(pool: Pool, mediaStorage: MediaStorage | nul
 
     const media = await findQuestionMediaRecord(db, questionId, mediaId);
     if (!media) return c.json({ error: 'not_found', message: 'Gambar tidak ditemukan.' }, 404);
-    if (!(await questionIsAllowed(c, questionId))) return c.json({ error: 'not_found', message: 'Gambar tidak ditemukan.' }, 404);
+    if (!(await questionIsOwnedByEditor(c, questionId))) return c.json({ error: 'admin_forbidden', message: 'Editor hanya dapat mengelola gambar pada soal yang dibuat sendiri.' }, 403);
 
     await mediaStorage.remove(media.object_key);
     await db.delete(questionMedia).where(eq(questionMedia.id, mediaId));
@@ -178,7 +198,7 @@ export function adminQuestionRoutes(pool: Pool, mediaStorage: MediaStorage | nul
     if (!parsed.success) return c.json({ error: 'invalid_body', message: parsed.error.issues[0]?.message ?? 'Data soal tidak valid.' }, 400);
     if (!(await inputIsAllowed(c, parsed.data))) return c.json({ error: 'admin_forbidden', message: 'Soal harus berada pada mata pelajaran dan kelas yang ditetapkan untuk akun ini.' }, 403);
 
-    const id = await createAdminQuestion(db, parsed.data);
+    const id = await createAdminQuestion(db, parsed.data, c.get('adminSession')?.username ?? null);
     if (id === null) return c.json({ error: 'not_found', message: 'Topik tidak ditemukan.' }, 404);
     return c.json({ question_id: id }, 201);
   });
@@ -189,7 +209,7 @@ export function adminQuestionRoutes(pool: Pool, mediaStorage: MediaStorage | nul
 
     const parsed = adminQuestionSchema.safeParse(await readJson(c));
     if (!parsed.success) return c.json({ error: 'invalid_body', message: parsed.error.issues[0]?.message ?? 'Data soal tidak valid.' }, 400);
-    if (!(await questionIsAllowed(c, id)) || !(await inputIsAllowed(c, parsed.data))) return c.json({ error: 'admin_forbidden', message: 'Soal berada di luar penetapan akun ini.' }, 403);
+    if (!(await questionIsOwnedByEditor(c, id)) || !(await inputIsAllowed(c, parsed.data))) return c.json({ error: 'admin_forbidden', message: 'Editor hanya dapat mengubah soal yang dibuat sendiri dan berada dalam penetapannya.' }, 403);
 
     const visibleTopicIds = await allowedTopicIds(c);
     const existing = visibleTopicIds === null ? null : await findAdminQuestion(db, id);
@@ -204,7 +224,7 @@ export function adminQuestionRoutes(pool: Pool, mediaStorage: MediaStorage | nul
   app.delete('/:id', async (c) => {
     const id = parseQuestionIdParam(c.req.param('id'));
     if (id === null) return c.json({ error: 'invalid_param', message: 'ID soal tidak valid.' }, 400);
-    if (!(await questionIsAllowed(c, id))) return c.json({ error: 'not_found', message: 'Soal tidak ditemukan.' }, 404);
+    if (!(await questionIsOwnedByEditor(c, id))) return c.json({ error: 'admin_forbidden', message: 'Editor hanya dapat menghapus soal yang dibuat sendiri.' }, 403);
 
     const result = await deleteAdminQuestion(db, id, mediaStorage);
     if (result === 'not_found') return c.json({ error: 'not_found', message: 'Soal tidak ditemukan.' }, 404);
@@ -231,7 +251,15 @@ export function adminQuestionRoutes(pool: Pool, mediaStorage: MediaStorage | nul
       const topicRows = await listAdminTopics(db);
       allowedTopicSlugs = topicRows.filter((topic) => topicMatchesAdminScope(session, topic)).map((topic) => topic.slug);
     }
-    const summary = await importAdminQuestions(db, questions, request.data.mode, request.data.dry_run, allowedTopicSlugs);
+    const summary = await importAdminQuestions(
+      db,
+      questions,
+      request.data.mode,
+      request.data.dry_run,
+      allowedTopicSlugs,
+      session?.username ?? null,
+      session?.role === 'editor',
+    );
 
     if (summary.errors.length > 0) {
       const details = summary.errors.slice(0, 3).join(' ');

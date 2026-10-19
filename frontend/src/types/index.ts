@@ -131,6 +131,9 @@ export interface AdminQuestionListItem {
   question_text: string;
   external_id: string | null;
   archived_at: string | null;
+  created_by: string | null;
+  creator_display_name: string | null;
+  creator_role: AdminRole | null;
 }
 
 export interface AdminQuestionPage {

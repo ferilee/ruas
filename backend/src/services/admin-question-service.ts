@@ -27,6 +27,9 @@ export interface AdminQuestionListItem {
   question_text: string;
   external_id: string | null;
   archived_at: Date | null;
+  created_by: string | null;
+  creator_display_name: string | null;
+  creator_role: 'admin' | 'editor' | null;
 }
 
 export interface AdminQuestionDetail extends AdminQuestionListItem {
@@ -43,6 +46,7 @@ export interface AdminQuestionListFilters {
   page?: number;
   page_size?: number;
   topic_ids?: number[];
+  created_by?: string;
 }
 
 export interface AdminQuestionPage {
@@ -74,6 +78,14 @@ export async function listAdminQuestions(db: AdminDb, filters: AdminQuestionList
   if (filters.type) conditions.push(eq(questions.type, filters.type));
   if (filters.difficulty) conditions.push(eq(questions.difficulty, filters.difficulty));
   if (filters.status !== 'all') conditions.push(filters.status === 'archived' ? isNotNull(questions.archived_at) : isNull(questions.archived_at));
+  if (filters.created_by) {
+    conditions.push(or(
+      isNull(questions.created_by),
+      eq(questions.created_by, filters.created_by),
+      eq(questions.created_by, 'env-admin'),
+      eq(schema.users.role, 'admin'),
+    ));
+  }
   const condition = conditions.length > 0 ? and(...conditions) : undefined;
 
   const [totalRow] = await db
@@ -81,6 +93,7 @@ export async function listAdminQuestions(db: AdminDb, filters: AdminQuestionList
     .from(questions)
     .innerJoin(schema.topicQuestions, and(eq(schema.topicQuestions.question_id, questions.id), eq(schema.topicQuestions.enabled, true)))
     .innerJoin(topics, eq(schema.topicQuestions.topic_id, topics.id))
+    .leftJoin(schema.users, eq(questions.created_by, schema.users.username))
     .where(condition);
 
   const matchingRows = await db
@@ -88,6 +101,7 @@ export async function listAdminQuestions(db: AdminDb, filters: AdminQuestionList
     .from(questions)
     .innerJoin(schema.topicQuestions, and(eq(schema.topicQuestions.question_id, questions.id), eq(schema.topicQuestions.enabled, true)))
     .innerJoin(topics, eq(schema.topicQuestions.topic_id, topics.id))
+    .leftJoin(schema.users, eq(questions.created_by, schema.users.username))
     .where(condition)
     .orderBy(desc(questions.id))
     .limit(pageSize)
@@ -102,8 +116,12 @@ export async function listAdminQuestions(db: AdminDb, filters: AdminQuestionList
       question_text: questions.question_text,
       external_id: questions.external_id,
       archived_at: questions.archived_at,
+      created_by: questions.created_by,
+      creator_display_name: schema.users.display_name,
+      creator_role: schema.users.role,
     })
     .from(questions)
+    .leftJoin(schema.users, eq(questions.created_by, schema.users.username))
     .where(inArray(questions.id, questionIds));
   const mappings = questionIds.length === 0 ? [] : await db
     .select({ question_id: schema.topicQuestions.question_id, topic_id: topics.id, topic_slug: topics.slug, topic_label: topics.label })
@@ -137,6 +155,9 @@ export async function listAdminQuestions(db: AdminDb, filters: AdminQuestionList
           question_text: row.question_text,
           external_id: row.external_id,
           archived_at: row.archived_at,
+          created_by: row.created_by,
+          creator_display_name: row.creator_display_name,
+          creator_role: row.creator_role === 'editor' || row.creator_role === 'admin' ? row.creator_role : null,
         };
       }),
     page,
@@ -157,8 +178,12 @@ export async function findAdminQuestion(db: AdminDb, questionId: number, visible
       explanation_text: questions.explanation_text,
       external_id: questions.external_id,
       archived_at: questions.archived_at,
+      created_by: questions.created_by,
+      creator_display_name: schema.users.display_name,
+      creator_role: schema.users.role,
     })
     .from(questions)
+    .leftJoin(schema.users, eq(questions.created_by, schema.users.username))
     .where(eq(questions.id, questionId))
     .limit(1);
 
@@ -194,6 +219,9 @@ export async function findAdminQuestion(db: AdminDb, questionId: number, visible
     topic_labels: mappings.map((mapping) => mapping.topic_label),
     type: row.type as QuestionType,
     options,
+    created_by: row.created_by,
+    creator_display_name: row.creator_display_name,
+    creator_role: row.creator_role === 'editor' || row.creator_role === 'admin' ? row.creator_role : null,
   };
 }
 
@@ -221,7 +249,7 @@ async function syncQuestionTopics(db: Pick<AdminDb, 'insert' | 'delete'>, questi
   await db.insert(schema.topicQuestions).values(topicIds.map((topicId, index) => ({ topic_id: topicId, question_id: questionId, enabled: true, display_order: index + 1 })));
 }
 
-async function insertQuestion(db: InsertDb, input: AdminQuestionInput) {
+async function insertQuestion(db: InsertDb, input: AdminQuestionInput, createdBy: string | null = null) {
   const [inserted] = await db.insert(questions).values({
     topic_id: input.topic_id,
     type: input.type,
@@ -229,6 +257,7 @@ async function insertQuestion(db: InsertDb, input: AdminQuestionInput) {
     question_text: input.question_text,
     explanation_text: input.explanation_text,
     external_id: input.external_id || null,
+    created_by: createdBy,
   });
 
   const questionId = Number(inserted.insertId);
@@ -246,9 +275,9 @@ async function insertQuestion(db: InsertDb, input: AdminQuestionInput) {
   return questionId;
 }
 
-export async function createAdminQuestion(db: AdminDb, input: AdminQuestionInput): Promise<number | null> {
+export async function createAdminQuestion(db: AdminDb, input: AdminQuestionInput, createdBy: string | null = null): Promise<number | null> {
   if (!(await topicsExist(db, normalizedTopicIds(input)))) return null;
-  return db.transaction((tx) => insertQuestion(tx, input));
+  return db.transaction((tx) => insertQuestion(tx, input, createdBy));
 }
 
 export async function updateAdminQuestion(
@@ -496,6 +525,8 @@ export async function importAdminQuestions(
   mode: 'insert' | 'upsert',
   dryRun: boolean,
   allowedTopicSlugs?: string[],
+  createdBy: string | null = null,
+  restrictToOwner = false,
 ): Promise<ImportSummary> {
   const topicRows = await db.select({ id: topics.id, slug: topics.slug }).from(topics);
   const topicMap = new Map(topicRows.map((topic) => [topic.slug, topic.id]));
@@ -524,16 +555,24 @@ export async function importAdminQuestions(
 
     let existingId: number | null = null;
     if (question.external_id) {
-      const [existing] = await db.select({ id: questions.id }).from(questions)
+      const [existing] = await db.select({ id: questions.id, created_by: questions.created_by }).from(questions)
         .where(eq(questions.external_id, question.external_id)).limit(1);
       existingId = existing?.id ?? null;
     }
 
     if (!existingId) {
-      const [existing] = await db.select({ id: questions.id }).from(questions)
+      const [existing] = await db.select({ id: questions.id, created_by: questions.created_by }).from(questions)
         .where(and(eq(questions.topic_id, topicId), eq(questions.question_text, question.question_text)))
         .limit(1);
       existingId = existing?.id ?? null;
+    }
+
+    if (existingId && restrictToOwner) {
+      const [owner] = await db.select({ created_by: questions.created_by }).from(questions).where(eq(questions.id, existingId)).limit(1);
+      if (owner?.created_by !== createdBy) {
+        errors.push(`Soal ke-${index + 1} sudah dimiliki oleh pengguna lain dan tidak dapat diperbarui.`);
+        continue;
+      }
     }
 
     if (existingId && mode === 'insert') {
@@ -565,7 +604,7 @@ export async function importAdminQuestions(
   await db.transaction(async (tx) => {
     for (const plan of plans) {
       if (plan.existingId === null) {
-        await insertQuestion(tx, plan.input);
+        await insertQuestion(tx, plan.input, createdBy);
       } else {
         await tx.update(questions).set({
           topic_id: plan.input.topic_id,
