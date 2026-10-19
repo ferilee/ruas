@@ -24,20 +24,21 @@
       </button>
     </div>
 
-    <p class="teacher-workspace-hint">Setelah struktur dasar tersedia, Anda dapat mengatur topik, jadwal, dan laporan dari menu di samping.</p>
+    <p class="teacher-workspace-hint">Setelah struktur dasar tersedia, Anda dapat mengatur jadwal, laporan, dan pengaturan lain melalui navigasi aplikasi.</p>
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue';
 
-type WorkspaceAction = 'class' | 'assessment-type' | 'subject' | 'question';
-type CardTone = 'blue' | 'violet' | 'green' | 'pink';
+type WorkspaceAction = 'class' | 'assessment-type' | 'subject' | 'topic' | 'question';
+type CardTone = 'blue' | 'violet' | 'green' | 'amber' | 'pink';
 
 const props = defineProps<{
   classCount: number;
   assessmentTypeCount: number;
   subjectCount: number;
+  topicCount: number;
   questionCount: number;
 }>();
 
@@ -76,6 +77,14 @@ const cards = computed<Array<{
     tone: 'green',
   },
   {
+    id: 'topic',
+    title: 'Tambah Topik',
+    description: 'Buat paket soal dan tentukan kelas yang dapat mengaksesnya.',
+    countLabel: `${props.topicCount} topik tersedia`,
+    icon: '◈',
+    tone: 'amber',
+  },
+  {
     id: 'question',
     title: 'Tambah Soal',
     description: 'Buat soal baru untuk dimasukkan ke dalam topik.',
@@ -112,6 +121,7 @@ const cards = computed<Array<{
 .teacher-workspace-icon.tone-blue { color: #91a8ff; background: #202d5b; }
 .teacher-workspace-icon.tone-violet { color: #dc9cff; background: #3c1954; }
 .teacher-workspace-icon.tone-green { color: #70eee8; background: #123f43; }
+.teacher-workspace-icon.tone-amber { color: #f0d466; background: #4c3b13; }
 .teacher-workspace-icon.tone-pink { color: #ff94c8; background: #521d3b; }
 .teacher-workspace-card-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 9px; }
 .teacher-workspace-card-copy strong { color: #f8f3ed; font-size: 1rem; text-transform: uppercase; }

@@ -1,5 +1,5 @@
 <template>
-  <section class="curriculum-panel panel">
+  <section :class="['curriculum-panel', 'panel', { 'workspace-only': workspaceOnly }]">
     <ConfirmDialog :open="confirmOpen" :title="confirmTitle" :message="confirmMessage" confirm-label="Hapus" @confirm="runConfirmation" @cancel="closeConfirmation" />
     <Transition name="toast-slide">
       <div v-if="toastMessage" :key="toastId" class="ruas-toast" role="alert" aria-live="assertive">
@@ -150,7 +150,7 @@ import {
 import type { AdminSession, AdminTopic, AdminTopicInput, AssessmentType, CurriculumClass, CurriculumData, Subject } from '@/types';
 import { ADMIN_REALTIME_EVENT, type AdminRealtimeEvent } from '@/lib/admin-realtime';
 
-const props = withDefaults(defineProps<{ topicOnly?: boolean; adminSession?: AdminSession | null; initialForm?: CurriculumFormModal | null }>(), { topicOnly: false, adminSession: null, initialForm: null });
+const props = withDefaults(defineProps<{ topicOnly?: boolean; workspaceOnly?: boolean; adminSession?: AdminSession | null; initialForm?: CurriculumFormModal | null }>(), { topicOnly: false, workspaceOnly: false, adminSession: null, initialForm: null });
 const curriculum = ref<CurriculumData>({ classes: [], assessment_types: [], subjects: [] });
 const loading = ref(true);
 const errorMessage = ref('');
@@ -264,6 +264,7 @@ watch(() => props.initialForm, (initialForm) => {
   if (initialForm === 'class') openClassForm();
   else if (initialForm === 'type') openTypeForm();
   else if (initialForm === 'subject') openSubjectForm();
+  else if (initialForm === 'topic') openTopicForm();
 }, { immediate: true });
 
 function askConfirmation(title: string, message: string, action: () => Promise<void>) { confirmTitle.value = title; confirmMessage.value = message; pendingConfirmation.value = action; confirmOpen.value = true; }
@@ -359,6 +360,8 @@ onUnmounted(() => { dismissToast(); window.removeEventListener(ADMIN_REALTIME_EV
 
 <style scoped>
 .curriculum-panel { display: flex; flex-direction: column; gap: 16px; padding: 22px; border: 1px solid #e2e8f0; border-radius: 16px; background: #fff; box-shadow: 0 10px 28px rgba(30, 64, 175, .07); }
+.curriculum-panel.workspace-only { display: block; min-height: 0; padding: 0; border: 0; background: transparent; box-shadow: none; }
+.curriculum-panel.workspace-only > :not(.curriculum-modal-backdrop) { display: none; }
 .primary-btn, .secondary-btn { border: 0; border-radius: 8px; padding: 9px 14px; font: inherit; font-size: .8rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
 .primary-btn { color: #fff; background: #1e40af; }
 .secondary-btn { color: #1e40af; background: #e8edf5; }
@@ -413,6 +416,25 @@ onUnmounted(() => { dismissToast(); window.removeEventListener(ADMIN_REALTIME_EV
 .curriculum-modal .curriculum-form > label.checkbox-field { min-height: 48px; }
 .curriculum-modal .form-actions { grid-column: 1 / -1; justify-content: flex-end; align-self: auto; padding-top: 5px; }
 .curriculum-modal .subject-form .form-actions, .curriculum-modal .topic-form .form-actions { grid-column: 1 / -1; }
+.curriculum-panel.workspace-only .curriculum-modal-backdrop { background: rgba(8, 8, 12, .78); backdrop-filter: blur(9px); }
+.curriculum-panel.workspace-only .curriculum-modal { border-color: #45444e; background: linear-gradient(145deg, #25252a, #17171b); box-shadow: 0 28px 70px rgba(0, 0, 0, .48); }
+.curriculum-panel.workspace-only .curriculum-modal-heading { border-bottom-color: #3d3c43; }
+.curriculum-panel.workspace-only .curriculum-modal-heading h2 { color: #f7f2eb; }
+.curriculum-panel.workspace-only .curriculum-modal-heading p { color: #aaa6b0; }
+.curriculum-panel.workspace-only .modal-eyebrow { color: #aab8ff; }
+.curriculum-panel.workspace-only .modal-close-btn { color: #c5c2ca; background: #35343c; }
+.curriculum-panel.workspace-only .modal-close-btn:hover { color: #fff; background: #4b4a55; }
+.curriculum-panel.workspace-only .curriculum-form > label, .curriculum-panel.workspace-only .topic-class-field { color: #d5d1d8; }
+.curriculum-panel.workspace-only .curriculum-form > label small, .curriculum-panel.workspace-only .topic-class-field > small { color: #8f8b96; }
+.curriculum-panel.workspace-only .curriculum-form input { border-color: #4b4a52; color: #f4f0ea; background: #1a1a1e; }
+.curriculum-panel.workspace-only .curriculum-form input::placeholder { color: #77747f; }
+.curriculum-panel.workspace-only .curriculum-form input:focus { border-color: #8d8bdb; outline: 2px solid rgba(141, 139, 219, .2); }
+.curriculum-panel.workspace-only .curriculum-form > label.checkbox-field { border-color: #45444e; color: #d5d1d8; background: #1d1d22; }
+.curriculum-panel.workspace-only .topic-class-picker { border-color: #4b4a52; background: #1a1a1e; }
+.curriculum-panel.workspace-only .topic-class-option { border-color: #45444e; color: #c5c2ca; background: #25252a; }
+.curriculum-panel.workspace-only .topic-class-all { color: #aab8ff; background: #252d50; }
+.curriculum-panel.workspace-only .primary-btn { color: #fff; background: #7350c7; }
+.curriculum-panel.workspace-only .secondary-btn { color: #d1c9e9; background: #393542; }
 .curriculum-items { display: flex; flex-direction: column; gap: 7px; margin-top: 14px; }
 .curriculum-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 1px solid #e1e8f0; border-radius: 8px; background: #fff; }
 .curriculum-item strong, .curriculum-item small { display: block; }

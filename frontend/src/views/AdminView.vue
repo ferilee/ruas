@@ -1,5 +1,5 @@
 <template>
-  <div :class="['admin-view', { 'editor-view': isEditorSession, 'teacher-workspace-view': isEditorSession && activeSection === 'overview' }]">
+  <div :class="['admin-view', { 'editor-view': isEditorSession, 'teacher-workspace-view': isEditorSession && (activeSection === 'overview' || curriculumFocus !== null || teacherQuestionFlow), 'teacher-question-workspace': isEditorSession && teacherQuestionFlow }]">
     <ConfirmDialog :open="confirmOpen" :title="confirmTitle" :message="confirmMessage" :confirm-label="confirmLabel" @confirm="runConfirmation" @cancel="closeConfirmation" />
     <div v-if="!isAuthenticated" class="admin-header">
       <div>
@@ -69,14 +69,23 @@
             </div>
           </div>
 
-          <TeacherWorkspaceHome
-            v-if="isEditorSession && activeSection === 'overview'"
-            :class-count="curriculum.classes.length"
-            :assessment-type-count="curriculum.assessment_types.length"
-            :subject-count="curriculum.subjects.length"
-            :question-count="questionTotal"
-            @create="handleTeacherWorkspaceAction"
-          />
+          <template v-if="isEditorSession && activeSection === 'overview'">
+            <TeacherWorkspaceHome
+              :class-count="curriculum.classes.length"
+              :assessment-type-count="curriculum.assessment_types.length"
+              :subject-count="curriculum.subjects.length"
+              :topic-count="topics.length"
+              :question-count="questionTotal"
+              @create="handleTeacherWorkspaceAction"
+            />
+            <CurriculumPanel
+              v-if="curriculumFocus"
+              :workspace-only="true"
+              :admin-session="adminSession"
+              :initial-form="curriculumFocus"
+              @topics-updated="loadData"
+            />
+          </template>
 
           <section v-else-if="activeSection === 'overview'" class="overview-section">
             <div class="welcome-card">
@@ -395,7 +404,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import MathText from '@/components/MathText.vue';
@@ -430,7 +439,7 @@ import { connectAdminRealtime, dispatchAdminRealtimeEvent, type AdminRealtimeEve
 
 const router = useRouter();
 type AdminSection = 'overview' | 'curriculum' | 'questions' | 'schedule' | 'reports' | 'users' | 'teacher-requests';
-type TeacherWorkspaceAction = 'class' | 'assessment-type' | 'subject' | 'question';
+type TeacherWorkspaceAction = 'class' | 'assessment-type' | 'subject' | 'topic' | 'question';
 const navigation: Array<{ id: AdminSection; label: string; icon: string; title: string; description: string }> = [
   { id: 'overview', label: 'Ringkasan', icon: '⌂', title: 'Ringkasan', description: 'Pantau isi dan status asesmen RUAS.' },
   { id: 'curriculum', label: 'Struktur Asesmen', icon: '▦', title: 'Struktur Asesmen', description: 'Atur kelas, jenis asesmen, dan mata pelajaran.' },
@@ -447,7 +456,8 @@ const visibleNavigation = computed(() => isAdminSession.value ? navigation : nav
 const visibleMobilePrimaryNavigation = computed(() => visibleNavigation.value.filter((item) => ['overview', 'curriculum', 'questions', 'reports'].includes(item.id)));
 const visibleMobileSecondaryNavigation = computed(() => visibleNavigation.value.filter((item) => ['schedule', 'users', 'teacher-requests'].includes(item.id)));
 const activeSection = ref<AdminSection>('overview');
-const curriculumFocus = ref<'class' | 'type' | 'subject' | null>(null);
+const curriculumFocus = ref<'class' | 'type' | 'subject' | 'topic' | null>(null);
+const teacherQuestionFlow = ref(false);
 const moreMenuOpen = ref(false);
 const currentSection = computed(() => navigation.find((item) => item.id === activeSection.value) ?? navigation[0]);
 const currentSectionTitle = computed(() => currentSection.value.title);
@@ -572,6 +582,8 @@ watch([difficultyFilter, questionTypeFilter, questionStatusFilter, questionTopic
 });
 
 function selectSection(section: AdminSection) {
+  if (section !== 'overview') curriculumFocus.value = null;
+  if (section !== 'questions') teacherQuestionFlow.value = false;
   activeSection.value = section;
   moreMenuOpen.value = false;
   errorMessage.value = '';
@@ -579,12 +591,16 @@ function selectSection(section: AdminSection) {
 
 function handleTeacherWorkspaceAction(action: TeacherWorkspaceAction) {
   if (action === 'question') {
+    curriculumFocus.value = null;
+    teacherQuestionFlow.value = true;
     startNew();
     selectSection('questions');
     return;
   }
-  curriculumFocus.value = action === 'assessment-type' ? 'type' : action;
-  selectSection('curriculum');
+  teacherQuestionFlow.value = false;
+  const form = action === 'assessment-type' ? 'type' : action;
+  curriculumFocus.value = null;
+  void nextTick(() => { curriculumFocus.value = form; });
 }
 
 function syncTopicAccessDrafts(rows: AdminTopic[]) {
@@ -687,6 +703,10 @@ function startNew() {
 
 function closeQuestionForm() {
   questionFormOpen.value = false;
+  if (teacherQuestionFlow.value) {
+    teacherQuestionFlow.value = false;
+    activeSection.value = 'overview';
+  }
 }
 
 function openImportModal() {
@@ -1040,7 +1060,7 @@ async function saveQuestion() {
     formMessageType.value = 'success';
     questionPage.value = 1;
     await loadQuestions();
-    questionFormOpen.value = false;
+    closeQuestionForm();
   } catch (error) {
     formMessageType.value = 'error';
     formMessage.value = error instanceof Error ? error.message : 'Gagal menyimpan soal.';
@@ -1464,6 +1484,22 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .teacher-workspace-view .admin-sidebar, .teacher-workspace-view .dashboard-header { display: none; }
 .teacher-workspace-view .admin-content { width: 100%; }
 .teacher-workspace-view .teacher-workspace-home { min-height: 100vh; border-radius: 0; box-shadow: none; }
+.teacher-question-workspace .form-panel.open, .teacher-question-workspace .import-panel.open { border-color: #45444e; border-radius: 3px; color: #f6f2eb; background: #202023; box-shadow: 0 0 0 100vmax rgba(8, 8, 12, .78), 0 28px 70px rgba(0, 0, 0, .48); }
+.teacher-question-workspace .form-panel.open .panel-heading, .teacher-question-workspace .import-panel.open .panel-heading { border-bottom-color: #3d3c43; background: #202023; }
+.teacher-question-workspace .form-panel.open .panel-heading h2, .teacher-question-workspace .import-panel.open .panel-heading h2 { color: #f7f2eb; }
+.teacher-question-workspace .form-panel.open label, .teacher-question-workspace .form-panel.open legend, .teacher-question-workspace .import-panel.open label { color: #d5d1d8; }
+.teacher-question-workspace .form-panel.open input, .teacher-question-workspace .form-panel.open textarea, .teacher-question-workspace .import-panel.open textarea { border-color: #4b4a52; color: #f4f0ea; background: #1a1a1e; }
+.teacher-question-workspace .form-panel.open input::placeholder, .teacher-question-workspace .form-panel.open textarea::placeholder, .teacher-question-workspace .import-panel.open textarea::placeholder { color: #77747f; }
+.teacher-question-workspace .form-panel.open fieldset { border-color: #45444e; }
+.teacher-question-workspace .form-panel.open .math-preview { border-color: #4b4a52; color: #d5d1d8; background: #1a1a1e; }
+.teacher-question-workspace .form-panel.open .close-form-btn, .teacher-question-workspace .import-panel.open .close-form-btn { color: #c5c2ca; background: #35343c; }
+.teacher-question-workspace .form-panel.open .field-hint, .teacher-question-workspace .import-panel.open .field-hint { color: #8f8b96; }
+.teacher-question-workspace .form-panel.open .primary-btn, .teacher-question-workspace .import-panel.open .primary-btn { background: #7350c7; }
+.teacher-question-workspace .form-panel.open .secondary-btn, .teacher-question-workspace .import-panel.open .secondary-btn { color: #d1c9e9; background: #393542; }
+.teacher-question-workspace .form-panel.open :deep(.ruas-select-trigger) { border-color: #4b4a52; color: #e5e0e8; background: #1a1a1e; }
+.teacher-question-workspace .form-panel.open :deep(.ruas-select-menu) { border-color: #4b4a52; background: #25252a; }
+.teacher-question-workspace .form-panel.open :deep(.ruas-select-option) { color: #d5d1d8; }
+.teacher-question-workspace .form-panel.open :deep(.ruas-select-option:hover), .teacher-question-workspace .form-panel.open :deep(.ruas-select-option.highlighted) { color: #fff; background: #393542; }
 
 @media (max-width: 620px) {
   .schedule-panel { padding: 16px; }
@@ -1527,7 +1563,6 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
   .mobile-more-item:hover { background: #edf5ff; color: #1d5fc0; }
   .mobile-more-item > span:nth-child(2) { flex: 1; }
 }
-.teacher-workspace-view .mobile-bottom-nav, .teacher-workspace-view .mobile-more-menu, .teacher-workspace-view .mobile-more-backdrop { display: none !important; }
 @media print {
   .mobile-bottom-nav, .mobile-more-menu, .mobile-more-backdrop { display: none !important; }
 }
