@@ -69,6 +69,19 @@
             </div>
           </div>
 
+          <TeacherOnboardingWizard
+            v-if="isEditorSession && activeSection === 'overview'"
+            :username="adminSession?.username ?? ''"
+            :class-count="curriculum.classes.length"
+            :subject-count="curriculum.subjects.length"
+            :assessment-type-count="curriculum.assessment_types.length"
+            :topic-count="topics.length"
+            :question-count="questionTotal"
+            :secured-topic-count="securedTopicCount"
+            :scheduled-topic-count="scheduledTopicCount"
+            @navigate="selectSection"
+          />
+
           <section v-if="activeSection === 'overview'" class="overview-section">
             <div class="welcome-card">
               <div>
@@ -396,6 +409,7 @@ import ReportsPanel from '@/components/ReportsPanel.vue';
 import RuasSelect from '@/components/RuasSelect.vue';
 import UsersPanel from '@/components/UsersPanel.vue';
 import TeacherRequestsPanel from '@/components/TeacherRequestsPanel.vue';
+import TeacherOnboardingWizard from '@/components/TeacherOnboardingWizard.vue';
 import {
   adminLogin,
   createAdminQuestion,
@@ -405,6 +419,7 @@ import {
   fetchAdminQuestions,
   fetchAdminSchedule,
   fetchAdminTopics,
+  fetchAdminCurriculum,
   deleteAdminQuestionMedia,
   importAdminQuestions,
   setAdminQuestionArchived,
@@ -413,7 +428,7 @@ import {
   updateAdminQuestion,
   updateAdminSchedule,
 } from '@/api/client';
-import type { AdminQuestionInput, AdminQuestionListItem, AdminTopic, AssessmentSchedule, ImportSummary, QuestionMedia } from '@/types';
+import type { AdminQuestionInput, AdminQuestionListItem, AdminTopic, AssessmentSchedule, CurriculumData, ImportSummary, QuestionMedia } from '@/types';
 import type { AdminSession } from '@/types';
 import { connectAdminRealtime, dispatchAdminRealtimeEvent, type AdminRealtimeEvent, type AdminRealtimeStatus } from '@/lib/admin-realtime';
 
@@ -454,6 +469,7 @@ const formMessage = ref('');
 const formMessageType = ref<'success' | 'error'>('success');
 const questions = ref<AdminQuestionListItem[]>([]);
 const topics = ref<AdminTopic[]>([]);
+const curriculum = ref<CurriculumData>({ classes: [], assessment_types: [], subjects: [] });
 const topicAccessDrafts = reactive<Record<number, { token: string }>>({});
 const revealedTopicTokens = reactive<Record<number, string>>({});
 const topicAccessSavingId = ref<number | null>(null);
@@ -544,6 +560,8 @@ const scheduleGroups = computed(() => [
   { key: 'upcoming', label: 'Akan Datang', rows: scheduleRows.value.filter((row) => row.state === 'upcoming') },
   { key: 'ended', label: 'Sudah Berakhir', rows: scheduleRows.value.filter((row) => row.state === 'ended' || row.state === 'disabled') },
 ]);
+const securedTopicCount = computed(() => topics.value.filter((topic) => topic.token_configured).length);
+const scheduledTopicCount = computed(() => new Set(scheduleRows.value.filter((row) => row.topic_id !== null).map((row) => row.topic_id)).size);
 
 watch(search, () => {
   if (questionSearchTimer) clearTimeout(questionSearchTimer);
@@ -783,10 +801,11 @@ function goToQuestionPage(page: number) {
 
 async function loadData() {
   try {
-    const [questionRows, topicRows, schedules] = await Promise.all([
+    const [questionRows, topicRows, schedules, curriculumData] = await Promise.all([
       fetchAdminQuestions(),
       fetchAdminTopics(),
       fetchAdminSchedule(),
+      fetchAdminCurriculum(),
     ]);
     questions.value = questionRows.questions;
     questionPage.value = questionRows.page;
@@ -794,6 +813,7 @@ async function loadData() {
     questionTotal.value = questionRows.total;
     questionTotalPages.value = questionRows.total_pages;
     topics.value = topicRows;
+    curriculum.value = curriculumData;
     syncTopicAccessDrafts(topicRows);
     scheduleRows.value = schedules;
     const selectedId = scheduleTopicId.value ?? topics.value[0]?.id ?? null;
