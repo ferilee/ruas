@@ -51,4 +51,12 @@ defineEmits<{ confirm: []; cancel: [] }>();
 .confirm-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 22px; }.confirm-actions button { padding: 10px 16px; border-radius: 9px; font: inherit; font-size: .78rem; font-weight: 800; cursor: pointer; }.confirm-cancel { border: 1px solid #d4e1ef; color: #476482; background: #fff; }.confirm-submit { border: 0; color: #fff; background: linear-gradient(110deg, #2378db, #2251b5); box-shadow: 0 7px 14px rgba(35, 101, 199, .2); }
 .confirm-submit:disabled { cursor: not-allowed; opacity: .48; box-shadow: none; }
 @media (max-width: 520px) { .confirm-dialog { padding: 20px; border-radius: 17px; }.confirm-actions { display: grid; grid-template-columns: 1fr 1fr; }.confirm-actions button { width: 100%; } }
+
+:global(html[data-ruas-theme="light"]) .confirm-backdrop { background: rgba(31, 58, 91, .24); }
+:global(html[data-ruas-theme="light"]) .confirm-dialog { border-color: #d7e2ee; color: #1d3557; background: #fff; box-shadow: 0 24px 60px rgba(31, 74, 126, .2); }
+:global(html[data-ruas-theme="light"]) .confirm-content h2 { color: #173e7f; }
+:global(html[data-ruas-theme="light"]) .confirm-content p { color: #71849b; }
+:global(html[data-ruas-theme="light"]) .confirmation-field { color: #435d7d; }
+:global(html[data-ruas-theme="light"]) .confirmation-field input { border-color: #d4dde6; color: #294c7a; background: #f9fbfe; }
+:global(html[data-ruas-theme="light"]) .confirm-cancel { border-color: #d4e1ef; color: #476482; background: #fff; }
 </style>
