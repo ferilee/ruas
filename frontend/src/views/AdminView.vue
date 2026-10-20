@@ -458,7 +458,7 @@
         </main>
       </div>
 
-      <nav class="mobile-bottom-nav no-print" aria-label="Navigasi admin mobile">
+      <nav v-if="!isEditorSession" class="mobile-bottom-nav no-print" aria-label="Navigasi admin mobile">
         <button
           v-for="item in visibleMobilePrimaryNavigation"
           :key="item.id"
@@ -475,8 +475,8 @@
         </button>
       </nav>
 
-      <div v-if="moreMenuOpen" class="mobile-more-backdrop" @click="moreMenuOpen = false"></div>
-      <section v-if="moreMenuOpen" class="mobile-more-menu" aria-label="Menu admin lainnya">
+      <div v-if="!isEditorSession && moreMenuOpen" class="mobile-more-backdrop" @click="moreMenuOpen = false"></div>
+      <section v-if="!isEditorSession && moreMenuOpen" class="mobile-more-menu" aria-label="Menu admin lainnya">
         <div class="mobile-more-heading"><strong>Menu lainnya</strong><button type="button" aria-label="Tutup menu" @click="moreMenuOpen = false">×</button></div>
         <button v-for="item in visibleMobileSecondaryNavigation" :key="item.id" type="button" class="mobile-more-item" @click="selectSection(item.id)">
           <span class="mobile-nav-icon" aria-hidden="true">{{ item.icon }}</span><span>{{ item.label }}</span><span aria-hidden="true">›</span>
