@@ -84,6 +84,7 @@
               :participant-count="participantCount"
               @create="handleTeacherWorkspaceAction"
               @navigate="handleTeacherWorkspaceNavigation"
+              @feedback="openFeedbackModal"
             />
             <CurriculumPanel
               v-if="curriculumFocus"
@@ -172,6 +173,15 @@
                 <CurriculumPanel :readonly="true" :admin-session="adminSession" @topics-updated="loadData" />
               </section>
             </div>
+            <div v-if="teacherWorkspaceModal === 'feedback'" class="teacher-workspace-modal-backdrop" role="presentation" @click.self="closeTeacherWorkspaceModal">
+              <section class="teacher-workspace-modal teacher-feedback-modal" role="dialog" aria-modal="true" aria-labelledby="teacher-feedback-modal-title">
+                <div class="teacher-workspace-modal-heading">
+                  <div><span class="modal-eyebrow">RUANG KERJA GURU</span><h2 id="teacher-feedback-modal-title">Saran &amp; Testimoni</h2><p>Bantu kami memperbaiki pengalaman menggunakan RUAS.</p></div>
+                  <button class="teacher-workspace-modal-close" type="button" aria-label="Tutup saran dan testimoni" @click="closeTeacherWorkspaceModal">×</button>
+                </div>
+                <FeedbackPanel :session="adminSession" :initial-kind="feedbackKind" mode="submit" />
+              </section>
+            </div>
           </template>
 
           <section v-else-if="activeSection === 'overview'" class="overview-section">
@@ -219,6 +229,8 @@
           <UsersPanel v-else-if="activeSection === 'users'" :admin-session="adminSession" />
 
           <TeacherRequestsPanel v-else-if="activeSection === 'teacher-requests'" />
+
+          <FeedbackPanel v-else-if="activeSection === 'feedback'" :session="adminSession" mode="manage" />
 
           <section v-else-if="activeSection === 'schedule'" class="panel schedule-panel">
             <div class="schedule-hero">
@@ -506,6 +518,7 @@ import UsersPanel from '@/components/UsersPanel.vue';
 import TeacherRequestsPanel from '@/components/TeacherRequestsPanel.vue';
 import TeacherWorkspaceHome from '@/components/TeacherWorkspaceHome.vue';
 import TeacherQuestionListModal from '@/components/TeacherQuestionListModal.vue';
+import FeedbackPanel from '@/components/FeedbackPanel.vue';
 import {
   adminLogin,
   createAdminQuestion,
@@ -530,7 +543,7 @@ import type { AdminSession } from '@/types';
 import { connectAdminRealtime, dispatchAdminRealtimeEvent, type AdminRealtimeEvent, type AdminRealtimeStatus } from '@/lib/admin-realtime';
 
 const router = useRouter();
-type AdminSection = 'overview' | 'curriculum' | 'questions' | 'schedule' | 'reports' | 'users' | 'teacher-requests';
+type AdminSection = 'overview' | 'curriculum' | 'questions' | 'schedule' | 'reports' | 'users' | 'teacher-requests' | 'feedback';
 type TeacherWorkspaceAction = 'class' | 'assessment-type' | 'subject' | 'topic' | 'question';
 const navigation: Array<{ id: AdminSection; label: string; icon: string; title: string; description: string }> = [
   { id: 'overview', label: 'Ringkasan', icon: '⌂', title: 'Ringkasan', description: 'Pantau isi dan status asesmen RUAS.' },
@@ -540,19 +553,21 @@ const navigation: Array<{ id: AdminSection; label: string; icon: string; title: 
   { id: 'reports', label: 'Laporan', icon: '▤', title: 'Laporan Asesmen', description: 'Pantau hasil siswa dan ekspor laporan PDF.' },
   { id: 'users', label: 'Pengguna', icon: '♙', title: 'Pengguna', description: 'Tambah akun secara manual atau import dari CSV/JSON.' },
   { id: 'teacher-requests', label: 'Pengajuan Guru', icon: '✦', title: 'Pengajuan Guru', description: 'Tinjau permintaan akses Editor dari guru.' },
+  { id: 'feedback', label: 'Masukan', icon: '♡', title: 'Masukan & Testimoni', description: 'Tinjau saran dan testimoni sebelum ditampilkan.' },
 ];
 const adminSession = ref<AdminSession | null>(null);
 const isAdminSession = computed(() => adminSession.value?.role === 'admin');
 const isEditorSession = computed(() => adminSession.value?.role === 'editor');
 type AdminTheme = 'light' | 'dark';
 const adminTheme = ref<AdminTheme>('dark');
-const visibleNavigation = computed(() => isAdminSession.value ? navigation : navigation.filter((item) => item.id !== 'teacher-requests'));
+const visibleNavigation = computed(() => isAdminSession.value ? navigation : navigation.filter((item) => item.id !== 'teacher-requests' && item.id !== 'feedback'));
 const visibleMobilePrimaryNavigation = computed(() => visibleNavigation.value.filter((item) => ['overview', 'curriculum', 'questions', 'reports'].includes(item.id)));
-const visibleMobileSecondaryNavigation = computed(() => visibleNavigation.value.filter((item) => ['schedule', 'users', 'teacher-requests'].includes(item.id)));
+const visibleMobileSecondaryNavigation = computed(() => visibleNavigation.value.filter((item) => ['schedule', 'users', 'teacher-requests', 'feedback'].includes(item.id)));
 const activeSection = ref<AdminSection>('overview');
 const curriculumFocus = ref<'class' | 'type' | 'subject' | 'topic' | null>(null);
 const teacherQuestionFlow = ref(false);
-const teacherWorkspaceModal = ref<'schedule' | 'users' | 'reports' | 'questions' | 'curriculum' | null>(null);
+const teacherWorkspaceModal = ref<'schedule' | 'users' | 'reports' | 'questions' | 'curriculum' | 'feedback' | null>(null);
+const feedbackKind = ref<'suggestion' | 'testimonial'>('suggestion');
 const moreMenuOpen = ref(false);
 const currentSection = computed(() => navigation.find((item) => item.id === activeSection.value) ?? navigation[0]);
 const currentSectionTitle = computed(() => currentSection.value.title);
@@ -724,6 +739,11 @@ function handleTeacherWorkspaceNavigation(section: 'curriculum' | 'questions' | 
 
 function closeTeacherWorkspaceModal() {
   teacherWorkspaceModal.value = null;
+}
+
+function openFeedbackModal(kind: 'suggestion' | 'testimonial') {
+  feedbackKind.value = kind;
+  teacherWorkspaceModal.value = 'feedback';
 }
 
 function createQuestionFromList() {
@@ -1757,6 +1777,7 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .teacher-schedule-modal { width: min(100%, 1080px); }
 .teacher-report-modal { width: min(100%, 1080px); }
 .teacher-question-modal { width: min(100%, 900px); }
+.teacher-feedback-modal { width: min(100%, 760px); }
 .teacher-curriculum-modal { width: min(100%, 1120px); }
 .teacher-report-modal .reports-panel { gap: 14px; }
 .teacher-report-modal .simple-report-header { border: 0; border-radius: 0; padding: 0 0 16px; background: transparent; }
@@ -1782,6 +1803,21 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .workspace-schedule-panel { padding: 0; border: 0; box-shadow: none; }
 .workspace-schedule-panel .schedule-layout { grid-template-columns: minmax(250px, .75fr) minmax(0, 1.25fr); }
 .workspace-schedule-panel .schedule-editor-form, .workspace-schedule-panel .schedule-list-card { background: #25252a; }
+.teacher-workspace-modal .feedback-panel { color: #d5d1d8; }
+.teacher-workspace-modal .feedback-intro { border-color: #3d3c43; background: #25252a; }
+.teacher-workspace-modal .feedback-intro strong, .teacher-workspace-modal .feedback-manage-toolbar strong { color: #f0ebf2; }
+.teacher-workspace-modal .feedback-intro p, .teacher-workspace-modal .feedback-manage-toolbar p { color: #9b97a2; }
+.teacher-workspace-modal .feedback-kind-tabs { border-color: #3d3c43; background: #25252a; }
+.teacher-workspace-modal .feedback-kind-tabs button { color: #aaa6b0; }
+.teacher-workspace-modal .feedback-kind-tabs button.active { color: #fff; background: #7350c7; }
+.teacher-workspace-modal .feedback-form label:not(.feedback-consent) { color: #d5d1d8; }
+.teacher-workspace-modal .feedback-form input, .teacher-workspace-modal .feedback-form textarea, .teacher-workspace-modal .feedback-manage-toolbar select, .teacher-workspace-modal .feedback-entry-actions input { border-color: #4b4a52; color: #f4f0ea; background: #1a1a1e; }
+.teacher-workspace-modal .feedback-consent { color: #aaa6b0; }
+.teacher-workspace-modal .feedback-submit { background: #7350c7; }
+.teacher-workspace-modal .feedback-entry { border-color: #3d3c43; background: #25252a; }
+.teacher-workspace-modal .feedback-entry-heading, .teacher-workspace-modal .feedback-entry-author { color: #96919d; }
+.teacher-workspace-modal .feedback-entry-message { color: #d5d1d8; }
+.teacher-workspace-modal .feedback-empty { border-color: #45444e; color: #9b97a2; }
 
 @media (max-width: 720px) {
   .teacher-workspace-modal-backdrop { align-items: stretch; padding: 0; }
@@ -1884,6 +1920,9 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .teacher-workspace-view[data-theme="light"] :deep(.teacher-workspace-icon.tone-pink), .teacher-workspace-view[data-theme="light"] :deep(.workspace-action-icon.tone-pink) { color: #bd4f82; background: #ffebf3; }
 .teacher-workspace-view[data-theme="light"] :deep(.workspace-action-button), .teacher-workspace-view[data-theme="light"] :deep(.workspace-mini-link) { border-color: #d7e2ee; color: #365678; background: #f8fbff; }
 .teacher-workspace-view[data-theme="light"] :deep(.workspace-action-button:hover), .teacher-workspace-view[data-theme="light"] :deep(.workspace-mini-link:hover) { border-color: #9dbfe5; background: #edf5ff; }
+.teacher-workspace-view[data-theme="light"] :deep(.workspace-feedback-actions button) { border-color: #d7e2ee; color: #365678; background: #f8fbff; }
+.teacher-workspace-view[data-theme="light"] :deep(.workspace-feedback-actions button:hover) { border-color: #9dbfe5; background: #edf5ff; }
+.teacher-workspace-view[data-theme="light"] :deep(.workspace-feedback-actions span) { color: #356fbd; }
 .teacher-workspace-view[data-theme="light"] :deep(.workspace-mini-link b) { color: #234978; }
 .teacher-workspace-view[data-theme="light"] :deep(.workspace-mini-link small) { color: #7890aa; }
 .teacher-workspace-view[data-theme="light"] :deep(.workspace-mini-link i), .teacher-workspace-view[data-theme="light"] :deep(.teacher-workspace-arrow) { color: #356fbd; }

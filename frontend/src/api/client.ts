@@ -12,6 +12,8 @@ import type {
   AdminReportDetail,
   AdminReportFilters,
   TeacherAccessRequest,
+  FeedbackEntry,
+  PublicTestimonial,
   AssessmentSchedule,
   AttemptQuestion,
   CurriculumData,
@@ -312,6 +314,30 @@ export async function reviewAdminTeacherAccessRequest(id: number, action: 'appro
     body: JSON.stringify({ action, rejection_reason: rejectionReason ?? '' }),
   });
   return data.status;
+}
+
+export async function submitAdminFeedback(input: { kind: 'suggestion' | 'testimonial'; message: string; display_name: string; role_label: string; consent_public: boolean }): Promise<void> {
+  await adminRequest('/admin/feedback', { method: 'POST', body: JSON.stringify(input) });
+}
+
+export async function fetchAdminFeedback(status: 'pending' | 'approved' | 'rejected' | 'all' = 'pending'): Promise<FeedbackEntry[]> {
+  const data = await adminRequest<{ feedback: FeedbackEntry[] }>(`/admin/feedback?status=${status}`);
+  return data.feedback;
+}
+
+export async function reviewAdminFeedback(id: number, action: 'approve' | 'reject', rejectionReason?: string): Promise<'approved' | 'rejected'> {
+  const data = await adminRequest<{ status: 'approved' | 'rejected' }>(`/admin/feedback/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ action, rejection_reason: rejectionReason ?? '' }),
+  });
+  return data.status;
+}
+
+export async function fetchPublicTestimonials(): Promise<PublicTestimonial[]> {
+  const res = await fetch(`${BASE}/testimonials`);
+  if (!res.ok) return [];
+  const data = await res.json() as { testimonials?: PublicTestimonial[] };
+  return data.testimonials ?? [];
 }
 
 export async function fetchAdminQuestions(filters: { search?: string; topic_id?: number; type?: AdminQuestionListItem['type']; difficulty?: AdminQuestionListItem['difficulty']; status?: 'active' | 'archived' | 'all'; page?: number; page_size?: number } = {}): Promise<AdminQuestionPage> {

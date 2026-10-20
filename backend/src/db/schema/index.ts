@@ -14,3 +14,4 @@ export { examAnswers } from './exam-answers';
 export { examIntegrityEvents } from './exam-integrity-events';
 export { users } from './users';
 export { teacherAccessRequests } from './teacher-access-requests';
+export { feedbackEntries } from './feedback-entries';

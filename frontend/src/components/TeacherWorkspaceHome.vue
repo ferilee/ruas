@@ -58,6 +58,17 @@
         <span class="teacher-workspace-card-copy"><strong>Daftar Pengguna</strong><small>Kelola siswa yang berada dalam penetapan Anda.</small><em>{{ props.participantCount }} siswa terdaftar</em></span>
         <span class="teacher-workspace-arrow" aria-hidden="true">→</span>
       </button>
+
+      <article class="teacher-workspace-card workspace-feedback-card">
+        <div class="workspace-card-heading">
+          <span class="teacher-workspace-icon tone-blue" aria-hidden="true">✦</span>
+          <div><strong>Saran &amp; Testimoni</strong><small>Bantu kami membuat RUAS lebih nyaman digunakan.</small></div>
+        </div>
+        <div class="workspace-feedback-actions">
+          <button type="button" @click="emit('feedback', 'suggestion')">Kirim saran <span aria-hidden="true">→</span></button>
+          <button type="button" @click="emit('feedback', 'testimonial')">Bagikan pengalaman <span aria-hidden="true">→</span></button>
+        </div>
+      </article>
     </div>
 
     <p class="teacher-workspace-hint">Pilih kartu untuk membuka pengelolaan yang Anda perlukan. Navigasi tambahan tetap tersedia di perangkat mobile.</p>
@@ -70,6 +81,7 @@ import { computed } from 'vue';
 type WorkspaceAction = 'class' | 'assessment-type' | 'subject' | 'topic' | 'question';
 type WorkspaceSection = 'curriculum' | 'questions' | 'reports' | 'schedule' | 'users';
 type CardTone = 'blue' | 'violet' | 'green' | 'amber' | 'pink';
+type FeedbackKind = 'suggestion' | 'testimonial';
 
 const props = defineProps<{
   classCount: number;
@@ -84,6 +96,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   create: [action: WorkspaceAction];
   navigate: [section: WorkspaceSection];
+  feedback: [kind: FeedbackKind];
 }>();
 
 const actions: Array<{ id: WorkspaceAction; label: string; icon: string; tone: CardTone }> = [
@@ -207,6 +220,12 @@ const structureCountLabel = computed(() => `${props.classCount} kelas · ${props
 .workspace-mini-link i { color: #bca7ff; font-size: 1.05rem; font-style: normal; }
 
 .workspace-link-card { align-items: flex-start; }
+.workspace-feedback-card { display: block; cursor: default; }
+.workspace-feedback-card:hover { transform: none; }
+.workspace-feedback-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 18px; }
+.workspace-feedback-actions button { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 11px; border: 1px solid #3d3c43; color: #d5d1d8; background: #25252a; font: inherit; font-size: .7rem; font-weight: 700; cursor: pointer; }
+.workspace-feedback-actions button:hover { border-color: #8a7bc0; background: #393542; }
+.workspace-feedback-actions span { color: #bca7ff; font-size: .95rem; }
 .teacher-workspace-card-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 9px; }
 .teacher-workspace-card-copy strong { color: #f8f3ed; font-size: 1rem; text-transform: uppercase; }
 .teacher-workspace-card-copy small { max-width: 330px; color: #aaa6b0; font-size: .83rem; line-height: 1.55; }

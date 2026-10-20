@@ -251,6 +251,32 @@ export interface TeacherAccessRequest {
   updated_at: string;
 }
 
+export type FeedbackKind = 'suggestion' | 'testimonial';
+export type FeedbackStatus = 'pending' | 'approved' | 'rejected';
+
+export interface FeedbackEntry {
+  id: number;
+  kind: FeedbackKind;
+  message: string;
+  display_name: string;
+  role_label: string;
+  username: string | null;
+  consent_public: boolean | number;
+  status: FeedbackStatus;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  rejection_reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PublicTestimonial {
+  id: number;
+  message: string;
+  display_name: string;
+  role_label: string;
+}
+
 export interface UserImportSummary {
   inserted: number;
   updated: number;

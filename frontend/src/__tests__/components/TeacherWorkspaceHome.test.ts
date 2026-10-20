@@ -8,7 +8,7 @@ describe('TeacherWorkspaceHome', () => {
       props: { classCount: 3, assessmentTypeCount: 2, subjectCount: 4, topicCount: 5, questionCount: 18, scheduleCount: 2, participantCount: 30 },
     });
 
-    expect(wrapper.findAll('.teacher-workspace-card')).toHaveLength(5);
+    expect(wrapper.findAll('.teacher-workspace-card')).toHaveLength(6);
     expect(wrapper.findAll('.workspace-action-button')).toHaveLength(5);
     expect(wrapper.text()).toContain('3 kelas');
     expect(wrapper.text()).toContain('18 soal tersedia');
