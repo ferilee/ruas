@@ -1984,10 +1984,16 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .teacher-workspace-view[data-theme="light"] :deep(.users-panel .bulk-assignment-bar) { border-color: #d4e2f1; background: #f4f9ff; }
 
 .teacher-workspace-view[data-theme="light"] .workspace-schedule-panel .schedule-editor-form, .teacher-workspace-view[data-theme="light"] .workspace-schedule-panel .schedule-list-card { border-color: #dfe8f2; color: #1d3557; background: #fff; }
+.teacher-workspace-view[data-theme="light"] .workspace-schedule-panel { border-color: #d7e2ee; color: #1d3557; background: #fff; box-shadow: none; }
 .teacher-workspace-view[data-theme="light"] .workspace-schedule-panel .panel-heading, .teacher-workspace-view[data-theme="light"] .workspace-schedule-panel .schedule-editor-form .panel-heading, .teacher-workspace-view[data-theme="light"] .workspace-schedule-panel .schedule-list-card .panel-heading { border-color: #dfe8f2; }
 .teacher-workspace-view[data-theme="light"] .workspace-schedule-panel .panel-heading h3 { color: #234d87; }
 .teacher-workspace-view[data-theme="light"] .workspace-schedule-panel .panel-heading p, .teacher-workspace-view[data-theme="light"] .workspace-schedule-panel label, .teacher-workspace-view[data-theme="light"] .workspace-schedule-panel .schedule-empty, .teacher-workspace-view[data-theme="light"] .workspace-schedule-panel .schedule-hint { color: #71849b; }
 .teacher-workspace-view[data-theme="light"] .workspace-schedule-panel input { border-color: #d4e0ee; color: #294c7a; background: #f9fbfe; }
+.teacher-workspace-view[data-theme="light"] .workspace-schedule-panel :deep(.ruas-select-trigger) { border-color: #d4e0ee; color: #294c7a; background: #f9fbfe; }
+.teacher-workspace-view[data-theme="light"] .workspace-schedule-panel :deep(.ruas-select-menu) { border-color: #d4e0ee; background: #fff; }
+.teacher-workspace-view[data-theme="light"] .workspace-schedule-panel :deep(.ruas-select-option) { color: #47617f; }
+.teacher-workspace-view[data-theme="light"] .workspace-schedule-panel :deep(.ruas-select-option:hover), .teacher-workspace-view[data-theme="light"] .workspace-schedule-panel :deep(.ruas-select-option.highlighted) { color: #194f9f; background: #edf5ff; }
+.teacher-workspace-view[data-theme="light"] .workspace-schedule-panel .secondary-btn { border-color: #d4e1ef; color: #365678; background: #eef4fb; }
 .teacher-workspace-view[data-theme="light"] .workspace-schedule-panel .schedule-row { border-color: #e1eaf4; color: #47617f; background: #fff; }
 .teacher-workspace-view[data-theme="light"] .workspace-schedule-panel .schedule-row:hover { border-color: #9dbfe5; background: #f2f7ff; }
 .teacher-workspace-view[data-theme="light"] .workspace-schedule-panel .schedule-row-main strong { color: #234d87; }
