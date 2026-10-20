@@ -87,7 +87,7 @@
       </section>
 
       <div class="mobile-curriculum-tabs" role="tablist" aria-label="Kategori kurikulum">
-        <button v-for="tab in visibleMobileTabs" :key="tab.value" type="button" role="tab" :aria-selected="mobileTab === tab.value" :class="['mobile-curriculum-tab', { active: mobileTab === tab.value }]" @click="mobileTab = tab.value">{{ tab.label }}</button>
+        <button v-for="tab in visibleMobileTabs" :key="tab.value" type="button" role="tab" :aria-selected="mobileTab === tab.value" :class="['mobile-curriculum-tab', { active: mobileTab === tab.value }]" @click="mobileTab = tab.value"><span class="mobile-curriculum-tab-icon" aria-hidden="true">{{ tab.icon }}</span><span>{{ tab.label }}</span></button>
       </div>
 
       <div class="curriculum-grid">
@@ -172,11 +172,11 @@ const confirmOpen = ref(false);
 const confirmTitle = ref('Konfirmasi tindakan');
 const confirmMessage = ref('Apakah kamu yakin ingin melanjutkan?');
 const pendingConfirmation = ref<(() => Promise<void>) | null>(null);
-const mobileTabs: Array<{ value: MobileCurriculumTab; label: string }> = [
-  { value: 'classes', label: 'Kelas' },
-  { value: 'types', label: 'Jenis Asesmen' },
-  { value: 'subjects', label: 'Mata Pelajaran' },
-  { value: 'topics', label: 'Topik' },
+const mobileTabs: Array<{ value: MobileCurriculumTab; label: string; icon: string }> = [
+  { value: 'classes', label: 'Kelas', icon: '▦' },
+  { value: 'types', label: 'Jenis Asesmen', icon: '◷' },
+  { value: 'subjects', label: 'Mata Pelajaran', icon: '∑' },
+  { value: 'topics', label: 'Topik', icon: '◈' },
 ];
 const visibleMobileTabs = computed(() => props.topicOnly ? mobileTabs.filter((tab) => tab.value === 'topics') : mobileTabs);
 const classForm = reactive<CurriculumClassInput>({ slug: '', label: '', academic_year: '2026/2027', grade: 10, program: '', section: null, display_order: 1 });
@@ -465,7 +465,8 @@ onUnmounted(() => { dismissToast(); window.removeEventListener(ADMIN_REALTIME_EV
 }
 @media (max-width: 720px) {
   .mobile-curriculum-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; margin: 0 0 14px; padding: 5px; border: 1px solid #dce8f4; border-radius: 12px; background: #edf4fb; }
-  .mobile-curriculum-tab { padding: 9px 5px; border: 0; border-radius: 8px; color: #6b809d; background: transparent; font: inherit; font-size: .68rem; font-weight: 700; cursor: pointer; }
+  .mobile-curriculum-tab { display: inline-flex; min-width: 0; align-items: center; justify-content: center; gap: 4px; padding: 9px 5px; border: 0; border-radius: 8px; color: #6b809d; background: transparent; font: inherit; font-size: .68rem; font-weight: 700; cursor: pointer; }
+  .mobile-curriculum-tab-icon { display: inline-grid; width: 15px; height: 15px; flex: 0 0 15px; place-items: center; color: currentColor; font-size: .78rem; font-weight: 800; line-height: 1; }
   .mobile-curriculum-tab.active { color: #fff; background: linear-gradient(110deg, #2378db, #2251b5); box-shadow: 0 5px 12px rgba(35, 101, 199, .18); }
   .curriculum-grid { display: block; }
   .curriculum-group { display: none; padding: 14px; }

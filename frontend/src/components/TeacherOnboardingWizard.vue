@@ -26,7 +26,7 @@
         @click="activeStepIndex = index"
       >
         <span class="onboarding-step-number">{{ step.done ? '✓' : index + 1 }}</span>
-        <span>{{ step.shortTitle }}</span>
+        <span class="onboarding-step-label"><span class="onboarding-step-icon" aria-hidden="true">{{ step.icon }}</span><span>{{ step.shortTitle }}</span></span>
       </button>
     </div>
 
@@ -75,6 +75,7 @@ const steps = computed(() => [
   {
     id: 'classes',
     shortTitle: 'Kelas',
+    icon: '▦',
     title: 'Siapkan kelas',
     description: 'Buat kelas yang akan menerima asesmen, misalnya XI TKJ atau XI KKKR.',
     actionLabel: 'Buka pengaturan kelas',
@@ -84,6 +85,7 @@ const steps = computed(() => [
   {
     id: 'subjects',
     shortTitle: 'Mapel',
+    icon: '∑',
     title: 'Tambahkan mata pelajaran',
     description: 'Buat mata pelajaran dan atur durasi, attempts, serta kebijakan nilainya.',
     actionLabel: 'Buka pengaturan mata pelajaran',
@@ -93,6 +95,7 @@ const steps = computed(() => [
   {
     id: 'assessment-types',
     shortTitle: 'Asesmen',
+    icon: '◷',
     title: 'Tentukan jenis asesmen',
     description: 'Tambahkan jenis asesmen seperti latihan, ulangan harian, atau ujian semester.',
     actionLabel: 'Buka jenis asesmen',
@@ -102,6 +105,7 @@ const steps = computed(() => [
   {
     id: 'topics',
     shortTitle: 'Topik',
+    icon: '◈',
     title: 'Buat topik dan mapping kelas',
     description: 'Buat topik, lalu tentukan kelas yang boleh mengaksesnya.',
     actionLabel: 'Buka pengaturan topik',
@@ -111,6 +115,7 @@ const steps = computed(() => [
   {
     id: 'questions',
     shortTitle: 'Soal',
+    icon: '?',
     title: 'Tambahkan bank soal',
     description: 'Masukkan soal secara manual atau import JSON ke dalam topik yang sudah dibuat.',
     actionLabel: 'Buka bank soal',
@@ -120,6 +125,7 @@ const steps = computed(() => [
   {
     id: 'publish',
     shortTitle: 'Bagikan',
+    icon: '↗',
     title: 'Atur akses dan jadwal',
     description: 'Pastikan token topik aktif dan atur jadwal sebelum membagikan asesmen kepada siswa.',
     actionLabel: 'Buka akses dan jadwal',
@@ -186,6 +192,8 @@ onMounted(() => {
 .onboarding-progress-track span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #18a39b, #2b76c9); transition: width .25s ease; }
 .onboarding-steps { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 7px; }
 .onboarding-step { display: flex; min-width: 0; flex-direction: column; align-items: center; gap: 6px; padding: 9px 5px; border: 1px solid #d9e7f3; border-radius: 11px; color: #7087a0; background: rgba(255,255,255,.78); font: inherit; font-size: .68rem; cursor: pointer; }
+.onboarding-step-label { display: inline-flex; min-width: 0; align-items: center; gap: 4px; }
+.onboarding-step-icon { color: currentColor; font-size: .78rem; font-weight: 800; line-height: 1; }
 .onboarding-step:hover, .onboarding-step.active { border-color: #67bdba; color: #147d8b; background: #effafa; }
 .onboarding-step.complete { color: #237c67; border-color: #b6e2d2; background: #effbf6; }
 .onboarding-step-number { display: grid; width: 25px; height: 25px; place-items: center; border-radius: 50%; color: #597692; background: #edf4fa; font-size: .72rem; font-weight: 800; }
