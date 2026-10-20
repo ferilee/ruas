@@ -2026,6 +2026,30 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .teacher-workspace-view[data-theme="light"] .teacher-question-workspace .form-panel.open .import-summary, .teacher-workspace-view[data-theme="light"] .teacher-question-workspace .import-panel.open .import-summary { border-color: #d9e5f2; color: #315987; background: #f8fbff; }
 .teacher-workspace-view[data-theme="light"] .teacher-question-workspace .form-panel.open .topic-mapping-grid, .teacher-workspace-view[data-theme="light"] .teacher-question-workspace .import-panel.open .topic-mapping-grid { border-color: #dfe8f2; background: #f8fbff; }
 
+/* The question editor can also be opened from the full Bank Soal section,
+   where the workspace-only class is not present. */
+.editor-view[data-theme="light"] .form-panel.open, .editor-view[data-theme="light"] .import-panel.open { border-color: #d7e2ee; color: #1d3557; background: #fff; box-shadow: 0 0 0 100vmax rgba(31, 58, 91, .24), 0 28px 70px rgba(31, 74, 126, .2); }
+.editor-view[data-theme="light"] .form-panel.open .panel-heading, .editor-view[data-theme="light"] .import-panel.open .panel-heading { border-bottom-color: #dfe8f2; background: #fff; }
+.editor-view[data-theme="light"] .form-panel.open .panel-heading h2, .editor-view[data-theme="light"] .import-panel.open .panel-heading h2 { color: #173e7f; }
+.editor-view[data-theme="light"] .form-panel.open label, .editor-view[data-theme="light"] .form-panel.open legend, .editor-view[data-theme="light"] .import-panel.open label { color: #435d7d; }
+.editor-view[data-theme="light"] .form-panel.open input, .editor-view[data-theme="light"] .form-panel.open textarea, .editor-view[data-theme="light"] .import-panel.open textarea { border-color: #d4dde6; color: #294c7a; background: #f9fbfe; }
+.editor-view[data-theme="light"] .form-panel.open input::placeholder, .editor-view[data-theme="light"] .form-panel.open textarea::placeholder, .editor-view[data-theme="light"] .import-panel.open textarea::placeholder { color: #8294aa; }
+.editor-view[data-theme="light"] .form-panel.open fieldset { border-color: #dfe8f2; }
+.editor-view[data-theme="light"] .form-panel.open .math-preview, .editor-view[data-theme="light"] .form-panel.open .option-math-preview { border-color: #c7d8e9; color: #47617f; background: #f8fbff; }
+.editor-view[data-theme="light"] .form-panel.open .topic-mapping-option { border-color: #dfe8f2; color: #47617f; background: #fff; }
+.editor-view[data-theme="light"] .form-panel.open .topic-mapping-option:hover { border-color: #9dbfe5; background: #f2f7ff; }
+.editor-view[data-theme="light"] .form-panel.open .topic-mapping-option.selected { border-color: #7ca8df; background: linear-gradient(135deg, #edf5ff, #fff); }
+.editor-view[data-theme="light"] .form-panel.open .topic-mapping-copy strong { color: #234d87; }
+.editor-view[data-theme="light"] .form-panel.open .topic-mapping-copy small, .editor-view[data-theme="light"] .form-panel.open .field-hint { color: #7890aa; }
+.editor-view[data-theme="light"] .form-panel.open .question-media-admin-row, .editor-view[data-theme="light"] .form-panel.open .media-file-picker { border-color: #d9e5f2; color: #315987; background: #f8fbff; }
+.editor-view[data-theme="light"] .form-panel.open .close-form-btn, .editor-view[data-theme="light"] .import-panel.open .close-form-btn { color: #55718f; background: #eef4fb; }
+.editor-view[data-theme="light"] .form-panel.open .primary-btn, .editor-view[data-theme="light"] .import-panel.open .primary-btn { background: #287bd7; }
+.editor-view[data-theme="light"] .form-panel.open .secondary-btn, .editor-view[data-theme="light"] .import-panel.open .secondary-btn { color: #1e40af; background: #e8edf5; }
+.editor-view[data-theme="light"] .form-panel.open :deep(.ruas-select-trigger), .editor-view[data-theme="light"] .import-panel.open :deep(.ruas-select-trigger) { border-color: #d4e0ee; color: #294c7a; background: #f9fbfe; }
+.editor-view[data-theme="light"] .form-panel.open :deep(.ruas-select-menu), .editor-view[data-theme="light"] .import-panel.open :deep(.ruas-select-menu) { border-color: #d4e0ee; background: #fff; }
+.editor-view[data-theme="light"] .form-panel.open :deep(.ruas-select-option), .editor-view[data-theme="light"] .import-panel.open :deep(.ruas-select-option) { color: #47617f; }
+.editor-view[data-theme="light"] .form-panel.open :deep(.ruas-select-option:hover), .editor-view[data-theme="light"] .form-panel.open :deep(.ruas-select-option.highlighted), .editor-view[data-theme="light"] .import-panel.open :deep(.ruas-select-option:hover), .editor-view[data-theme="light"] .import-panel.open :deep(.ruas-select-option.highlighted) { color: #194f9f; background: #edf5ff; }
+
 @media (max-width: 720px) {
   .workspace-theme-toggle { top: 10px; right: 12px; padding: 7px 9px; font-size: .68rem; }
   .teacher-workspace-view[data-theme="light"] .teacher-workspace-modal-heading { background: #fff; }
