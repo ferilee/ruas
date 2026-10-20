@@ -165,7 +165,7 @@
                   <div><span class="modal-eyebrow">STRUKTUR ASESMEN</span><h2 id="teacher-curriculum-list-title">Struktur Asesmen</h2><p>Kelola kelas, mata pelajaran, jenis asesmen, dan topik.</p></div>
                   <button class="teacher-workspace-modal-close" type="button" aria-label="Tutup struktur asesmen" @click="closeTeacherWorkspaceModal">×</button>
                 </div>
-                <CurriculumPanel :admin-session="adminSession" @topics-updated="loadData" />
+                <CurriculumPanel :readonly="true" :admin-session="adminSession" @topics-updated="loadData" />
               </section>
             </div>
           </template>
@@ -1732,6 +1732,24 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .teacher-report-modal .reports-panel { gap: 14px; }
 .teacher-report-modal .simple-report-header { border: 0; border-radius: 0; padding: 0 0 16px; background: transparent; }
 .teacher-report-modal .simple-report-filters, .teacher-report-modal .simple-report-summary, .teacher-report-modal .simple-report-results { border-color: #3d3c43; }
+.teacher-curriculum-modal :deep(.curriculum-panel.readonly-view) { display: flex; min-height: 0; padding: 0; border: 0; background: transparent; box-shadow: none; }
+.teacher-curriculum-modal :deep(.curriculum-heading) { display: none; }
+.teacher-curriculum-modal :deep(.curriculum-filter-panel) { border-color: #3d3c43; background: #25252a; }
+.teacher-curriculum-modal :deep(.curriculum-filter-heading strong), .teacher-curriculum-modal :deep(.curriculum-filter-grid label) { color: #d5d1d8; }
+.teacher-curriculum-modal :deep(.curriculum-filter-heading small), .teacher-curriculum-modal :deep(.curriculum-filter-result) { color: #9b97a2; }
+.teacher-curriculum-modal :deep(.curriculum-group) { border-color: #3d3c43; background: #25252a; }
+.teacher-curriculum-modal :deep(.curriculum-group h3) { color: #f0ebf2; }
+.teacher-curriculum-modal :deep(.curriculum-item) { border-color: #3d3c43; background: #202023; }
+.teacher-curriculum-modal :deep(.curriculum-item strong) { color: #f0ebf2; }
+.teacher-curriculum-modal :deep(.curriculum-item small) { color: #96919d; }
+.teacher-curriculum-modal :deep(.mobile-curriculum-tabs) { border-color: #3d3c43; background: #25252a; }
+.teacher-curriculum-modal :deep(.mobile-curriculum-tab) { color: #aaa6b0; }
+.teacher-curriculum-modal :deep(.mobile-curriculum-tab.active) { color: #fff; background: linear-gradient(110deg, #7350c7, #4e328f); box-shadow: none; }
+.teacher-curriculum-modal :deep(.ruas-select-trigger) { border-color: #4b4a52; color: #e5e0e8; background: #1a1a1e; }
+.teacher-curriculum-modal :deep(.ruas-select-menu) { border-color: #4b4a52; background: #25252a; }
+.teacher-curriculum-modal :deep(.ruas-select-option) { color: #d5d1d8; }
+.teacher-curriculum-modal :deep(.ruas-select-option:hover), .teacher-curriculum-modal :deep(.ruas-select-option.highlighted) { color: #fff; background: #393542; }
+.teacher-curriculum-modal :deep(.curriculum-empty), .teacher-curriculum-modal :deep(.curriculum-loading) { color: #9b97a2; }
 .workspace-schedule-panel { padding: 0; border: 0; box-shadow: none; }
 .workspace-schedule-panel .schedule-layout { grid-template-columns: minmax(250px, .75fr) minmax(0, 1.25fr); }
 .workspace-schedule-panel .schedule-editor-form, .workspace-schedule-panel .schedule-list-card { background: #25252a; }

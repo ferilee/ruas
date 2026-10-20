@@ -1,5 +1,5 @@
 <template>
-  <section :class="['curriculum-panel', 'panel', { 'workspace-only': workspaceOnly }]">
+  <section :class="['curriculum-panel', 'panel', { 'workspace-only': workspaceOnly, 'readonly-view': readonly }]">
     <ConfirmDialog :open="confirmOpen" :title="confirmTitle" :message="confirmMessage" confirm-label="Hapus" @confirm="runConfirmation" @cancel="closeConfirmation" />
     <Transition name="toast-slide">
       <div v-if="toastMessage" :key="toastId" class="ruas-toast" role="alert" aria-live="assertive">
@@ -63,9 +63,9 @@
     <div class="curriculum-heading">
       <div>
         <h2>Kurikulum</h2>
-        <p>{{ topicOnly ? 'Buat dan kelola topik yang berada dalam penetapan Anda.' : 'Atur pilihan kelas, jenis asesmen, dan mata pelajaran pada halaman peserta.' }}</p>
+        <p>{{ readonly ? 'Lihat kelas, jenis asesmen, mata pelajaran, dan topik yang tersedia.' : topicOnly ? 'Buat dan kelola topik yang berada dalam penetapan Anda.' : 'Atur pilihan kelas, jenis asesmen, dan mata pelajaran pada halaman peserta.' }}</p>
       </div>
-      <button class="secondary-btn" type="button" :disabled="loading" @click="loadData">Muat ulang</button>
+      <button v-if="!readonly" class="secondary-btn" type="button" :disabled="loading" @click="loadData">Muat ulang</button>
     </div>
 
     <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
@@ -92,41 +92,41 @@
 
       <div class="curriculum-grid">
       <section v-if="!topicOnly" :class="['curriculum-group', 'class-group', { 'mobile-active': mobileTab === 'classes', 'mobile-form-open': mobileFormOpen && mobileTab === 'classes' }]">
-        <div class="curriculum-group-heading"><h3>Kelas</h3><button class="curriculum-add-btn" type="button" @click="openClassForm">＋ Tambah</button></div>
+        <div class="curriculum-group-heading"><h3>Kelas</h3><button v-if="!readonly" class="curriculum-add-btn" type="button" @click="openClassForm">＋ Tambah</button></div>
         <div class="curriculum-items">
           <div v-for="item in visibleClasses" :key="item.id" class="curriculum-item">
             <div><strong>{{ item.label }}</strong><small>{{ item.slug }} · Tingkat {{ item.grade }} · {{ item.program }}{{ item.section ? ` ${item.section}` : '' }} · {{ item.academic_year }} · {{ ownerLabel(item) }}</small></div>
-            <div v-if="canManage(item)" class="item-actions"><button type="button" @click="editClass(item)">Edit</button><button type="button" class="delete-action" @click="removeClass(item.id)">Hapus</button></div>
+            <div v-if="!readonly && canManage(item)" class="item-actions"><button type="button" @click="editClass(item)">Edit</button><button type="button" class="delete-action" @click="removeClass(item.id)">Hapus</button></div>
           </div>
         </div>
       </section>
 
       <section v-if="!topicOnly" :class="['curriculum-group', { 'mobile-active': mobileTab === 'types', 'mobile-form-open': mobileFormOpen && mobileTab === 'types' }]">
-        <div class="curriculum-group-heading"><h3>Jenis Asesmen</h3><button class="curriculum-add-btn" type="button" @click="openTypeForm">＋ Tambah</button></div>
+        <div class="curriculum-group-heading"><h3>Jenis Asesmen</h3><button v-if="!readonly" class="curriculum-add-btn" type="button" @click="openTypeForm">＋ Tambah</button></div>
         <div class="curriculum-items">
           <div v-for="item in visibleAssessmentTypes" :key="item.id" class="curriculum-item">
             <div><strong>{{ item.label }}</strong><small>{{ item.slug }} · {{ ownerLabel(item) }}</small></div>
-            <div v-if="canManage(item)" class="item-actions"><button type="button" @click="editType(item)">Edit</button><button type="button" class="delete-action" @click="removeType(item.id)">Hapus</button></div>
+            <div v-if="!readonly && canManage(item)" class="item-actions"><button type="button" @click="editType(item)">Edit</button><button type="button" class="delete-action" @click="removeType(item.id)">Hapus</button></div>
           </div>
         </div>
       </section>
 
       <section v-if="!topicOnly" :class="['curriculum-group', 'subject-group', { 'mobile-active': mobileTab === 'subjects', 'mobile-form-open': mobileFormOpen && mobileTab === 'subjects' }]">
-        <div class="curriculum-group-heading"><h3>Mata Pelajaran</h3><button class="curriculum-add-btn" type="button" @click="openSubjectForm">＋ Tambah</button></div>
+        <div class="curriculum-group-heading"><h3>Mata Pelajaran</h3><button v-if="!readonly" class="curriculum-add-btn" type="button" @click="openSubjectForm">＋ Tambah</button></div>
         <div class="curriculum-items">
           <div v-for="item in visibleSubjects" :key="item.id" class="curriculum-item">
             <div><strong>{{ item.label }}</strong><small>{{ item.slug }} · {{ scopeLabel(item) }} · {{ attemptsLabel(item.max_attempts) }} · {{ durationLabel(item.duration_minutes) }} · {{ minimumDurationLabel(item.minimum_duration_minutes) }} · {{ explanationModeLabel(item.explanation_mode) }} · {{ ownerLabel(item) }} · Soal dan opsi diacak tiap attempt</small></div>
-            <div v-if="canManage(item)" class="item-actions"><button type="button" @click="editSubject(item)">Edit</button><button type="button" class="delete-action" @click="removeSubject(item.id)">Hapus</button></div>
+            <div v-if="!readonly && canManage(item)" class="item-actions"><button type="button" @click="editSubject(item)">Edit</button><button type="button" class="delete-action" @click="removeSubject(item.id)">Hapus</button></div>
           </div>
         </div>
       </section>
 
       <section :class="['curriculum-group', 'topic-group', { 'mobile-active': mobileTab === 'topics', 'mobile-form-open': mobileFormOpen && mobileTab === 'topics' }]">
-        <div class="curriculum-group-heading"><h3>Topik</h3><button class="curriculum-add-btn" type="button" @click="openTopicForm">＋ Tambah</button></div>
+        <div class="curriculum-group-heading"><h3>Topik</h3><button v-if="!readonly" class="curriculum-add-btn" type="button" @click="openTopicForm">＋ Tambah</button></div>
         <div class="curriculum-items">
           <div v-for="item in visibleTopics" :key="item.id" class="curriculum-item">
             <div><strong>{{ item.label }}</strong><small>{{ item.slug }} · {{ item.subject_label }} · {{ item.class_labels.length ? item.class_labels.join(', ') : 'Semua kelas' }} · {{ item.token_configured ? 'Token aktif' : 'Tanpa token' }} · {{ ownerLabel(item) }}</small></div>
-            <div v-if="canManage(item)" class="item-actions"><button type="button" @click="editTopic(item)">Edit</button><button type="button" class="delete-action" @click="removeTopic(item.id)">Hapus</button></div>
+            <div v-if="!readonly && canManage(item)" class="item-actions"><button type="button" @click="editTopic(item)">Edit</button><button type="button" class="delete-action" @click="removeTopic(item.id)">Hapus</button></div>
           </div>
           <p v-if="visibleTopics.length === 0" class="curriculum-empty">Belum ada topik yang sesuai filter.</p>
         </div>
@@ -150,7 +150,7 @@ import {
 import type { AdminSession, AdminTopic, AdminTopicInput, AssessmentType, CurriculumClass, CurriculumData, Subject } from '@/types';
 import { ADMIN_REALTIME_EVENT, type AdminRealtimeEvent } from '@/lib/admin-realtime';
 
-const props = withDefaults(defineProps<{ topicOnly?: boolean; workspaceOnly?: boolean; adminSession?: AdminSession | null; initialForm?: CurriculumFormModal | null }>(), { topicOnly: false, workspaceOnly: false, adminSession: null, initialForm: null });
+const props = withDefaults(defineProps<{ topicOnly?: boolean; workspaceOnly?: boolean; readonly?: boolean; adminSession?: AdminSession | null; initialForm?: CurriculumFormModal | null }>(), { topicOnly: false, workspaceOnly: false, readonly: false, adminSession: null, initialForm: null });
 const curriculum = ref<CurriculumData>({ classes: [], assessment_types: [], subjects: [] });
 const loading = ref(true);
 const errorMessage = ref('');
