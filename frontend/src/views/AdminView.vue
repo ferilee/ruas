@@ -1663,7 +1663,8 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .editor-view .mobile-more-menu { border-color: #3d3c43; background: #202023; }
 .editor-view .mobile-more-heading, .editor-view .mobile-more-item { color: #d5d1d8; border-color: #3d3c43; }
 .editor-view .mobile-more-item:hover { color: #fff; background: #393542; }
-.teacher-workspace-view { padding: 0; background: #111115; }
+.teacher-workspace-view { min-height: 100vh; min-height: 100dvh; padding: 0; background: #111115; }
+:global(html:has(.teacher-workspace-view)), :global(body:has(.teacher-workspace-view)) { background: #111115; }
 .teacher-workspace-view .admin-layout { display: block; max-width: none; }
 .teacher-workspace-view .admin-sidebar, .teacher-workspace-view .dashboard-header { display: none; }
 .teacher-workspace-view .admin-content { width: 100%; }
