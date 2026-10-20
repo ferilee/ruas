@@ -69,6 +69,12 @@
           <button type="button" @click="emit('feedback', 'testimonial')">Bagikan pengalaman <span aria-hidden="true">→</span></button>
         </div>
       </article>
+
+      <router-link class="teacher-workspace-card workspace-support-card" to="/dukung">
+        <span class="teacher-workspace-icon tone-violet" aria-hidden="true">♥</span>
+        <span class="teacher-workspace-card-copy"><strong>Dukung RUAS</strong><small>Bantu RUAS tetap gratis dan terus berkembang untuk guru.</small><em>Lihat cara mendukung →</em></span>
+        <span class="teacher-workspace-arrow" aria-hidden="true">→</span>
+      </router-link>
     </div>
 
     <p class="teacher-workspace-hint">Pilih kartu untuk membuka pengelolaan yang Anda perlukan. Navigasi tambahan tetap tersedia di perangkat mobile.</p>
@@ -226,6 +232,8 @@ const structureCountLabel = computed(() => `${props.classCount} kelas · ${props
 .workspace-feedback-actions button { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 11px; border: 1px solid #3d3c43; color: #d5d1d8; background: #25252a; font: inherit; font-size: .7rem; font-weight: 700; cursor: pointer; }
 .workspace-feedback-actions button:hover { border-color: #8a7bc0; background: #393542; }
 .workspace-feedback-actions span { color: #bca7ff; font-size: .95rem; }
+.workspace-support-card { text-decoration: none; }
+.workspace-support-card .teacher-workspace-card-copy em { color: #bca7ff; }
 .teacher-workspace-card-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 9px; }
 .teacher-workspace-card-copy strong { color: #f8f3ed; font-size: 1rem; text-transform: uppercase; }
 .teacher-workspace-card-copy small { max-width: 330px; color: #aaa6b0; font-size: .83rem; line-height: 1.55; }

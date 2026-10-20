@@ -1,10 +1,15 @@
 <template>
   <div :class="['admin-view', { 'editor-view': isEditorSession, 'teacher-workspace-view': isEditorSession && (activeSection === 'overview' || curriculumFocus !== null || teacherQuestionFlow), 'teacher-question-workspace': isEditorSession && teacherQuestionFlow }]" :data-theme="adminTheme">
     <ConfirmDialog :open="confirmOpen" :title="confirmTitle" :message="confirmMessage" :confirm-label="confirmLabel" @confirm="runConfirmation" @cancel="closeConfirmation" />
-    <button v-if="isAuthenticated && isEditorSession" class="workspace-theme-toggle" type="button" :aria-pressed="adminTheme === 'light'" :aria-label="adminTheme === 'dark' ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'" @click="toggleAdminTheme">
+    <button v-if="showWorkspaceThemeToggle" class="workspace-theme-toggle workspace-theme-toggle-floating" type="button" :aria-pressed="adminTheme === 'light'" :aria-label="adminTheme === 'dark' ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'" :title="adminTheme === 'dark' ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'" @click="toggleAdminTheme">
       <span aria-hidden="true">{{ adminTheme === 'dark' ? '☼' : '☾' }}</span>
-      <span>{{ adminTheme === 'dark' ? 'Mode terang' : 'Mode gelap' }}</span>
     </button>
+    <div v-if="showWorkspaceThemeToggle" class="workspace-mobile-toolbar" aria-label="Pengaturan tampilan editor">
+      <span>RUANG KERJA GURU</span>
+      <button class="workspace-theme-toggle workspace-theme-toggle-mobile" type="button" :aria-pressed="adminTheme === 'light'" :aria-label="adminTheme === 'dark' ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'" :title="adminTheme === 'dark' ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'" @click="toggleAdminTheme">
+        <span aria-hidden="true">{{ adminTheme === 'dark' ? '☼' : '☾' }}</span>
+      </button>
+    </div>
     <div v-if="!isAuthenticated" class="admin-header">
       <div>
         <router-link to="/" class="back-link">&larr; Kembali ke latihan</router-link>
@@ -86,6 +91,24 @@
               @navigate="handleTeacherWorkspaceNavigation"
               @feedback="openFeedbackModal"
             />
+            <div v-if="supportPromptOpen" class="teacher-workspace-modal-backdrop support-prompt-backdrop" role="presentation" @click.self="closeSupportPrompt">
+              <section class="support-prompt-modal" role="dialog" aria-modal="true" aria-labelledby="support-prompt-title">
+                <button class="teacher-workspace-modal-close support-prompt-close" type="button" aria-label="Tutup informasi dukungan" @click="closeSupportPrompt">×</button>
+                <span class="support-prompt-icon" aria-hidden="true">♥</span>
+                <span class="modal-eyebrow">RUAS · RUANG ASESMEN</span>
+                <h2 id="support-prompt-title">Dukung RUAS tetap gratis</h2>
+                <p class="support-prompt-lede">RUAS dibuat untuk membantu guru menyiapkan asesmen tanpa terbebani biaya. Dukungan kecil Anda membantu menjaga aplikasi ini tetap hidup dan terbuka untuk semua.</p>
+                <div class="support-prompt-summary">
+                  <div><strong>Domain &amp; hosting</strong><span>Menjaga aplikasi tetap bisa diakses.</span></div>
+                  <div><strong>Backup &amp; token AI</strong><span>Mendukung layanan dan fitur RUAS.</span></div>
+                </div>
+                <div class="support-prompt-actions">
+                  <a class="support-prompt-primary" href="https://teer.id/ruangasesmen" target="_blank" rel="noopener noreferrer">Dukung RUAS via Trakteer <span aria-hidden="true">→</span></a>
+                  <router-link class="support-prompt-secondary" to="/dukung" @click="closeSupportPrompt">Lihat selengkapnya <span aria-hidden="true">→</span></router-link>
+                </div>
+                <p class="support-prompt-note">Dukungan bersifat sukarela. RUAS tetap dapat digunakan secara gratis.</p>
+              </section>
+            </div>
             <CurriculumPanel
               v-if="curriculumFocus"
               :workspace-only="true"
@@ -568,6 +591,10 @@ const curriculumFocus = ref<'class' | 'type' | 'subject' | 'topic' | null>(null)
 const teacherQuestionFlow = ref(false);
 const teacherWorkspaceModal = ref<'schedule' | 'users' | 'reports' | 'questions' | 'curriculum' | 'feedback' | null>(null);
 const feedbackKind = ref<'suggestion' | 'testimonial'>('suggestion');
+const supportPromptOpen = ref(false);
+const supportPromptSeenKey = 'ruas-support-prompt-seen';
+const supportPromptShown = ref(sessionStorage.getItem(supportPromptSeenKey) === '1');
+let supportPromptTimer: ReturnType<typeof setTimeout> | null = null;
 const moreMenuOpen = ref(false);
 const currentSection = computed(() => navigation.find((item) => item.id === activeSection.value) ?? navigation[0]);
 const currentSectionTitle = computed(() => currentSection.value.title);
@@ -664,6 +691,7 @@ const confirmTitle = ref('Konfirmasi tindakan');
 const confirmMessage = ref('Apakah kamu yakin ingin melanjutkan?');
 const confirmLabel = ref('OK');
 const pendingConfirmation = ref<(() => Promise<void>) | null>(null);
+const showWorkspaceThemeToggle = computed(() => isAuthenticated.value && isEditorSession.value && !questionFormOpen.value && !importFormOpen.value && !teacherWorkspaceModal.value && !supportPromptOpen.value && !confirmOpen.value);
 const scheduleStartAt = ref('');
 const scheduleEndAt = ref('');
 const scheduleEnabled = ref(true);
@@ -744,6 +772,28 @@ function closeTeacherWorkspaceModal() {
 function openFeedbackModal(kind: 'suggestion' | 'testimonial') {
   feedbackKind.value = kind;
   teacherWorkspaceModal.value = 'feedback';
+}
+
+function clearSupportPromptTimer() {
+  if (supportPromptTimer) clearTimeout(supportPromptTimer);
+  supportPromptTimer = null;
+}
+
+function scheduleSupportPrompt() {
+  clearSupportPromptTimer();
+  if (!isEditorSession.value || supportPromptShown.value) return;
+  supportPromptTimer = setTimeout(() => {
+    supportPromptShown.value = true;
+    sessionStorage.setItem(supportPromptSeenKey, '1');
+    supportPromptOpen.value = true;
+  }, 60_000);
+}
+
+function closeSupportPrompt() {
+  supportPromptOpen.value = false;
+  supportPromptShown.value = true;
+  sessionStorage.setItem(supportPromptSeenKey, '1');
+  clearSupportPromptTimer();
 }
 
 function createQuestionFromList() {
@@ -899,6 +949,9 @@ async function login() {
     username.value = '';
     password.value = '';
     isAuthenticated.value = true;
+    sessionStorage.removeItem(supportPromptSeenKey);
+    supportPromptShown.value = false;
+    scheduleSupportPrompt();
     await loadData();
     startRealtime();
   } catch (error) {
@@ -913,6 +966,9 @@ function logout() {
   sessionStorage.removeItem('admin_token');
   adminSession.value = null;
   isAuthenticated.value = false;
+  closeSupportPrompt();
+  sessionStorage.removeItem(supportPromptSeenKey);
+  supportPromptShown.value = false;
   router.replace('/admin');
 }
 
@@ -1322,6 +1378,7 @@ onMounted(async () => {
       isAuthenticated.value = false;
     }
     if (adminEnabled.value && isAuthenticated.value) {
+      scheduleSupportPrompt();
       await loadData();
       startRealtime();
     }
@@ -1335,6 +1392,7 @@ onMounted(async () => {
 onUnmounted(() => {
   if (questionSearchTimer) clearTimeout(questionSearchTimer);
   stopRealtime();
+  clearSupportPromptTimer();
   delete document.documentElement.dataset.ruasTheme;
   document.documentElement.style.colorScheme = '';
 });
@@ -1778,6 +1836,20 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .teacher-report-modal { width: min(100%, 1080px); }
 .teacher-question-modal { width: min(100%, 900px); }
 .teacher-feedback-modal { width: min(100%, 760px); }
+.support-prompt-backdrop { z-index: 110; }
+.support-prompt-modal { position: relative; width: min(100%, 560px); padding: 34px; border: 1px solid #45444e; border-radius: 22px; color: #f6f2eb; background: linear-gradient(145deg, #24232a, #1b1b1f); box-shadow: 0 30px 80px rgba(0, 0, 0, .52); }
+.support-prompt-close { position: absolute; top: 18px; right: 18px; }
+.support-prompt-icon { display: grid; width: 48px; height: 48px; margin-bottom: 19px; place-items: center; border: 1px solid #bca7ff; border-radius: 15px; color: #d9caff; background: #392a63; font-size: 1.2rem; }
+.support-prompt-modal h2 { margin-top: 9px; color: #f7f2eb; font-size: clamp(1.55rem, 3vw, 2rem); letter-spacing: -.035em; }
+.support-prompt-lede { max-width: 470px; margin-top: 13px; color: #b7b2bd; font-size: .84rem; line-height: 1.75; }
+.support-prompt-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; margin-top: 22px; }
+.support-prompt-summary div { display: flex; min-height: 88px; flex-direction: column; gap: 6px; padding: 13px; border: 1px solid #3d3c43; border-radius: 12px; background: #29282e; }
+.support-prompt-summary strong { color: #eee9f0; font-size: .73rem; }.support-prompt-summary span { color: #9995a0; font-size: .68rem; line-height: 1.5; }
+.support-prompt-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 23px; }
+.support-prompt-primary, .support-prompt-secondary { display: inline-flex; min-height: 43px; align-items: center; justify-content: center; gap: 9px; padding: 0 14px; border-radius: 10px; font-size: .73rem; font-weight: 800; text-decoration: none; }
+.support-prompt-primary { color: #fff; background: #7350c7; box-shadow: 0 8px 18px rgba(115, 80, 199, .22); }.support-prompt-primary:hover { background: #835ed8; }
+.support-prompt-secondary { border: 1px solid #625786; color: #d9caff; background: #302943; }.support-prompt-secondary:hover { border-color: #a998e2; background: #3b3154; }
+.support-prompt-note { margin-top: 16px; color: #85818b; font-size: .67rem; }
 .teacher-curriculum-modal { width: min(100%, 1120px); }
 .teacher-report-modal .reports-panel { gap: 14px; }
 .teacher-report-modal .simple-report-header { border: 0; border-radius: 0; padding: 0 0 16px; background: transparent; }
@@ -1823,6 +1895,10 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
   .teacher-workspace-modal-backdrop { align-items: stretch; padding: 0; }
   .teacher-workspace-modal { width: 100%; max-height: none; min-height: 100%; overflow: auto; padding: 18px; border-radius: 0; }
   .teacher-workspace-modal-heading { position: sticky; z-index: 2; top: -18px; margin: -18px -18px 18px; padding: 18px; background: #202023; }
+  .support-prompt-modal { width: 100%; max-height: 100%; overflow: auto; padding: 26px 20px; border-radius: 0; }
+  .support-prompt-summary { grid-template-columns: 1fr; }
+  .support-prompt-actions { align-items: stretch; flex-direction: column; }
+  .support-prompt-primary, .support-prompt-secondary { width: 100%; }
   .workspace-schedule-panel .schedule-layout { grid-template-columns: 1fr; }
 }
 
@@ -1892,15 +1968,23 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
   .mobile-bottom-nav, .mobile-more-menu, .mobile-more-backdrop { display: none !important; }
 }
 
-.workspace-theme-toggle { position: fixed; z-index: 120; top: 16px; right: 18px; display: inline-flex; align-items: center; gap: 7px; padding: 8px 11px; border: 1px solid #45444e; border-radius: 999px; color: #d5d1d8; background: rgba(32, 32, 35, .92); box-shadow: 0 8px 22px rgba(0, 0, 0, .18); backdrop-filter: blur(10px); font: inherit; font-size: .72rem; font-weight: 700; cursor: pointer; }
+.workspace-theme-toggle { position: fixed; z-index: 120; top: 16px; right: 18px; display: inline-flex; width: 38px; height: 38px; align-items: center; justify-content: center; padding: 0; border: 1px solid #45444e; border-radius: 50%; color: #d5d1d8; background: rgba(32, 32, 35, .92); box-shadow: 0 8px 22px rgba(0, 0, 0, .18); backdrop-filter: blur(10px); font: inherit; font-size: .72rem; font-weight: 700; cursor: pointer; }
 .workspace-theme-toggle:hover { color: #fff; border-color: #8a7bc0; }
 .workspace-theme-toggle > span:first-child { color: #f0d466; font-size: 1rem; line-height: 1; }
+.workspace-mobile-toolbar { display: none; }
+:global(.admin-view:has(.teacher-workspace-modal-backdrop) .workspace-theme-toggle),
+:global(.admin-view:has(.confirm-backdrop) .workspace-theme-toggle),
+:global(.admin-view:has(.curriculum-modal-backdrop) .workspace-theme-toggle),
+:global(.admin-view:has(.detail-backdrop) .workspace-theme-toggle),
+:global(.admin-view:has(.form-panel.open) .workspace-theme-toggle),
+:global(.admin-view:has(.import-panel.open) .workspace-theme-toggle) { display: none !important; }
 
 .teacher-workspace-view[data-theme="light"] { color: #1d3557; background: #f4f7fb; }
 :global(html:has(.teacher-workspace-view[data-theme="light"])), :global(body:has(.teacher-workspace-view[data-theme="light"])) { background: #f4f7fb; }
 .teacher-workspace-view[data-theme="light"] .workspace-theme-toggle { border-color: #cbd9e8; color: #365678; background: rgba(255, 255, 255, .94); box-shadow: 0 8px 22px rgba(31, 74, 126, .12); }
 .teacher-workspace-view[data-theme="light"] .workspace-theme-toggle:hover { color: #1d5fc0; border-color: #8bb5e4; }
 .teacher-workspace-view[data-theme="light"] .workspace-theme-toggle > span:first-child { color: #315f9c; }
+.teacher-workspace-view[data-theme="light"] .workspace-mobile-toolbar { border-color: #d7e2ee; color: #7890aa; }
 .teacher-workspace-view[data-theme="light"] :deep(.teacher-workspace-home) { color: #1d3557; background: #f4f7fb; }
 .teacher-workspace-view[data-theme="light"] :deep(.teacher-workspace-eyebrow) { color: #315f9c; }
 .teacher-workspace-view[data-theme="light"] :deep(.teacher-workspace-heading h2) { color: #172b4d; }
@@ -1937,6 +2021,17 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .teacher-workspace-view[data-theme="light"] .modal-eyebrow { color: #5c50b5; }
 .teacher-workspace-view[data-theme="light"] .teacher-workspace-modal-close { color: #55718f; background: #eef4fb; }
 .teacher-workspace-view[data-theme="light"] .teacher-workspace-modal-close:hover { color: #2454a0; background: #dceafb; }
+.teacher-workspace-view[data-theme="light"] .support-prompt-modal { border-color: #d7e2ee; color: #1d3557; background: linear-gradient(145deg, #fff, #f5f9ff); box-shadow: 0 30px 80px rgba(31, 74, 126, .2); }
+.teacher-workspace-view[data-theme="light"] .support-prompt-icon { border-color: #b8a8e8; color: #7650b6; background: #f0eaff; }
+.teacher-workspace-view[data-theme="light"] .support-prompt-modal h2 { color: #173e7f; }
+.teacher-workspace-view[data-theme="light"] .support-prompt-lede { color: #667b95; }
+.teacher-workspace-view[data-theme="light"] .support-prompt-summary div { border-color: #dfe8f2; background: #f8fbff; }
+.teacher-workspace-view[data-theme="light"] .support-prompt-summary strong { color: #234978; }
+.teacher-workspace-view[data-theme="light"] .support-prompt-summary span { color: #7890aa; }
+.teacher-workspace-view[data-theme="light"] .support-prompt-primary { background: #5b3cc4; }
+.teacher-workspace-view[data-theme="light"] .support-prompt-secondary { border-color: #c7bce8; color: #5b3cc4; background: #f4f0ff; }
+.teacher-workspace-view[data-theme="light"] .support-prompt-secondary:hover { border-color: #987fe0; background: #ece5ff; }
+.teacher-workspace-view[data-theme="light"] .support-prompt-note { color: #8498b1; }
 .teacher-workspace-view[data-theme="light"] .workspace-schedule-panel .schedule-editor-form, .teacher-workspace-view[data-theme="light"] .workspace-schedule-panel .schedule-list-card { border-color: #dfe8f2; background: #fff; }
 
 .teacher-workspace-view[data-theme="light"] :deep(.simple-report-header), .teacher-workspace-view[data-theme="light"] :deep(.simple-report-filters), .teacher-workspace-view[data-theme="light"] :deep(.simple-report-results), .teacher-workspace-view[data-theme="light"] :deep(.simple-report-summary article) { border-color: #d7e2ee; color: #1d3557; background: #fff; }
@@ -2096,7 +2191,9 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .editor-view[data-theme="light"] .form-panel.open :deep(.ruas-select-option:hover), .editor-view[data-theme="light"] .form-panel.open :deep(.ruas-select-option.highlighted), .editor-view[data-theme="light"] .import-panel.open :deep(.ruas-select-option:hover), .editor-view[data-theme="light"] .import-panel.open :deep(.ruas-select-option.highlighted) { color: #194f9f; background: #edf5ff; }
 
 @media (max-width: 720px) {
-  .workspace-theme-toggle { top: 10px; right: 12px; padding: 7px 9px; font-size: .68rem; }
+  .workspace-theme-toggle-floating { display: none; }
+  .workspace-mobile-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -2px 0 16px; padding: 0 2px 12px; border-bottom: 1px solid #3b3a41; color: #92909b; font-size: .62rem; font-weight: 800; letter-spacing: .14em; }
+  .workspace-theme-toggle-mobile { position: static; top: auto; right: auto; width: 34px; height: 34px; padding: 0; font-size: .68rem; }
   .teacher-workspace-view[data-theme="light"] .teacher-workspace-modal-heading { background: #fff; }
 }
 </style>

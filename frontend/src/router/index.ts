@@ -8,6 +8,7 @@ import QuizView from '@/views/QuizView.vue';
 import AdminView from '@/views/AdminView.vue';
 import LandingView from '@/views/LandingView.vue';
 import TeacherApplyView from '@/views/TeacherApplyView.vue';
+import SupportView from '@/views/SupportView.vue';
 
 async function getAuthEnabled(): Promise<boolean> {
   try {
@@ -25,6 +26,7 @@ const routes = [
   { path: '/ajukan-guru', name: 'teacher-apply', component: TeacherApplyView },
   { path: '/change-password', name: 'change-password', component: ChangePasswordView, meta: { requiresAuth: true } },
   { path: '/tentang', name: 'landing', component: LandingView },
+  { path: '/dukung', name: 'support', component: SupportView },
   { path: '/profile', name: 'profile', component: ProfileView, meta: { requiresAuth: true } },
   { path: '/', name: 'home', component: HomeView, meta: { requiresAuth: true } },
   { path: '/topics/:id', name: 'topics', component: TopicView, meta: { requiresAuth: true } },
