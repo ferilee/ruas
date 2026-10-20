@@ -1,6 +1,10 @@
 <template>
-  <div :class="['admin-view', { 'editor-view': isEditorSession, 'teacher-workspace-view': isEditorSession && (activeSection === 'overview' || curriculumFocus !== null || teacherQuestionFlow), 'teacher-question-workspace': isEditorSession && teacherQuestionFlow }]">
+  <div :class="['admin-view', { 'editor-view': isEditorSession, 'teacher-workspace-view': isEditorSession && (activeSection === 'overview' || curriculumFocus !== null || teacherQuestionFlow), 'teacher-question-workspace': isEditorSession && teacherQuestionFlow }]" :data-theme="adminTheme">
     <ConfirmDialog :open="confirmOpen" :title="confirmTitle" :message="confirmMessage" :confirm-label="confirmLabel" @confirm="runConfirmation" @cancel="closeConfirmation" />
+    <button v-if="isAuthenticated && isEditorSession" class="workspace-theme-toggle" type="button" :aria-pressed="adminTheme === 'light'" :aria-label="adminTheme === 'dark' ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'" @click="toggleAdminTheme">
+      <span aria-hidden="true">{{ adminTheme === 'dark' ? '☼' : '☾' }}</span>
+      <span>{{ adminTheme === 'dark' ? 'Mode terang' : 'Mode gelap' }}</span>
+    </button>
     <div v-if="!isAuthenticated" class="admin-header">
       <div>
         <router-link to="/" class="back-link">&larr; Kembali ke latihan</router-link>
@@ -540,6 +544,8 @@ const navigation: Array<{ id: AdminSection; label: string; icon: string; title: 
 const adminSession = ref<AdminSession | null>(null);
 const isAdminSession = computed(() => adminSession.value?.role === 'admin');
 const isEditorSession = computed(() => adminSession.value?.role === 'editor');
+type AdminTheme = 'light' | 'dark';
+const adminTheme = ref<AdminTheme>('dark');
 const visibleNavigation = computed(() => isAdminSession.value ? navigation : navigation.filter((item) => item.id !== 'teacher-requests'));
 const visibleMobilePrimaryNavigation = computed(() => visibleNavigation.value.filter((item) => ['overview', 'curriculum', 'questions', 'reports'].includes(item.id)));
 const visibleMobileSecondaryNavigation = computed(() => visibleNavigation.value.filter((item) => ['schedule', 'users', 'teacher-requests'].includes(item.id)));
@@ -678,6 +684,12 @@ function selectSection(section: AdminSection) {
   activeSection.value = section;
   moreMenuOpen.value = false;
   errorMessage.value = '';
+}
+
+function toggleAdminTheme() {
+  adminTheme.value = adminTheme.value === 'dark' ? 'light' : 'dark';
+  localStorage.setItem('ruas-editor-theme', adminTheme.value);
+  document.documentElement.style.colorScheme = adminTheme.value;
 }
 
 function handleTeacherWorkspaceAction(action: TeacherWorkspaceAction) {
@@ -1273,6 +1285,9 @@ function applyImport() {
 }
 
 onMounted(async () => {
+  const savedTheme = localStorage.getItem('ruas-editor-theme');
+  if (savedTheme === 'light' || savedTheme === 'dark') adminTheme.value = savedTheme;
+  document.documentElement.style.colorScheme = adminTheme.value;
   try {
     const authStatus = await fetchAdminAuthStatus();
     adminEnabled.value = authStatus.enabled;
@@ -1832,5 +1847,117 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 }
 @media print {
   .mobile-bottom-nav, .mobile-more-menu, .mobile-more-backdrop { display: none !important; }
+}
+
+.workspace-theme-toggle { position: fixed; z-index: 120; top: 16px; right: 18px; display: inline-flex; align-items: center; gap: 7px; padding: 8px 11px; border: 1px solid #45444e; border-radius: 999px; color: #d5d1d8; background: rgba(32, 32, 35, .92); box-shadow: 0 8px 22px rgba(0, 0, 0, .18); backdrop-filter: blur(10px); font: inherit; font-size: .72rem; font-weight: 700; cursor: pointer; }
+.workspace-theme-toggle:hover { color: #fff; border-color: #8a7bc0; }
+.workspace-theme-toggle > span:first-child { color: #f0d466; font-size: 1rem; line-height: 1; }
+
+.teacher-workspace-view[data-theme="light"] { color: #1d3557; background: #f4f7fb; }
+:global(html:has(.teacher-workspace-view[data-theme="light"])), :global(body:has(.teacher-workspace-view[data-theme="light"])) { background: #f4f7fb; }
+.teacher-workspace-view[data-theme="light"] .workspace-theme-toggle { border-color: #cbd9e8; color: #365678; background: rgba(255, 255, 255, .94); box-shadow: 0 8px 22px rgba(31, 74, 126, .12); }
+.teacher-workspace-view[data-theme="light"] .workspace-theme-toggle:hover { color: #1d5fc0; border-color: #8bb5e4; }
+.teacher-workspace-view[data-theme="light"] .workspace-theme-toggle > span:first-child { color: #315f9c; }
+.teacher-workspace-view[data-theme="light"] :deep(.teacher-workspace-home) { color: #1d3557; background: #f4f7fb; }
+.teacher-workspace-view[data-theme="light"] :deep(.teacher-workspace-eyebrow) { color: #315f9c; }
+.teacher-workspace-view[data-theme="light"] :deep(.teacher-workspace-heading h2) { color: #172b4d; }
+.teacher-workspace-view[data-theme="light"] :deep(.teacher-workspace-heading p) { color: #667b95; }
+.teacher-workspace-view[data-theme="light"] :deep(.teacher-workspace-badge) { border-color: #cbd9e8; color: #315f9c; }
+.teacher-workspace-view[data-theme="light"] :deep(.teacher-workspace-divider) { background: #d7e2ee; }
+.teacher-workspace-view[data-theme="light"] :deep(.teacher-workspace-section-label) { color: #7790aa; }
+.teacher-workspace-view[data-theme="light"] :deep(.teacher-workspace-card) { border-color: #d7e2ee; color: #243f63; background: #fff; box-shadow: 0 10px 24px rgba(31, 74, 126, .06); }
+.teacher-workspace-view[data-theme="light"] :deep(.teacher-workspace-card:hover) { border-color: #9dbfe5; background: #fbfdff; }
+.teacher-workspace-view[data-theme="light"] :deep(.workspace-card-heading strong), .teacher-workspace-view[data-theme="light"] :deep(.teacher-workspace-card-copy strong) { color: #234978; }
+.teacher-workspace-view[data-theme="light"] :deep(.workspace-card-heading small), .teacher-workspace-view[data-theme="light"] :deep(.teacher-workspace-card-copy small) { color: #66809e; }
+.teacher-workspace-view[data-theme="light"] :deep(.teacher-workspace-card-copy em) { color: #8a9cb1; }
+.teacher-workspace-view[data-theme="light"] :deep(.teacher-workspace-icon.tone-blue), .teacher-workspace-view[data-theme="light"] :deep(.workspace-action-icon.tone-blue) { color: #286bc1; background: #e7f1ff; }
+.teacher-workspace-view[data-theme="light"] :deep(.teacher-workspace-icon.tone-violet), .teacher-workspace-view[data-theme="light"] :deep(.workspace-action-icon.tone-violet) { color: #7650b6; background: #f0eaff; }
+.teacher-workspace-view[data-theme="light"] :deep(.teacher-workspace-icon.tone-green), .teacher-workspace-view[data-theme="light"] :deep(.workspace-action-icon.tone-green) { color: #2c8c67; background: #e3f7ed; }
+.teacher-workspace-view[data-theme="light"] :deep(.teacher-workspace-icon.tone-amber), .teacher-workspace-view[data-theme="light"] :deep(.workspace-action-icon.tone-amber) { color: #a47418; background: #fff3d9; }
+.teacher-workspace-view[data-theme="light"] :deep(.teacher-workspace-icon.tone-pink), .teacher-workspace-view[data-theme="light"] :deep(.workspace-action-icon.tone-pink) { color: #bd4f82; background: #ffebf3; }
+.teacher-workspace-view[data-theme="light"] :deep(.workspace-action-button), .teacher-workspace-view[data-theme="light"] :deep(.workspace-mini-link) { border-color: #d7e2ee; color: #365678; background: #f8fbff; }
+.teacher-workspace-view[data-theme="light"] :deep(.workspace-action-button:hover), .teacher-workspace-view[data-theme="light"] :deep(.workspace-mini-link:hover) { border-color: #9dbfe5; background: #edf5ff; }
+.teacher-workspace-view[data-theme="light"] :deep(.workspace-mini-link b) { color: #234978; }
+.teacher-workspace-view[data-theme="light"] :deep(.workspace-mini-link small) { color: #7890aa; }
+.teacher-workspace-view[data-theme="light"] :deep(.workspace-mini-link i), .teacher-workspace-view[data-theme="light"] :deep(.teacher-workspace-arrow) { color: #356fbd; }
+.teacher-workspace-view[data-theme="light"] :deep(.teacher-workspace-arrow) { border-color: #c7d8e9; }
+.teacher-workspace-view[data-theme="light"] :deep(.teacher-workspace-hint) { color: #7890aa; }
+
+.teacher-workspace-view[data-theme="light"] .teacher-workspace-modal-backdrop { background: rgba(31, 58, 91, .24); }
+.teacher-workspace-view[data-theme="light"] .teacher-workspace-modal { border-color: #d7e2ee; color: #1d3557; background: #fff; box-shadow: 0 28px 70px rgba(31, 74, 126, .2); }
+.teacher-workspace-view[data-theme="light"] .teacher-workspace-modal-heading { border-color: #dfe8f2; }
+.teacher-workspace-view[data-theme="light"] .teacher-workspace-modal-heading h2 { color: #173e7f; }
+.teacher-workspace-view[data-theme="light"] .teacher-workspace-modal-heading p { color: #71849b; }
+.teacher-workspace-view[data-theme="light"] .modal-eyebrow { color: #5c50b5; }
+.teacher-workspace-view[data-theme="light"] .teacher-workspace-modal-close { color: #55718f; background: #eef4fb; }
+.teacher-workspace-view[data-theme="light"] .teacher-workspace-modal-close:hover { color: #2454a0; background: #dceafb; }
+.teacher-workspace-view[data-theme="light"] .workspace-schedule-panel .schedule-editor-form, .teacher-workspace-view[data-theme="light"] .workspace-schedule-panel .schedule-list-card { border-color: #dfe8f2; background: #fff; }
+
+.teacher-workspace-view[data-theme="light"] :deep(.simple-report-header), .teacher-workspace-view[data-theme="light"] :deep(.simple-report-filters), .teacher-workspace-view[data-theme="light"] :deep(.simple-report-results), .teacher-workspace-view[data-theme="light"] :deep(.simple-report-summary article) { border-color: #d7e2ee; color: #1d3557; background: #fff; }
+.teacher-workspace-view[data-theme="light"] :deep(.simple-report-header h2), .teacher-workspace-view[data-theme="light"] :deep(.simple-report-filters > div strong), .teacher-workspace-view[data-theme="light"] :deep(.simple-report-results-heading strong), .teacher-workspace-view[data-theme="light"] :deep(.simple-report-summary strong) { color: #173e7f; }
+.teacher-workspace-view[data-theme="light"] :deep(.simple-report-header p), .teacher-workspace-view[data-theme="light"] :deep(.simple-report-filters > div span), .teacher-workspace-view[data-theme="light"] :deep(.simple-report-results-heading span), .teacher-workspace-view[data-theme="light"] :deep(.simple-report-summary span), .teacher-workspace-view[data-theme="light"] :deep(.simple-report-summary small) { color: #71849b; }
+.teacher-workspace-view[data-theme="light"] :deep(.simple-report-filters label) { color: #435d7d; }
+.teacher-workspace-view[data-theme="light"] :deep(.simple-report-filters .ruas-select-trigger) { border-color: #d4e0ee; color: #294c7a; background: #f9fbfe; }
+.teacher-workspace-view[data-theme="light"] :deep(.simple-report-row) { border-color: #e1eaf4; color: #47617f; background: #fff; }
+.teacher-workspace-view[data-theme="light"] :deep(.simple-report-row:hover) { background: #f2f7ff; }
+.teacher-workspace-view[data-theme="light"] :deep(.simple-report-student strong) { color: #234d87; }
+.teacher-workspace-view[data-theme="light"] :deep(.simple-report-student small), .teacher-workspace-view[data-theme="light"] :deep(.simple-report-score small), .teacher-workspace-view[data-theme="light"] :deep(.simple-report-accuracy small) { color: #8498b1; }
+.teacher-workspace-view[data-theme="light"] :deep(.simple-report-detail-backdrop) { background: rgba(16, 39, 73, .42); }
+.teacher-workspace-view[data-theme="light"] :deep(.simple-report-detail-backdrop .detail-dialog) { border-color: #d7e2ee; color: #294c7a; background: #fff; box-shadow: 0 24px 70px rgba(16,39,73,.25); }
+.teacher-workspace-view[data-theme="light"] :deep(.simple-report-detail-backdrop .detail-header h3), .teacher-workspace-view[data-theme="light"] :deep(.simple-report-detail-backdrop .analysis-summary-heading h4), .teacher-workspace-view[data-theme="light"] :deep(.simple-report-detail-backdrop .detail-columns h4) { color: #173e7f; }
+.teacher-workspace-view[data-theme="light"] :deep(.simple-report-detail-backdrop .detail-header p), .teacher-workspace-view[data-theme="light"] :deep(.simple-report-detail-backdrop .muted), .teacher-workspace-view[data-theme="light"] :deep(.simple-report-detail-backdrop .analysis-summary-heading p) { color: #8294aa; }
+.teacher-workspace-view[data-theme="light"] :deep(.simple-report-detail-backdrop .detail-meta span) { color: #38649a; background: #edf5ff; }
+.teacher-workspace-view[data-theme="light"] :deep(.simple-report-detail-backdrop .detail-stats div), .teacher-workspace-view[data-theme="light"] :deep(.simple-report-detail-backdrop .analysis-count) { background: #f2f7fc; }
+.teacher-workspace-view[data-theme="light"] :deep(.simple-report-detail-backdrop .question-analysis-item) { border-color: #dfe8f2; background: #f8fbff; }
+.teacher-workspace-view[data-theme="light"] :deep(.simple-report-detail-backdrop .question-analysis-item p), .teacher-workspace-view[data-theme="light"] :deep(.simple-report-detail-backdrop .question-analysis-text) { color: #47617f; }
+.teacher-workspace-view[data-theme="light"] :deep(.simple-report-detail-backdrop .answer-comparison span) { color: #315987; background: #edf5ff; }
+.teacher-workspace-view[data-theme="light"] :deep(.simple-report-detail-backdrop .answer-comparison small) { color: #7890aa; }
+.teacher-workspace-view[data-theme="light"] :deep(.simple-report-detail-backdrop .answer-comparison strong) { color: #315987; }
+
+.teacher-workspace-view[data-theme="light"] :deep(.teacher-question-list-modal) { color: #1d3557; }
+.teacher-workspace-view[data-theme="light"] :deep(.teacher-question-list-heading) { border-color: #dfe8f2; }
+.teacher-workspace-view[data-theme="light"] :deep(.teacher-question-list-heading h2) { color: #173e7f; }
+.teacher-workspace-view[data-theme="light"] :deep(.teacher-question-list-heading p), .teacher-workspace-view[data-theme="light"] :deep(.teacher-question-count) { color: #71849b; }
+.teacher-workspace-view[data-theme="light"] :deep(.teacher-question-list-close) { color: #55718f; background: #eef4fb; }
+.teacher-workspace-view[data-theme="light"] :deep(.teacher-question-search) { color: #435d7d; }
+.teacher-workspace-view[data-theme="light"] :deep(.teacher-question-search input) { border-color: #d4e0ee; color: #294c7a; background: #f9fbfe; }
+.teacher-workspace-view[data-theme="light"] :deep(.teacher-question-list) { border-color: #dfe8f2; }
+.teacher-workspace-view[data-theme="light"] :deep(.teacher-question-row) { border-color: #e1eaf4; color: #47617f; background: #fff; }
+.teacher-workspace-view[data-theme="light"] :deep(.teacher-question-row:hover) { background: #f2f7ff; }
+.teacher-workspace-view[data-theme="light"] :deep(.teacher-question-row-copy strong) { color: #234d87; }
+.teacher-workspace-view[data-theme="light"] :deep(.teacher-question-row-copy small) { color: #8498b1; }
+
+.teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.curriculum-filter-panel), .teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.curriculum-group) { border-color: #dfe8f2; background: #f8fbff; }
+.teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.curriculum-filter-heading strong), .teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.curriculum-filter-grid label), .teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.curriculum-group h3) { color: #234d87; }
+.teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.curriculum-filter-heading small), .teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.curriculum-filter-result), .teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.curriculum-item small) { color: #7890aa; }
+.teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.curriculum-item) { border-color: #dfe8f2; background: #fff; }
+.teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.curriculum-item strong) { color: #234d87; }
+.teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.mobile-curriculum-tabs) { border-color: #dce8f4; background: #edf4fb; }
+.teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.mobile-curriculum-tab) { color: #6b809d; }
+.teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.mobile-curriculum-tab.active) { color: #fff; background: linear-gradient(110deg, #2378db, #2251b5); }
+.teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.ruas-select-trigger) { border-color: #d4e0ee; color: #294c7a; background: #f9fbfe; }
+.teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.ruas-select-menu) { border-color: #d4e0ee; background: #fff; }
+.teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.ruas-select-option) { color: #47617f; }
+.teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.ruas-select-option:hover), .teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.ruas-select-option.highlighted) { color: #194f9f; background: #edf5ff; }
+
+.teacher-workspace-view[data-theme="light"] .teacher-question-workspace .form-panel.open, .teacher-workspace-view[data-theme="light"] .teacher-question-workspace .import-panel.open { border-color: #d7e2ee; color: #1d3557; background: #fff; box-shadow: 0 0 0 100vmax rgba(31, 58, 91, .24), 0 28px 70px rgba(31, 74, 126, .2); }
+.teacher-workspace-view[data-theme="light"] .teacher-question-workspace .form-panel.open .panel-heading, .teacher-workspace-view[data-theme="light"] .teacher-question-workspace .import-panel.open .panel-heading { border-bottom-color: #dfe8f2; background: #fff; }
+.teacher-workspace-view[data-theme="light"] .teacher-question-workspace .form-panel.open .panel-heading h2, .teacher-workspace-view[data-theme="light"] .teacher-question-workspace .import-panel.open .panel-heading h2 { color: #173e7f; }
+.teacher-workspace-view[data-theme="light"] .teacher-question-workspace .form-panel.open label, .teacher-workspace-view[data-theme="light"] .teacher-question-workspace .form-panel.open legend, .teacher-workspace-view[data-theme="light"] .teacher-question-workspace .import-panel.open label { color: #435d7d; }
+.teacher-workspace-view[data-theme="light"] .teacher-question-workspace .form-panel.open input, .teacher-workspace-view[data-theme="light"] .teacher-question-workspace .form-panel.open textarea, .teacher-workspace-view[data-theme="light"] .teacher-question-workspace .import-panel.open textarea { border-color: #d4dde6; color: #294c7a; background: #f9fbfe; }
+.teacher-workspace-view[data-theme="light"] .teacher-question-workspace .form-panel.open input::placeholder, .teacher-workspace-view[data-theme="light"] .teacher-question-workspace .form-panel.open textarea::placeholder, .teacher-workspace-view[data-theme="light"] .teacher-question-workspace .import-panel.open textarea::placeholder { color: #8294aa; }
+.teacher-workspace-view[data-theme="light"] .teacher-question-workspace .form-panel.open fieldset { border-color: #dfe8f2; }
+.teacher-workspace-view[data-theme="light"] .teacher-question-workspace .form-panel.open .math-preview, .teacher-workspace-view[data-theme="light"] .teacher-question-workspace .form-panel.open .option-math-preview { border-color: #c7d8e9; color: #47617f; background: #f8fbff; }
+.teacher-workspace-view[data-theme="light"] .teacher-question-workspace .form-panel.open .close-form-btn, .teacher-workspace-view[data-theme="light"] .teacher-question-workspace .import-panel.open .close-form-btn { color: #55718f; background: #eef4fb; }
+.teacher-workspace-view[data-theme="light"] .teacher-question-workspace .form-panel.open .field-hint, .teacher-workspace-view[data-theme="light"] .teacher-question-workspace .import-panel.open .field-hint { color: #7890aa; }
+.teacher-workspace-view[data-theme="light"] .teacher-question-workspace .form-panel.open .secondary-btn, .teacher-workspace-view[data-theme="light"] .teacher-question-workspace .import-panel.open .secondary-btn { color: #1e40af; background: #e8edf5; }
+.teacher-workspace-view[data-theme="light"] .teacher-question-workspace .form-panel.open :deep(.ruas-select-trigger) { border-color: #d4e0ee; color: #294c7a; background: #f9fbfe; }
+.teacher-workspace-view[data-theme="light"] .teacher-question-workspace .form-panel.open :deep(.ruas-select-menu) { border-color: #d4e0ee; background: #fff; }
+.teacher-workspace-view[data-theme="light"] .teacher-question-workspace .form-panel.open :deep(.ruas-select-option) { color: #47617f; }
+.teacher-workspace-view[data-theme="light"] .teacher-question-workspace .form-panel.open :deep(.ruas-select-option:hover), .teacher-workspace-view[data-theme="light"] .teacher-question-workspace .form-panel.open :deep(.ruas-select-option.highlighted) { color: #194f9f; background: #edf5ff; }
+
+@media (max-width: 720px) {
+  .workspace-theme-toggle { top: 10px; right: 12px; padding: 7px 9px; font-size: .68rem; }
+  .teacher-workspace-view[data-theme="light"] .teacher-workspace-modal-heading { background: #fff; }
 }
 </style>
