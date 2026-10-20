@@ -1947,7 +1947,7 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.ruas-select-option) { color: #47617f; }
 .teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.ruas-select-option:hover), .teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.ruas-select-option.highlighted) { color: #194f9f; background: #edf5ff; }
 
-.teacher-workspace-view[data-theme="light"] .teacher-question-workspace .form-panel.open, .teacher-workspace-view[data-theme="light"] .teacher-question-workspace .import-panel.open { border-color: #d7e2ee; color: #1d3557; background: #fff; box-shadow: 0 0 0 100vmax rgba(31, 58, 91, .24), 0 28px 70px rgba(31, 74, 126, .2); }
+.teacher-workspace-view[data-theme="light"] .teacher-question-workspace .form-panel.open, .teacher-workspace-view[data-theme="light"] .teacher-question-workspace .import-panel.open { border-color: #d7e2ee; color: #1d3557; background: #fff; box-shadow: 0 0 0 100vmax rgba(244, 247, 251, .94), 0 28px 70px rgba(31, 74, 126, .2); }
 .teacher-workspace-view[data-theme="light"] .teacher-question-workspace .form-panel.open .panel-heading, .teacher-workspace-view[data-theme="light"] .teacher-question-workspace .import-panel.open .panel-heading { border-bottom-color: #dfe8f2; background: #fff; }
 .teacher-workspace-view[data-theme="light"] .teacher-question-workspace .form-panel.open .panel-heading h2, .teacher-workspace-view[data-theme="light"] .teacher-question-workspace .import-panel.open .panel-heading h2 { color: #173e7f; }
 .teacher-workspace-view[data-theme="light"] .teacher-question-workspace .form-panel.open label, .teacher-workspace-view[data-theme="light"] .teacher-question-workspace .form-panel.open legend, .teacher-workspace-view[data-theme="light"] .teacher-question-workspace .import-panel.open label { color: #435d7d; }
@@ -2034,7 +2034,7 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 
 /* The question editor can also be opened from the full Bank Soal section,
    where the workspace-only class is not present. */
-.editor-view[data-theme="light"] .form-panel.open, .editor-view[data-theme="light"] .import-panel.open { border-color: #d7e2ee; color: #1d3557; background: #fff; box-shadow: 0 0 0 100vmax rgba(31, 58, 91, .24), 0 28px 70px rgba(31, 74, 126, .2); }
+.editor-view[data-theme="light"] .form-panel.open, .editor-view[data-theme="light"] .import-panel.open { border-color: #d7e2ee; color: #1d3557; background: #fff; box-shadow: 0 0 0 100vmax rgba(244, 247, 251, .94), 0 28px 70px rgba(31, 74, 126, .2); }
 .editor-view[data-theme="light"] .form-panel.open .panel-heading, .editor-view[data-theme="light"] .import-panel.open .panel-heading { border-bottom-color: #dfe8f2; background: #fff; }
 .editor-view[data-theme="light"] .form-panel.open .panel-heading h2, .editor-view[data-theme="light"] .import-panel.open .panel-heading h2 { color: #173e7f; }
 .editor-view[data-theme="light"] .form-panel.open label, .editor-view[data-theme="light"] .form-panel.open legend, .editor-view[data-theme="light"] .import-panel.open label { color: #435d7d; }
