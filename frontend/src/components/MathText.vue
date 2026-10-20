@@ -30,7 +30,7 @@ function hasMathDelimiters(value: string): boolean {
 function normalizeLegacyMath(value: string): string {
   return value
     .replace(/\b(?:akar|sqrt)\s*\(([^()\n]+)\)/gi, '\\(\\sqrt{$1}\\)')
-    .replace(/\b([A-Za-z])\s*\^\s*([A-Za-z0-9]+)\b/g, '\\($1^{$2}\\)');
+    .replace(/([A-Za-z])\s*\^\s*([A-Za-z0-9]+)\b/g, '\\($1^{$2}\\)');
 }
 
 function renderMath(value: string): string {

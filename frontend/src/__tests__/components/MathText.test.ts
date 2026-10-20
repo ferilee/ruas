@@ -17,10 +17,10 @@ describe('MathText', () => {
   it('renders legacy powers and square-root syntax', () => {
     const wrapper = mount(MathText, {
       props: {
-        text: 'Luas c^2 dan akar(100).',
+        text: 'Luas c^2 dan 2x^2 - 3x + 1 serta akar(100).',
       },
     });
 
-    expect(wrapper.findAll('.katex')).toHaveLength(2);
+    expect(wrapper.findAll('.katex')).toHaveLength(3);
   });
 });
