@@ -408,7 +408,10 @@
               <legend>Opsi Jawaban</legend>
               <div v-for="(option, index) in draft.options" :key="index" class="option-editor">
                 <input v-model="option.key" class="option-key-input" maxlength="5" aria-label="Key opsi" />
-                <input v-model="option.text" class="option-text-input" placeholder="Teks opsi" required />
+                <div class="option-text-editor">
+                  <input v-model="option.text" class="option-text-input" placeholder="Teks opsi" required />
+                  <div v-if="option.text.trim()" class="option-math-preview"><MathText :text="option.text" /></div>
+                </div>
                 <label class="correct-toggle">
                   <input v-model="option.is_correct" type="checkbox" /> benar
                 </label>
@@ -1444,9 +1447,11 @@ legend { padding: 0 6px; color: #445566; font-weight: 600; }
 .media-upload-fields { display: grid; gap: 8px; }
 .media-file-picker { display: inline-flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px dashed #a9c3df; border-radius: 8px; color: #2454be; background: #f5f9ff; cursor: pointer; }
 .media-file-picker input { max-width: 220px; font-size: .75rem; }
-.option-editor { display: flex; align-items: center; gap: 8px; }
+.option-editor { display: flex; align-items: flex-start; gap: 8px; }
 .option-key-input { width: 54px; padding: 8px; border: 1px solid #d4dde6; border-radius: 6px; }
-.option-text-input { min-width: 0; flex: 1; padding: 8px; border: 1px solid #d4dde6; border-radius: 6px; }
+.option-text-editor { display: grid; min-width: 0; flex: 1; gap: 6px; }
+.option-text-input { width: 100%; padding: 8px; border: 1px solid #d4dde6; border-radius: 6px; }
+.option-math-preview { padding: 8px 10px; border: 1px dashed #b8c5d5; border-radius: 6px; color: #445566; background: #f8fafc; font-size: .84rem; line-height: 1.45; }
 .correct-toggle { flex-direction: row; align-items: center; white-space: nowrap; font-size: .85rem; }
 .remove-option, .danger-link, .archive-link, .restore-link { border: 0; background: transparent; cursor: pointer; font-weight: 700; }
 .danger-link, .archive-link { color: #c53030; }
@@ -1677,6 +1682,7 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .teacher-question-workspace .form-panel.open input::placeholder, .teacher-question-workspace .form-panel.open textarea::placeholder, .teacher-question-workspace .import-panel.open textarea::placeholder { color: #77747f; }
 .teacher-question-workspace .form-panel.open fieldset { border-color: #45444e; }
 .teacher-question-workspace .form-panel.open .math-preview { border-color: #4b4a52; color: #d5d1d8; background: #1a1a1e; }
+.teacher-question-workspace .form-panel.open .option-math-preview { border-color: #4b4a52; color: #d5d1d8; background: #1a1a1e; }
 .teacher-question-workspace .form-panel.open .close-form-btn, .teacher-question-workspace .import-panel.open .close-form-btn { color: #c5c2ca; background: #35343c; }
 .teacher-question-workspace .form-panel.open .field-hint, .teacher-question-workspace .import-panel.open .field-hint { color: #8f8b96; }
 .teacher-question-workspace .form-panel.open .primary-btn, .teacher-question-workspace .import-panel.open .primary-btn { background: #7350c7; }
