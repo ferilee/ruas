@@ -291,6 +291,10 @@ body {
   padding: 0;
 }
 
+.admin-main {
+  padding-bottom: 0;
+}
+
 .exam-wrapper .app-main {
   padding-bottom: 0;
 }
