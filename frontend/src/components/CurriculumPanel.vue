@@ -1,6 +1,6 @@
 <template>
   <section :class="['curriculum-panel', 'panel', { 'workspace-only': workspaceOnly, 'readonly-view': readonly }]">
-    <ConfirmDialog :open="confirmOpen" :title="confirmTitle" :message="confirmMessage" confirm-label="Hapus" @confirm="runConfirmation" @cancel="closeConfirmation" />
+    <ConfirmDialog :open="confirmOpen" :title="confirmTitle" :message="confirmMessage" :confirm-label="confirmLabel" @confirm="runConfirmation" @cancel="closeConfirmation" />
     <Transition name="toast-slide">
       <div v-if="toastMessage" :key="toastId" class="ruas-toast" role="alert" aria-live="assertive">
         <span class="toast-icon" aria-hidden="true">!</span>
@@ -60,12 +60,36 @@
         </form>
       </section>
     </div>
+    <div v-if="importModalOpen" class="curriculum-modal-backdrop" role="presentation" @click.self="closeImportModal">
+      <section class="curriculum-modal curriculum-import-modal" role="dialog" aria-modal="true" aria-labelledby="curriculum-import-title">
+        <div class="curriculum-modal-heading">
+          <div><span class="modal-eyebrow">IMPOR STRUKTUR</span><h2 id="curriculum-import-title">Impor struktur asesmen</h2><p>Masukkan kelas, jenis asesmen, mata pelajaran, dan topik dari satu file CSV.</p></div>
+          <button type="button" class="modal-close-btn" aria-label="Tutup impor" @click="closeImportModal">×</button>
+        </div>
+        <div class="import-step"><span class="step-number">1</span><div><strong>Unduh template atau pilih file CSV</strong><small>Satu baris mewakili satu topik. Ulangi baris dengan class_slug berbeda jika topik dipakai di beberapa kelas.</small></div></div>
+        <div class="curriculum-import-file-actions">
+          <button type="button" class="secondary-btn" @click="downloadImportTemplate">Unduh template CSV</button>
+          <button type="button" class="secondary-btn" @click="openImportFilePicker">{{ importFileName || 'Pilih file CSV' }}</button>
+          <input ref="importFileInput" class="hidden-file-input" type="file" accept=".csv,text/csv" @change="readImportFile" />
+        </div>
+        <textarea v-model="importText" class="curriculum-import-textarea" rows="7" placeholder="Atau tempel isi CSV di sini..." spellcheck="false"></textarea>
+        <div class="import-step"><span class="step-number">2</span><div><strong>Periksa lalu terapkan</strong><small>Preview memeriksa kolom, slug, relasi, dan hak akses sebelum data disimpan.</small></div></div>
+        <label class="curriculum-import-mode">Mode impor<RuasSelect v-model="importMode" :options="importModeOptions" aria-label="Mode impor struktur asesmen" /></label>
+        <div class="curriculum-import-actions"><button type="button" class="secondary-btn" :disabled="importing || !importText.trim()" @click="previewImport">{{ importing ? 'Memeriksa...' : 'Preview CSV' }}</button><button type="button" class="primary-btn" :disabled="importing || !importSummary || importSummary.errors.length > 0" @click="applyImport">{{ importing ? 'Menyimpan...' : 'Terapkan impor' }}</button></div>
+        <div v-if="importSummary" class="curriculum-import-summary">
+          <strong>{{ importSummary.valid_rows }} dari {{ importSummary.total_rows }} baris valid · {{ importSummary.inserted }} data baru · {{ importSummary.updated }} diperbarui · {{ importSummary.skipped }} dilewati</strong>
+          <p v-for="error in importSummary.errors" :key="error" class="error-text">{{ error }}</p>
+          <div v-if="importSummary.preview.length > 0" class="curriculum-import-preview"><div v-for="row in importSummary.preview.slice(0, 8)" :key="`${row.line}-${row.topic}`"><span>Baris {{ row.line }}</span><strong>{{ row.topic }}</strong><small>{{ row.subject }} · {{ row.class_name }} · {{ row.action === 'new' ? 'Baru' : row.action === 'update' ? 'Diperbarui' : 'Dilewati' }}</small></div></div>
+          <small v-if="importSummary.preview.length > 8" class="curriculum-import-more">Menampilkan 8 baris pertama dari preview.</small>
+        </div>
+      </section>
+    </div>
     <div class="curriculum-heading">
       <div>
         <h2>Kurikulum</h2>
         <p>{{ readonly ? 'Lihat kelas, jenis asesmen, mata pelajaran, dan topik yang tersedia.' : topicOnly ? 'Buat dan kelola topik yang berada dalam penetapan Anda.' : 'Atur pilihan kelas, jenis asesmen, dan mata pelajaran pada halaman peserta.' }}</p>
       </div>
-      <button v-if="!readonly" class="secondary-btn" type="button" :disabled="loading" @click="loadData">Muat ulang</button>
+      <div v-if="!readonly" class="curriculum-heading-actions"><button class="secondary-btn" type="button" :disabled="loading" @click="loadData">Muat ulang</button><button class="primary-btn" type="button" @click="openImportModal">Impor CSV</button></div>
     </div>
 
     <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
@@ -164,10 +188,10 @@ import {
   createAdminAssessmentType, createAdminClass, createAdminSubject,
   createAdminTopic, deleteAdminTopic, fetchAdminTopics,
   deleteAdminAssessmentType, deleteAdminClass, deleteAdminSubject,
-  fetchAdminCurriculum, updateAdminAssessmentType, updateAdminClass, updateAdminSubject, updateAdminTopic,
+  fetchAdminCurriculum, importAdminCurriculum, updateAdminAssessmentType, updateAdminClass, updateAdminSubject, updateAdminTopic,
   type CurriculumClassInput, type CurriculumItemInput, type CurriculumSubjectInput,
 } from '@/api/client';
-import type { AdminSession, AdminTopic, AdminTopicInput, AssessmentType, CurriculumClass, CurriculumData, Subject } from '@/types';
+import type { AdminSession, AdminTopic, AdminTopicInput, AssessmentType, CurriculumClass, CurriculumData, CurriculumImportSummary, Subject } from '@/types';
 import { ADMIN_REALTIME_EVENT, type AdminRealtimeEvent } from '@/lib/admin-realtime';
 
 const props = withDefaults(defineProps<{ topicOnly?: boolean; workspaceOnly?: boolean; readonly?: boolean; adminSession?: AdminSession | null; initialForm?: CurriculumFormModal | null }>(), { topicOnly: false, workspaceOnly: false, readonly: false, adminSession: null, initialForm: null });
@@ -191,7 +215,19 @@ const formModal = ref<CurriculumFormModal>(props.topicOnly ? 'topic' : 'subject'
 const confirmOpen = ref(false);
 const confirmTitle = ref('Konfirmasi tindakan');
 const confirmMessage = ref('Apakah kamu yakin ingin melanjutkan?');
+const confirmLabel = ref('Hapus');
 const pendingConfirmation = ref<(() => Promise<void>) | null>(null);
+const importModalOpen = ref(false);
+const importFileInput = ref<HTMLInputElement | null>(null);
+const importFileName = ref('');
+const importText = ref('');
+const importMode = ref<'insert' | 'upsert'>('insert');
+const importing = ref(false);
+const importSummary = ref<CurriculumImportSummary | null>(null);
+const importModeOptions = [
+  { value: 'insert', label: 'Tambah baru saja' },
+  { value: 'upsert', label: 'Tambah atau perbarui milik sendiri' },
+];
 const mobileTabs: Array<{ value: MobileCurriculumTab; label: string; icon: string }> = [
   { value: 'classes', label: 'Kelas', icon: '▦' },
   { value: 'types', label: 'Jenis Asesmen', icon: '◷' },
@@ -317,6 +353,51 @@ function openTypeForm() { resetType(); mobileTab.value = 'types'; formModal.valu
 function openSubjectForm() { resetSubject(); mobileTab.value = 'subjects'; formModal.value = 'subject'; mobileFormOpen.value = true; }
 function openTopicForm() { resetTopic(); mobileTab.value = 'topics'; formModal.value = 'topic'; mobileFormOpen.value = true; }
 function closeMobileForm() { mobileFormOpen.value = false; }
+function openImportModal() { importModalOpen.value = true; importSummary.value = null; importText.value = ''; importFileName.value = ''; importMode.value = 'insert'; }
+function closeImportModal() { importModalOpen.value = false; }
+function openImportFilePicker() { importFileInput.value?.click(); }
+async function readImportFile(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0];
+  if (!file) return;
+  importFileName.value = file.name;
+  importText.value = await file.text();
+  importSummary.value = null;
+}
+function downloadImportTemplate() {
+  const csv = [
+    'class_slug,class_name,academic_year,grade,program,section,class_order,assessment_type_slug,assessment_type_name,assessment_type_order,subject_slug,subject_name,subject_order,topic_slug,topic_name,topic_order',
+    '12-rpl,12 RPL,2026/2027,12,RPL,A,1,latihan-tka,Latihan TKA,1,matematika,Matematika,1,aljabar,Aljabar Dasar,1',
+    '12-tkj,12 TKJ,2026/2027,12,TKJ,A,2,latihan-tka,Latihan TKA,1,matematika,Matematika,1,aljabar,Aljabar Dasar,1',
+  ].join('\n');
+  const url = URL.createObjectURL(new Blob([`${csv}\n`], { type: 'text/csv;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'template-struktur-asesmen.csv';
+  link.click();
+  URL.revokeObjectURL(url);
+}
+async function previewImport() {
+  importing.value = true;
+  try {
+    importSummary.value = await importAdminCurriculum(importText.value, importMode.value, true);
+  } catch (error) {
+    showError(error);
+  } finally { importing.value = false; }
+}
+function applyImport() {
+  if (!importSummary.value || importSummary.value.errors.length > 0) return;
+  askConfirmation('Terapkan impor struktur?', 'Data yang sudah dipreview akan disimpan ke dalam struktur asesmen.', async () => {
+    importing.value = true;
+    try {
+      importSummary.value = await importAdminCurriculum(importText.value, importMode.value, false);
+      await loadData();
+      emit('topicsUpdated');
+      showSuccess('Struktur asesmen berhasil diimpor.');
+      closeImportModal();
+    } catch (error) { showError(error); }
+    finally { importing.value = false; }
+  }, 'Terapkan');
+}
 
 watch(() => props.initialForm, (initialForm) => {
   if (!initialForm || props.topicOnly) return;
@@ -326,7 +407,7 @@ watch(() => props.initialForm, (initialForm) => {
   else if (initialForm === 'topic') openTopicForm();
 }, { immediate: true });
 
-function askConfirmation(title: string, message: string, action: () => Promise<void>) { confirmTitle.value = title; confirmMessage.value = message; pendingConfirmation.value = action; confirmOpen.value = true; }
+function askConfirmation(title: string, message: string, action: () => Promise<void>, label = 'Hapus') { confirmTitle.value = title; confirmMessage.value = message; confirmLabel.value = label; pendingConfirmation.value = action; confirmOpen.value = true; }
 function closeConfirmation() { confirmOpen.value = false; pendingConfirmation.value = null; }
 async function runConfirmation() { const action = pendingConfirmation.value; closeConfirmation(); if (action) await action(); }
 function editClass(item: CurriculumClass) { editingClassId.value = item.id; Object.assign(classForm, item); mobileTab.value = 'classes'; formModal.value = 'class'; mobileFormOpen.value = true; }
@@ -428,6 +509,7 @@ onUnmounted(() => { dismissToast(); window.removeEventListener(ADMIN_REALTIME_EV
 .error-text { color: #c53030; }
 .success-text { color: #2f855a; }
 .curriculum-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.curriculum-heading-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .curriculum-heading h2 { color: #1e40af; font-size: 1.15rem; }
 .curriculum-heading p { margin-top: 4px; color: #667788; font-size: .85rem; }
 .curriculum-filter-panel { padding: 14px 16px; border: 1px solid #d6e5f4; border-radius: 13px; background: linear-gradient(115deg, #f7fbff, #eef6ff); }
@@ -475,6 +557,33 @@ onUnmounted(() => { dismissToast(); window.removeEventListener(ADMIN_REALTIME_EV
 .curriculum-modal .curriculum-form > label.checkbox-field { min-height: 48px; }
 .curriculum-modal .form-actions { grid-column: 1 / -1; justify-content: flex-end; align-self: auto; padding-top: 5px; }
 .curriculum-modal .subject-form .form-actions, .curriculum-modal .topic-form .form-actions { grid-column: 1 / -1; }
+.hidden-file-input { display: none; }
+.curriculum-import-modal { width: min(100%, 820px); }
+.curriculum-import-modal .import-step { display: flex; align-items: flex-start; gap: 9px; color: #31577f; }
+.curriculum-import-modal .step-number { display: grid; width: 21px; height: 21px; flex: 0 0 auto; place-items: center; border-radius: 50%; color: #fff; background: #2c78d2; font-size: .68rem; font-weight: 800; }
+.curriculum-import-modal .import-step strong, .curriculum-import-modal .import-step small { display: block; }
+.curriculum-import-modal .import-step strong { font-size: .75rem; }
+.curriculum-import-modal .import-step small { margin-top: 2px; color: #8298b2; font-size: .68rem; font-weight: 400; line-height: 1.45; }
+.curriculum-import-file-actions, .curriculum-import-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.curriculum-import-file-actions { margin: 14px 0 10px 30px; }
+.curriculum-import-textarea { width: 100%; min-height: 150px; padding: 10px 11px; border: 1px solid #d4dde6; border-radius: 9px; color: #334b68; background: #fff; font: .74rem/1.5 monospace; resize: vertical; }
+.curriculum-import-mode { display: grid; grid-template-columns: minmax(0, 1fr) 260px; align-items: center; gap: 10px; margin: 13px 0; color: #496482; font-size: .75rem; font-weight: 700; }
+.curriculum-import-actions { justify-content: flex-end; }
+.curriculum-import-summary { display: flex; flex-direction: column; gap: 7px; margin-top: 14px; padding: 12px; border: 1px solid #d9e5f2; border-radius: 10px; color: #31577f; background: #f5f9ff; font-size: .75rem; }
+.curriculum-import-summary .error-text { margin: 0; color: #b6404c; font-size: .7rem; line-height: 1.4; }
+.curriculum-import-preview { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; max-height: 190px; overflow-y: auto; margin-top: 3px; }
+.curriculum-import-preview div { display: flex; min-width: 0; flex-direction: column; gap: 2px; padding: 8px; border: 1px solid #dce8f4; border-radius: 8px; background: #fff; }
+.curriculum-import-preview span, .curriculum-import-preview small, .curriculum-import-more { color: #8292a6; font-size: .65rem; }
+.curriculum-import-preview strong { overflow: hidden; color: #315987; font-size: .72rem; text-overflow: ellipsis; white-space: nowrap; }
+.curriculum-panel.workspace-only .curriculum-import-modal .import-step { color: #d5d1d8; }
+.curriculum-panel.workspace-only .curriculum-import-modal .import-step small { color: #9b97a2; }
+.curriculum-panel.workspace-only .curriculum-import-textarea { border-color: #4b4a52; color: #f4f0ea; background: #1a1a1e; }
+.curriculum-panel.workspace-only .curriculum-import-textarea::placeholder { color: #77747f; }
+.curriculum-panel.workspace-only .curriculum-import-mode { color: #d5d1d8; }
+.curriculum-panel.workspace-only .curriculum-import-summary { border-color: #3d3c43; color: #d5d1d8; background: #25252a; }
+.curriculum-panel.workspace-only .curriculum-import-preview div { border-color: #3d3c43; background: #202023; }
+.curriculum-panel.workspace-only .curriculum-import-preview strong { color: #f0ebf2; }
+.curriculum-panel.workspace-only .curriculum-import-preview span, .curriculum-panel.workspace-only .curriculum-import-preview small, .curriculum-panel.workspace-only .curriculum-import-more { color: #96919d; }
 .curriculum-panel.workspace-only .curriculum-modal-backdrop { background: rgba(8, 8, 12, .78); backdrop-filter: blur(9px); }
 .curriculum-panel.workspace-only .curriculum-modal { border-color: #45444e; background: linear-gradient(145deg, #25252a, #17171b); box-shadow: 0 28px 70px rgba(0, 0, 0, .48); }
 .curriculum-panel.workspace-only .curriculum-modal-heading { border-bottom-color: #3d3c43; }
@@ -535,7 +644,7 @@ onUnmounted(() => { dismissToast(); window.removeEventListener(ADMIN_REALTIME_EV
 .toast-slide-enter-active, .toast-slide-leave-active { transition: opacity .2s ease, transform .2s ease; }
 .toast-slide-enter-from, .toast-slide-leave-to { opacity: 0; transform: translateY(-10px); }
 @media (max-width: 900px) { .curriculum-grid { grid-template-columns: 1fr; } .subject-group, .topic-group { grid-column: auto; } .subject-group .curriculum-form, .topic-group .curriculum-form, .curriculum-form { grid-template-columns: 1fr 1fr; } .subject-group .form-actions, .topic-group .form-actions, .curriculum-form .form-actions, .class-form .form-actions { grid-column: 1 / -1; } }
-@media (max-width: 520px) { .curriculum-heading { flex-direction: column; } .curriculum-filter-grid { grid-template-columns: 1fr; }.curriculum-filter-heading { align-items: flex-start; }.subject-group .curriculum-form, .topic-group .curriculum-form, .curriculum-form { grid-template-columns: 1fr; } .subject-group .form-actions, .topic-group .form-actions, .curriculum-form .form-actions { grid-column: auto; } .curriculum-item { align-items: flex-start; flex-direction: column; } .topic-list-toolbar { grid-template-columns: 1fr; } .topic-pagination { align-items: stretch; flex-direction: column; } .topic-pagination-controls { justify-content: space-between; } }
+@media (max-width: 520px) { .curriculum-heading { flex-direction: column; } .curriculum-heading-actions { width: 100%; } .curriculum-heading-actions button { flex: 1; } .curriculum-filter-grid { grid-template-columns: 1fr; }.curriculum-filter-heading { align-items: flex-start; }.subject-group .curriculum-form, .topic-group .curriculum-form, .curriculum-form { grid-template-columns: 1fr; } .subject-group .form-actions, .topic-group .form-actions, .curriculum-form .form-actions { grid-column: auto; } .curriculum-item { align-items: flex-start; flex-direction: column; } .topic-list-toolbar { grid-template-columns: 1fr; } .topic-pagination { align-items: stretch; flex-direction: column; } .topic-pagination-controls { justify-content: space-between; } .curriculum-import-file-actions, .curriculum-import-actions { margin-left: 0; } .curriculum-import-mode { grid-template-columns: 1fr; } .curriculum-import-preview { grid-template-columns: 1fr; } }
 @media (max-width: 600px) {
   .curriculum-modal-backdrop { place-items: end center; padding: 10px; }
   .curriculum-modal { max-height: calc(100dvh - 20px); padding: 18px 16px 20px; border-radius: 20px; }

@@ -17,6 +17,7 @@ import type {
   AssessmentSchedule,
   AttemptQuestion,
   CurriculumData,
+  CurriculumImportSummary,
   CheckResult,
   ExamAttempt,
   ExamAttemptAvailability,
@@ -461,6 +462,14 @@ export type CurriculumSubjectInput = CurriculumItemInput & { class_id: number | 
 
 export async function fetchAdminCurriculum(): Promise<CurriculumData> {
   return adminRequest<CurriculumData>('/admin/curriculum');
+}
+
+export async function importAdminCurriculum(csv: string, mode: 'insert' | 'upsert', dryRun: boolean): Promise<CurriculumImportSummary> {
+  const data = await adminRequest<{ summary: CurriculumImportSummary }>('/admin/curriculum/import', {
+    method: 'POST',
+    body: JSON.stringify({ csv, mode, dry_run: dryRun }),
+  });
+  return data.summary;
 }
 
 async function createCurriculumItem(path: string, input: CurriculumItemInput | CurriculumClassInput): Promise<number> {

@@ -2093,6 +2093,14 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.topic-pagination-controls > button) { border-color: #cbdbea; color: #246bc5; background: #fff; }
 .teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.topic-pagination-controls > button:disabled) { color: #aab8c7; background: #f1f5f9; }
 .teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.topic-pagination-controls strong) { color: #496482; }
+.teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.curriculum-import-modal .import-step) { color: #31577f; }
+.teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.curriculum-import-modal .import-step small) { color: #8298b2; }
+.teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.curriculum-import-textarea) { border-color: #d4dde6; color: #334b68; background: #fff; }
+.teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.curriculum-import-mode) { color: #496482; }
+.teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.curriculum-import-summary) { border-color: #d9e5f2; color: #31577f; background: #f5f9ff; }
+.teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.curriculum-import-preview div) { border-color: #dce8f4; background: #fff; }
+.teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.curriculum-import-preview strong) { color: #315987; }
+.teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.curriculum-import-preview span), .teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.curriculum-import-preview small), .teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.curriculum-import-more) { color: #8292a6; }
 .teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.mobile-curriculum-tabs) { border-color: #dce8f4; background: #edf4fb; }
 .teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.mobile-curriculum-tab) { color: #6b809d; }
 .teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.mobile-curriculum-tab.active) { color: #fff; background: linear-gradient(110deg, #2378db, #2251b5); }

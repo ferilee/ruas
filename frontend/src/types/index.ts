@@ -41,6 +41,24 @@ export interface CurriculumData {
   subjects: Subject[];
 }
 
+export interface CurriculumImportPreviewRow {
+  line: number;
+  topic: string;
+  subject: string;
+  class_name: string;
+  action: 'new' | 'update' | 'skip';
+}
+
+export interface CurriculumImportSummary {
+  total_rows: number;
+  valid_rows: number;
+  inserted: number;
+  updated: number;
+  skipped: number;
+  errors: string[];
+  preview: CurriculumImportPreviewRow[];
+}
+
 export interface AssessmentSchedule {
   id?: number;
   topic_id: number | null;
