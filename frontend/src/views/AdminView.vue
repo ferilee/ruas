@@ -330,7 +330,7 @@
               <p v-if="topicAccessMessage" :class="topicAccessMessageType === 'error' ? 'error-text' : 'success-text'">{{ topicAccessMessage }}</p>
               <div class="topic-access-list">
                 <article v-for="topic in filteredTopicAccessTopics" :key="topic.id" class="topic-access-row">
-                  <div class="topic-access-info"><strong>{{ topic.label }}</strong><small>{{ topic.subject_label }} · {{ topic.token_configured ? 'Token aktif · tersimpan aman' : 'Token belum diatur' }}</small></div>
+                  <div class="topic-access-info"><strong>{{ topic.label }}</strong><span class="topic-access-slug">{{ topic.slug }}</span><small>{{ topic.subject_label }} · {{ topic.token_configured ? 'Token aktif · tersimpan aman' : 'Token belum diatur' }}</small></div>
                   <div class="topic-access-controls">
                     <input v-model="topicAccessDrafts[topic.id].token" type="text" autocomplete="off" :placeholder="topic.token_configured ? 'Ganti token (opsional)' : 'Masukkan token wajib'" @keydown.enter="saveTopicAccess(topic)" />
                     <button class="primary-btn" type="button" :disabled="topicAccessSavingId === topic.id" @click="saveTopicAccess(topic)">{{ topicAccessSavingId === topic.id ? 'Menyimpan...' : 'Simpan' }}</button>
@@ -668,7 +668,7 @@ const topicOptions = computed(() => topics.value.map((topic) => ({ value: topic.
 const filteredTopicAccessTopics = computed(() => {
   const query = topicAccessSearch.value.trim().toLocaleLowerCase('id-ID');
   if (!query) return topics.value;
-  return topics.value.filter((topic) => `${topic.label} ${topic.subject_label}`.toLocaleLowerCase('id-ID').includes(query));
+  return topics.value.filter((topic) => `${topic.label} ${topic.slug} ${topic.subject_label}`.toLocaleLowerCase('id-ID').includes(query));
 });
 const questionTypeFilterOptions = [{ value: 'all', label: 'Semua tipe soal' }, ...questionTypeOptions];
 const questionStatusFilterOptions = [
@@ -1494,7 +1494,7 @@ onUnmounted(() => {
 .topic-access-search { width: min(360px, 100%); margin-bottom: 10px; padding: 9px 11px; border: 1px solid #d4e2ef; border-radius: 8px; color: #334b68; background: #fbfdff; font: inherit; font-size: .78rem; }
 .topic-access-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
 .topic-access-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 390px); align-items: center; gap: 8px 14px; padding: 10px 12px; border: 1px solid #e1eaf4; border-radius: 10px; background: #fbfdff; }
-.topic-access-info { min-width: 0; }.topic-access-info strong, .topic-access-info small { display: block; }.topic-access-info strong { color: #2c4f7a; font-size: .82rem; }.topic-access-info small { margin-top: 3px; color: #8497ae; font-size: .7rem; }
+.topic-access-info { min-width: 0; }.topic-access-info strong, .topic-access-info small, .topic-access-slug { display: block; }.topic-access-info strong { color: #2c4f7a; font-size: .82rem; }.topic-access-slug { margin-top: 3px; overflow: hidden; color: #6f83a0; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: .66rem; text-overflow: ellipsis; white-space: nowrap; }.topic-access-info small { margin-top: 3px; color: #8497ae; font-size: .7rem; }
 .topic-access-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; }
 .topic-access-controls input { min-width: 0; padding: 9px 10px; border: 1px solid #d4dde6; border-radius: 8px; color: #334b68; background: #fff; font: inherit; font-size: .78rem; }
 .topic-access-controls .primary-btn { padding: 9px 12px; font-size: .74rem; }
@@ -1754,6 +1754,7 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .editor-view .topic-access-summary, .editor-view :deep(.topic-access-summary) { color: #d5c4ff; background: #25232b; }
 .editor-view .topic-access-content, .editor-view :deep(.topic-access-content) { color: #d5d1d8; }
 .editor-view .topic-access-row, .editor-view :deep(.topic-access-row) { border-color: #3d3c43; background: #25252a; }
+.editor-view .topic-access-slug, .editor-view :deep(.topic-access-slug) { color: #bca7ff; }
 .editor-view .topic-access-info small, .editor-view :deep(.topic-access-info small) { color: #96919d; }
 .editor-view .schedule-panel { border-color: #3d3c43; background: #202023; }
 .editor-view .schedule-hero, .editor-view .schedule-editor-form .panel-heading, .editor-view .schedule-list-card .panel-heading { border-color: #3d3c43; }
