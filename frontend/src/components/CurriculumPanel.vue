@@ -123,12 +123,32 @@
 
       <section :class="['curriculum-group', 'topic-group', { 'mobile-active': mobileTab === 'topics', 'mobile-form-open': mobileFormOpen && mobileTab === 'topics' }]">
         <div class="curriculum-group-heading"><h3>Topik</h3><button v-if="!readonly" class="curriculum-add-btn" type="button" @click="openTopicForm">＋ Tambah</button></div>
+        <div class="topic-list-toolbar">
+          <label class="topic-search-field">
+            <span class="sr-only">Cari topik</span>
+            <input v-model.trim="topicSearch" type="search" placeholder="Cari nama topik, slug, atau mata pelajaran..." />
+          </label>
+          <RuasSelect v-model="topicOwnerFilter" :options="topicOwnerFilterOptions" searchable search-placeholder="Cari pemilik..." aria-label="Filter pemilik topik" />
+        </div>
+        <div class="topic-list-meta">
+          <span>{{ filteredTopics.length }} topik ditemukan</span>
+          <button v-if="hasTopicFilter" type="button" @click="resetTopicFilters">Reset filter</button>
+        </div>
         <div class="curriculum-items">
           <div v-for="item in visibleTopics" :key="item.id" class="curriculum-item">
             <div><strong>{{ item.label }}</strong><small>{{ item.slug }} · {{ item.subject_label }} · {{ item.class_labels.length ? item.class_labels.join(', ') : 'Semua kelas' }} · {{ item.token_configured ? 'Token aktif' : 'Tanpa token' }} · {{ ownerLabel(item) }}</small></div>
             <div v-if="!readonly && canManage(item)" class="item-actions"><button type="button" @click="editTopic(item)">Edit</button><button type="button" class="delete-action" @click="removeTopic(item.id)">Hapus</button></div>
           </div>
           <p v-if="visibleTopics.length === 0" class="curriculum-empty">Belum ada topik yang sesuai filter.</p>
+        </div>
+        <div v-if="filteredTopics.length > 0" class="topic-pagination">
+          <span>Menampilkan {{ topicRangeStart }}–{{ topicRangeEnd }} dari {{ filteredTopics.length }}</span>
+          <div class="topic-pagination-controls">
+            <button type="button" aria-label="Halaman topik sebelumnya" :disabled="topicPage <= 1" @click="topicPage -= 1">‹</button>
+            <strong>Halaman {{ topicPage }} / {{ topicTotalPages }}</strong>
+            <button type="button" aria-label="Halaman topik berikutnya" :disabled="topicPage >= topicTotalPages" @click="topicPage += 1">›</button>
+            <RuasSelect v-model="topicPageSize" :options="topicPageSizeOptions" aria-label="Jumlah topik per halaman" />
+          </div>
         </div>
       </section>
     </div>
@@ -193,6 +213,12 @@ const subjectOptions = computed(() => curriculum.value.subjects.map((item) => ({
 const selectedClassId = ref<number | null>(null);
 const selectedAssessmentTypeId = ref<number | null>(null);
 const selectedSubjectId = ref<number | null>(null);
+const topicSearch = ref('');
+type TopicOwnerFilter = 'all' | 'mine' | 'shared' | 'editor';
+const topicOwnerFilter = ref<TopicOwnerFilter>('all');
+const topicPage = ref(1);
+const topicPageSize = ref<number | string>(10);
+const topicPageSizeOptions = [10, 20, 50].map((value) => ({ value, label: `${value} topik` }));
 const filterClassOptions = computed(() => [{ value: null, label: 'Semua kelas' }, ...curriculum.value.classes.map((item) => ({ value: item.id, label: item.label }))]);
 const filterAssessmentTypeOptions = computed(() => [{ value: null, label: 'Semua jenis asesmen' }, ...curriculum.value.assessment_types.map((item) => ({ value: item.id, label: item.label }))]);
 const filteredSubjects = computed(() => curriculum.value.subjects.filter((item) => {
@@ -204,11 +230,34 @@ const filterSubjectOptions = computed(() => [{ value: null, label: 'Semua mata p
 const visibleClasses = computed(() => selectedClassId.value === null ? curriculum.value.classes : curriculum.value.classes.filter((item) => item.id === selectedClassId.value));
 const visibleAssessmentTypes = computed(() => selectedAssessmentTypeId.value === null ? curriculum.value.assessment_types : curriculum.value.assessment_types.filter((item) => item.id === selectedAssessmentTypeId.value));
 const visibleSubjects = computed(() => selectedSubjectId.value === null ? filteredSubjects.value : filteredSubjects.value.filter((item) => item.id === selectedSubjectId.value));
-const visibleTopics = computed(() => {
+const topicOwnerFilterOptions = computed(() => [
+  { value: 'all' as TopicOwnerFilter, label: 'Semua pemilik' },
+  { value: 'mine' as TopicOwnerFilter, label: props.adminSession?.role === 'editor' ? 'Milik saya' : 'Dibuat saya' },
+  { value: 'shared' as TopicOwnerFilter, label: 'Admin / bersama' },
+  ...(props.adminSession?.role === 'admin' ? [{ value: 'editor' as TopicOwnerFilter, label: 'Dibuat editor' }] : []),
+]);
+const filteredTopics = computed(() => {
   const subjectIds = new Set(visibleSubjects.value.map((item) => item.id));
-  return topics.value.filter((item) => subjectIds.has(item.subject_id));
+  const query = topicSearch.value.trim().toLocaleLowerCase('id-ID');
+  return topics.value.filter((item) => {
+    if (!subjectIds.has(item.subject_id)) return false;
+    if (selectedClassId.value !== null && item.class_ids.length > 0 && !item.class_ids.includes(selectedClassId.value)) return false;
+    if (query && !`${item.label} ${item.slug} ${item.subject_label}`.toLocaleLowerCase('id-ID').includes(query)) return false;
+    if (topicOwnerFilter.value === 'mine' && item.created_by !== props.adminSession?.username) return false;
+    if (topicOwnerFilter.value === 'shared' && item.created_by && item.created_by !== 'env-admin') return false;
+    if (topicOwnerFilter.value === 'editor' && (!item.created_by || item.created_by === 'env-admin')) return false;
+    return true;
+  });
+});
+const topicTotalPages = computed(() => Math.max(1, Math.ceil(filteredTopics.value.length / Number(topicPageSize.value))));
+const topicRangeStart = computed(() => filteredTopics.value.length === 0 ? 0 : (topicPage.value - 1) * Number(topicPageSize.value) + 1);
+const topicRangeEnd = computed(() => Math.min(filteredTopics.value.length, topicPage.value * Number(topicPageSize.value)));
+const visibleTopics = computed(() => {
+  const start = (topicPage.value - 1) * Number(topicPageSize.value);
+  return filteredTopics.value.slice(start, start + Number(topicPageSize.value));
 });
 const hasCurriculumFilter = computed(() => selectedClassId.value !== null || selectedAssessmentTypeId.value !== null || selectedSubjectId.value !== null);
+const hasTopicFilter = computed(() => Boolean(topicSearch.value.trim()) || topicOwnerFilter.value !== 'all');
 const formModalTitle = computed(() => ({
   class: editingClassId.value ? 'Edit kelas' : 'Tambah kelas',
   type: editingTypeId.value ? 'Edit jenis asesmen' : 'Tambah jenis asesmen',
@@ -227,10 +276,20 @@ const emit = defineEmits<{ topicsUpdated: [] }>();
 watch([selectedClassId, selectedAssessmentTypeId], () => {
   if (selectedSubjectId.value !== null && !filteredSubjects.value.some((item) => item.id === selectedSubjectId.value)) selectedSubjectId.value = null;
 });
+watch([selectedClassId, selectedAssessmentTypeId, selectedSubjectId, topicSearch, topicOwnerFilter, topicPageSize], () => {
+  topicPage.value = 1;
+});
+watch(topicTotalPages, (totalPages) => {
+  if (topicPage.value > totalPages) topicPage.value = totalPages;
+});
 function resetCurriculumFilters() {
   selectedClassId.value = null;
   selectedAssessmentTypeId.value = null;
   selectedSubjectId.value = null;
+}
+function resetTopicFilters() {
+  topicSearch.value = '';
+  topicOwnerFilter.value = 'all';
 }
 
 function showError(error: unknown) { errorMessage.value = error instanceof Error ? error.message : 'Gagal memproses kurikulum.'; successMessage.value = ''; }
@@ -440,6 +499,29 @@ onUnmounted(() => { dismissToast(); window.removeEventListener(ADMIN_REALTIME_EV
 .curriculum-item strong, .curriculum-item small { display: block; }
 .curriculum-item strong { color: #314c70; font-size: .84rem; }
 .curriculum-item small { margin-top: 2px; color: #8292a6; font-size: .7rem; }
+.topic-list-toolbar { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(190px, .7fr); gap: 8px; margin-top: 13px; }
+.topic-search-field { display: block; min-width: 0; }
+.topic-search-field input { width: 100%; min-height: 42px; padding: 9px 11px; border: 1px solid #d4e0ee; border-radius: 10px; color: #294c7a; background: #fff; font: inherit; font-size: .78rem; outline: none; }
+.topic-search-field input:focus { border-color: #6ca7ea; box-shadow: 0 0 0 3px rgba(35, 139, 255, .12); }
+.topic-list-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; color: #8292a6; font-size: .68rem; }
+.topic-list-meta button { padding: 0; border: 0; color: #246bc5; background: transparent; font: inherit; font-weight: 800; cursor: pointer; }
+.topic-pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 13px; padding-top: 12px; border-top: 1px solid #e1e8f0; color: #8292a6; font-size: .68rem; }
+.topic-pagination-controls { display: flex; align-items: center; gap: 7px; }
+.topic-pagination-controls > button { display: grid; width: 28px; height: 28px; place-items: center; padding: 0; border: 1px solid #cbdbea; border-radius: 7px; color: #246bc5; background: #fff; font: inherit; font-size: 1rem; cursor: pointer; }
+.topic-pagination-controls > button:disabled { color: #aab8c7; background: #f1f5f9; cursor: default; }
+.topic-pagination-controls strong { color: #496482; font-size: .68rem; font-weight: 700; white-space: nowrap; }
+.topic-pagination-controls .ruas-select { width: 108px; }
+.topic-pagination-controls .ruas-select-trigger { min-height: 32px; padding: 6px 8px; border-radius: 8px; font-size: .68rem; box-shadow: none; }
+.curriculum-panel.workspace-only .topic-search-field input { border-color: #4b4a52; color: #f4f0ea; background: #1a1a1e; }
+.curriculum-panel.workspace-only .topic-search-field input::placeholder { color: #77747f; }
+.curriculum-panel.workspace-only .topic-search-field input:focus { border-color: #8d8bdb; box-shadow: 0 0 0 3px rgba(141, 139, 219, .16); }
+.curriculum-panel.workspace-only .topic-list-meta { color: #96919d; }
+.curriculum-panel.workspace-only .topic-list-meta button { color: #bca7ff; }
+.curriculum-panel.workspace-only .topic-pagination { border-top-color: #3d3c43; color: #96919d; }
+.curriculum-panel.workspace-only .topic-pagination-controls > button { border-color: #4b4a52; color: #c3b5ff; background: #25252a; }
+.curriculum-panel.workspace-only .topic-pagination-controls > button:disabled { color: #77747f; background: #1a1a1e; }
+.curriculum-panel.workspace-only .topic-pagination-controls strong { color: #d5d1d8; }
+.curriculum-panel.workspace-only .topic-pagination-controls .ruas-select-trigger { border-color: #4b4a52; color: #e5e0e8; background: #1a1a1e; }
 .item-actions { display: flex; gap: 8px; flex-shrink: 0; }
 .item-actions button { border: 0; color: #1e5ec8; background: transparent; font: inherit; font-size: .74rem; font-weight: 700; cursor: pointer; }
 .item-actions .delete-action { color: #c53030; }
@@ -453,7 +535,7 @@ onUnmounted(() => { dismissToast(); window.removeEventListener(ADMIN_REALTIME_EV
 .toast-slide-enter-active, .toast-slide-leave-active { transition: opacity .2s ease, transform .2s ease; }
 .toast-slide-enter-from, .toast-slide-leave-to { opacity: 0; transform: translateY(-10px); }
 @media (max-width: 900px) { .curriculum-grid { grid-template-columns: 1fr; } .subject-group, .topic-group { grid-column: auto; } .subject-group .curriculum-form, .topic-group .curriculum-form, .curriculum-form { grid-template-columns: 1fr 1fr; } .subject-group .form-actions, .topic-group .form-actions, .curriculum-form .form-actions, .class-form .form-actions { grid-column: 1 / -1; } }
-@media (max-width: 520px) { .curriculum-heading { flex-direction: column; } .curriculum-filter-grid { grid-template-columns: 1fr; }.curriculum-filter-heading { align-items: flex-start; }.subject-group .curriculum-form, .topic-group .curriculum-form, .curriculum-form { grid-template-columns: 1fr; } .subject-group .form-actions, .topic-group .form-actions, .curriculum-form .form-actions { grid-column: auto; } .curriculum-item { align-items: flex-start; flex-direction: column; } }
+@media (max-width: 520px) { .curriculum-heading { flex-direction: column; } .curriculum-filter-grid { grid-template-columns: 1fr; }.curriculum-filter-heading { align-items: flex-start; }.subject-group .curriculum-form, .topic-group .curriculum-form, .curriculum-form { grid-template-columns: 1fr; } .subject-group .form-actions, .topic-group .form-actions, .curriculum-form .form-actions { grid-column: auto; } .curriculum-item { align-items: flex-start; flex-direction: column; } .topic-list-toolbar { grid-template-columns: 1fr; } .topic-pagination { align-items: stretch; flex-direction: column; } .topic-pagination-controls { justify-content: space-between; } }
 @media (max-width: 600px) {
   .curriculum-modal-backdrop { place-items: end center; padding: 10px; }
   .curriculum-modal { max-height: calc(100dvh - 20px); padding: 18px 16px 20px; border-radius: 20px; }

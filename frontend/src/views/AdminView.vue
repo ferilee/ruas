@@ -386,20 +386,22 @@
             <p v-if="questionReadOnly" class="question-readonly-note">Soal ini dibuat oleh Admin dan hanya dapat dilihat oleh Editor.</p>
             <fieldset :disabled="questionReadOnly" class="question-readonly-fieldset">
             <label>Topik
-              <RuasSelect v-model="draft.topic_id" :options="topicOptions" placeholder="Pilih topik" aria-label="Topik soal" />
+              <RuasSelect v-model="draft.topic_id" :options="topicOptions" placeholder="Pilih topik" searchable search-placeholder="Cari topik atau mata pelajaran..." aria-label="Topik soal" />
               <span v-if="topics.length === 0" class="question-topic-empty">Belum ada topik. <button type="button" @click="selectSection('curriculum')">Buat topik terlebih dahulu</button> agar soal dapat disimpan.</span>
             </label>
             <fieldset class="topic-mapping-fieldset">
               <legend>Paket/topik yang menyertakan soal</legend>
+              <label class="topic-mapping-search">Cari topik<input v-model.trim="topicMappingSearch" type="search" placeholder="Cari nama topik atau mata pelajaran..." /></label>
               <p class="field-hint">Satu soal dapat digunakan di beberapa topik. Topik utama di atas selalu disertakan.</p>
               <div class="topic-mapping-grid">
-                <label v-for="topic in topics" :key="topic.id" :class="['topic-mapping-option', { selected: draft.topic_ids.includes(topic.id) }]">
+                <label v-for="topic in filteredTopicMappingTopics" :key="topic.id" :class="['topic-mapping-option', { selected: draft.topic_ids.includes(topic.id) }]">
                   <input v-model="draft.topic_ids" class="topic-mapping-checkbox" type="checkbox" :value="topic.id" />
                   <span class="topic-mapping-icon" aria-hidden="true">▦</span>
                   <span class="topic-mapping-copy"><strong>{{ topic.label }}</strong><small>{{ topic.subject_label || 'Tanpa mata pelajaran' }}</small></span>
                   <span class="topic-mapping-check" aria-hidden="true">✓</span>
                 </label>
               </div>
+              <p v-if="filteredTopicMappingTopics.length === 0" class="field-hint">Tidak ada topik yang cocok dengan pencarian.</p>
             </fieldset>
 
             <div class="field-row">
@@ -621,6 +623,7 @@ const topicAccessSavingId = ref<number | null>(null);
 const topicAccessMessage = ref('');
 const topicAccessMessageType = ref<'success' | 'error'>('success');
 const topicAccessSearch = ref('');
+const topicMappingSearch = ref('');
 const search = ref('');
 const difficultyFilter = ref<AdminQuestionListItem['difficulty'] | 'all'>('all');
 const questionTypeFilter = ref<AdminQuestionListItem['type'] | 'all'>('all');
@@ -884,6 +887,12 @@ function createDraft(): AdminQuestionInput {
 
 const draft = reactive<AdminQuestionInput>(createDraft());
 
+const filteredTopicMappingTopics = computed(() => {
+  const query = topicMappingSearch.value.trim().toLocaleLowerCase('id-ID');
+  if (!query) return topics.value;
+  return topics.value.filter((topic) => draft.topic_ids.includes(topic.id) || `${topic.label} ${topic.slug} ${topic.subject_label}`.toLocaleLowerCase('id-ID').includes(query));
+});
+
 function setDraft(input: AdminQuestionInput) {
   Object.assign(draft, input);
   draft.topic_ids = [...(input.topic_ids?.length ? input.topic_ids : input.topic_id > 0 ? [input.topic_id] : [])];
@@ -892,6 +901,7 @@ function setDraft(input: AdminQuestionInput) {
 
 function resetDraft() {
   setDraft(createDraft());
+  topicMappingSearch.value = '';
   questionMedia.value = [];
   mediaAltText.value = '';
   mediaCaption.value = '';
@@ -1531,6 +1541,8 @@ textarea { resize: vertical; }
 fieldset { border: 1px solid #d4dde6; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
 legend { padding: 0 6px; color: #445566; font-weight: 600; }
 .topic-mapping-fieldset { gap: 10px; }
+.topic-mapping-search { gap: 5px; color: #6b809d; font-size: .7rem; font-weight: 700; }
+.topic-mapping-search input { min-height: 38px; padding: 8px 10px; border: 1px solid #d4e0ee; border-radius: 9px; color: #294c7a; background: #f9fbfe; font: inherit; font-size: .76rem; font-weight: 400; }
 .topic-mapping-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; max-height: 210px; overflow-y: auto; padding: 2px; }
 .topic-mapping-option { position: relative; display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center; gap: 9px; min-width: 0; padding: 12px; border: 1px solid #dbe6f2; border-radius: 12px; color: #445566; background: #fbfdff; font-size: .82rem; font-weight: 600; cursor: pointer; transition: border-color .16s ease, background .16s ease, box-shadow .16s ease, transform .16s ease; }
 .topic-mapping-option:hover { border-color: #8db8e8; background: #f5f9ff; transform: translateY(-1px); }
@@ -2073,6 +2085,14 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.curriculum-filter-heading small), .teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.curriculum-filter-result), .teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.curriculum-item small) { color: #7890aa; }
 .teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.curriculum-item) { border-color: #dfe8f2; background: #fff; }
 .teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.curriculum-item strong) { color: #234d87; }
+.teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.topic-search-field input) { border-color: #d4e0ee; color: #294c7a; background: #fff; }
+.teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.topic-search-field input::placeholder) { color: #8294aa; }
+.teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.topic-list-meta) { color: #7890aa; }
+.teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.topic-list-meta button) { color: #246bc5; }
+.teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.topic-pagination) { border-top-color: #dfe8f2; color: #7890aa; }
+.teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.topic-pagination-controls > button) { border-color: #cbdbea; color: #246bc5; background: #fff; }
+.teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.topic-pagination-controls > button:disabled) { color: #aab8c7; background: #f1f5f9; }
+.teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.topic-pagination-controls strong) { color: #496482; }
 .teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.mobile-curriculum-tabs) { border-color: #dce8f4; background: #edf4fb; }
 .teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.mobile-curriculum-tab) { color: #6b809d; }
 .teacher-workspace-view[data-theme="light"] .teacher-curriculum-modal :deep(.mobile-curriculum-tab.active) { color: #fff; background: linear-gradient(110deg, #2378db, #2251b5); }
@@ -2165,6 +2185,8 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .teacher-workspace-view[data-theme="light"] .teacher-question-workspace .form-panel.open .file-picker-button, .teacher-workspace-view[data-theme="light"] .teacher-question-workspace .import-panel.open .file-picker-button, .teacher-workspace-view[data-theme="light"] .teacher-question-workspace .form-panel.open .scope-note { border-color: #d9e5f2; color: #315987; background: #f8fbff; }
 .teacher-workspace-view[data-theme="light"] .teacher-question-workspace .form-panel.open .import-summary, .teacher-workspace-view[data-theme="light"] .teacher-question-workspace .import-panel.open .import-summary { border-color: #d9e5f2; color: #315987; background: #f8fbff; }
 .teacher-workspace-view[data-theme="light"] .teacher-question-workspace .form-panel.open .topic-mapping-grid, .teacher-workspace-view[data-theme="light"] .teacher-question-workspace .import-panel.open .topic-mapping-grid { border-color: #dfe8f2; background: #f8fbff; }
+.teacher-workspace-view[data-theme="light"] .teacher-question-workspace .form-panel.open .topic-mapping-search { color: #435d7d; }
+.teacher-workspace-view[data-theme="light"] .teacher-question-workspace .form-panel.open .topic-mapping-search input { border-color: #d4dde6; color: #294c7a; background: #f9fbfe; }
 
 /* The question editor can also be opened from the full Bank Soal section,
    where the workspace-only class is not present. */
