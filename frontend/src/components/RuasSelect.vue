@@ -7,6 +7,7 @@
       :aria-label="ariaLabel"
       :aria-expanded="open"
       :aria-controls="menuId"
+      :title="selectedOption?.label ?? placeholder"
       :disabled="disabled"
       @click.stop="toggle"
       @keydown="handleKeydown"

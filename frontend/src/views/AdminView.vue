@@ -136,7 +136,7 @@
                     <form class="schedule-form schedule-editor-form" @submit.prevent="saveSchedule">
                       <div class="panel-heading"><div><h3>Atur jadwal</h3><p>Pilih topik, lalu tentukan jendela pengerjaannya.</p></div></div>
                       <label>Topik
-                        <RuasSelect v-model="scheduleTopicId" :options="scheduleTopicOptions" placeholder="Pilih topik" aria-label="Topik untuk jadwal" />
+                        <RuasSelect v-model="scheduleTopicId" class="schedule-topic-select" :options="scheduleTopicOptions" placeholder="Pilih topik" aria-label="Topik untuk jadwal" searchable search-placeholder="Cari topik, mata pelajaran, atau kelas..." />
                       </label>
                       <label>Waktu mulai
                         <input v-model="scheduleStartAt" type="datetime-local" />
@@ -266,7 +266,7 @@
               <form class="schedule-form schedule-editor-form" @submit.prevent="saveSchedule">
                 <div class="panel-heading"><div><h3>Atur jadwal</h3><p>Pilih topik, lalu tentukan jendela pengerjaannya.</p></div></div>
                 <label>Topik
-                  <RuasSelect v-model="scheduleTopicId" :options="scheduleTopicOptions" placeholder="Pilih topik" aria-label="Topik untuk jadwal" />
+                  <RuasSelect v-model="scheduleTopicId" class="schedule-topic-select" :options="scheduleTopicOptions" placeholder="Pilih topik" aria-label="Topik untuk jadwal" searchable search-placeholder="Cari topik, mata pelajaran, atau kelas..." />
                 </label>
                 <label>Waktu mulai
                   <input v-model="scheduleStartAt" type="datetime-local" />
@@ -1622,12 +1622,15 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
   font-size: 0.85rem;
 }
 
-.schedule-layout { display: grid; grid-template-columns: minmax(260px, .82fr) minmax(0, 1.18fr); gap: 16px; align-items: start; }
+.schedule-layout { display: grid; grid-template-columns: minmax(320px, .95fr) minmax(0, 1.05fr); gap: 16px; align-items: start; }
 .schedule-editor-form, .schedule-list-card { min-width: 0; padding: 16px; border: 1px solid #e1eaf4; border-radius: 13px; background: #fbfdff; }
-.schedule-editor-form { align-items: stretch; flex-direction: column; padding-top: 16px; }
+.schedule-form.schedule-editor-form { align-items: stretch; flex-direction: column; width: 100%; padding-top: 16px; }
 .schedule-editor-form .panel-heading, .schedule-list-card .panel-heading { margin: 0 0 4px; padding: 0 0 10px; border-bottom: 1px solid #e6eef6; }
 .schedule-editor-form .panel-heading h3, .schedule-list-card .panel-heading h3 { color: #245a9d; font-size: .98rem; }
 .schedule-editor-form label { width: 100%; }
+.schedule-topic-select :deep(.ruas-select-menu) { min-width: 100%; }
+.schedule-topic-select :deep(.ruas-select-option) { align-items: flex-start; min-height: 44px; }
+.schedule-topic-select :deep(.ruas-select-option > span:first-child) { overflow: visible; text-overflow: clip; white-space: normal; line-height: 1.4; }
 .label-optional { color: #95a6ba; font-size: .72rem; font-weight: 400; }
 .schedule-toggle { flex-direction: row !important; align-items: center; gap: 7px; color: #456382; font-size: .8rem; }
 .schedule-toggle input { width: auto; accent-color: #2671c9; }
@@ -1885,7 +1888,7 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .teacher-curriculum-modal :deep(.ruas-select-option:hover), .teacher-curriculum-modal :deep(.ruas-select-option.highlighted) { color: #fff; background: #393542; }
 .teacher-curriculum-modal :deep(.curriculum-empty), .teacher-curriculum-modal :deep(.curriculum-loading) { color: #9b97a2; }
 .workspace-schedule-panel { padding: 0; border: 0; box-shadow: none; }
-.workspace-schedule-panel .schedule-layout { grid-template-columns: minmax(250px, .75fr) minmax(0, 1.25fr); }
+.workspace-schedule-panel .schedule-layout { grid-template-columns: minmax(320px, .95fr) minmax(0, 1.05fr); }
 .workspace-schedule-panel .schedule-editor-form, .workspace-schedule-panel .schedule-list-card { background: #25252a; }
 .teacher-workspace-modal .feedback-panel { color: #d5d1d8; }
 .teacher-workspace-modal .feedback-intro { border-color: #3d3c43; background: #25252a; }
