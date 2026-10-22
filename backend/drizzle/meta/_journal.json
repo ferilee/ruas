@@ -204,6 +204,20 @@
       "when": 1793000000000,
       "tag": "0028_teacher_access_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "5",
+      "when": 1793010000000,
+      "tag": "0029_normalize_text_collations",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "5",
+      "when": 1793011000000,
+      "tag": "0030_feedback_entries",
+      "breakpoints": true
     }
   ]
 }
