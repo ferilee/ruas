@@ -179,6 +179,8 @@ export interface AdminTopic {
   id: number;
   subject_id: number;
   subject_label: string;
+  duration_minutes?: number;
+  question_count?: number;
   subject_created_by?: string | null;
   class_ids: number[];
   class_labels: string[];

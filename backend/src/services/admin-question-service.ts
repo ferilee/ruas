@@ -352,6 +352,7 @@ export async function listAdminTopics(db: AdminDb) {
       id: topics.id,
       subject_id: topics.subject_id,
       subject_label: schema.subjects.label,
+      duration_minutes: schema.subjects.duration_minutes,
       subject_created_by: schema.subjects.created_by,
       slug: topics.slug,
       label: topics.label,
@@ -371,6 +372,15 @@ export async function listAdminTopics(db: AdminDb) {
       .innerJoin(schema.educationClasses, eq(schema.topicClasses.class_id, schema.educationClasses.id))
       .where(inArray(schema.topicClasses.topic_id, rows.map((row) => row.id)))
     : [];
+  const questionCounts = rows.length > 0
+    ? await db
+      .select({ topic_id: schema.topicQuestions.topic_id, total: count(schema.topicQuestions.question_id) })
+      .from(schema.topicQuestions)
+      .innerJoin(questions, eq(schema.topicQuestions.question_id, questions.id))
+      .where(and(inArray(schema.topicQuestions.topic_id, rows.map((row) => row.id)), eq(schema.topicQuestions.enabled, true), isNull(questions.archived_at)))
+      .groupBy(schema.topicQuestions.topic_id)
+    : [];
+  const questionCountByTopic = new Map(questionCounts.map((row) => [row.topic_id, Number(row.total)]));
   const mappingsByTopic = new Map<number, Array<{ class_id: number; class_label: string; class_created_by: string | null }>>();
   for (const mapping of mappings) {
     const current = mappingsByTopic.get(mapping.topic_id) ?? [];
@@ -385,6 +395,7 @@ export async function listAdminTopics(db: AdminDb) {
       class_ids: classMappings.map((mapping) => mapping.class_id),
       class_labels: classMappings.map((mapping) => mapping.class_label),
       class_created_by: classMappings.map((mapping) => mapping.class_created_by),
+      question_count: questionCountByTopic.get(topic.id) ?? 0,
       token_configured: Boolean(token_hash),
     };
   });

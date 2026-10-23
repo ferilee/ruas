@@ -37,6 +37,25 @@
     </form>
 
     <template v-else>
+      <div v-if="shareScheduleOpen && shareScheduleRow" class="teacher-workspace-modal-backdrop" role="presentation" @click.self="closeScheduleShare">
+        <section class="teacher-workspace-modal share-schedule-modal" role="dialog" aria-modal="true" aria-labelledby="share-schedule-title">
+          <div class="teacher-workspace-modal-heading">
+            <div><span class="modal-eyebrow">BAGIKAN ASESMEN</span><h2 id="share-schedule-title">Bagikan ke WhatsApp</h2><p>Periksa pesan sebelum membagikannya ke grup kelas.</p></div>
+            <button class="teacher-workspace-modal-close" type="button" aria-label="Tutup berbagi asesmen" @click="closeScheduleShare">×</button>
+          </div>
+          <div class="share-schedule-preview">
+            <pre>{{ shareScheduleMessage }}</pre>
+          </div>
+          <label v-if="shareScheduleNeedsToken" class="share-schedule-token">Token topik
+            <input v-model.trim="shareScheduleToken" type="text" autocomplete="off" placeholder="Masukkan token yang berlaku" />
+            <small>Token topik disimpan sebagai hash. Token yang baru disimpan akan terisi otomatis; jika tidak, masukkan token yang berlaku.</small>
+          </label>
+          <div class="share-schedule-actions">
+            <button class="secondary-btn" type="button" @click="closeScheduleShare">Batal</button>
+            <button class="primary-btn" type="button" :disabled="shareScheduleNeedsToken && !shareScheduleToken.trim()" @click="openWhatsAppShare">Buka WhatsApp</button>
+          </div>
+        </section>
+      </div>
       <div class="admin-layout">
         <aside class="admin-sidebar">
           <div class="sidebar-brand">
@@ -161,20 +180,22 @@
                         <details v-if="group.key === 'ended' && group.rows.length" class="schedule-ended-accordion">
                           <summary><span>{{ group.label }}</span><b>{{ group.rows.length }}</b></summary>
                           <div class="schedule-group schedule-ended-group">
-                            <button v-for="row in group.rows" :key="row.topic_id ?? row.id ?? 'schedule'" type="button" class="schedule-row" @click="editSchedule(row)">
-                              <span class="schedule-row-main"><strong>{{ row.topic_label }}</strong><small>{{ row.subject_label || 'Tanpa mata pelajaran' }} · {{ scheduleAudienceLabel(row) }}</small></span>
+                            <article v-for="row in group.rows" :key="row.topic_id ?? row.id ?? 'schedule'" class="schedule-row">
+                              <button class="schedule-row-main schedule-row-edit" type="button" @click="editSchedule(row)"><strong>{{ row.topic_label }}</strong><small>{{ row.subject_label || 'Tanpa mata pelajaran' }} · {{ scheduleAudienceLabel(row) }}</small></button>
                               <span :class="['schedule-row-state', `state-${row.state}`]">{{ scheduleStateLabel(row.state) }}</span>
                               <span class="schedule-row-time">{{ formatScheduleWindow(row) }}</span>
-                            </button>
+                              <button class="schedule-row-share" type="button" @click="openScheduleShare(row)">Bagikan WA</button>
+                            </article>
                           </div>
                         </details>
                         <div v-else-if="group.rows.length" class="schedule-group">
                           <h4>{{ group.label }} <span>{{ group.rows.length }}</span></h4>
-                          <button v-for="row in group.rows" :key="row.topic_id ?? row.id ?? 'schedule'" type="button" class="schedule-row" @click="editSchedule(row)">
-                            <span class="schedule-row-main"><strong>{{ row.topic_label }}</strong><small>{{ row.subject_label || 'Tanpa mata pelajaran' }} · {{ scheduleAudienceLabel(row) }}</small></span>
+                          <article v-for="row in group.rows" :key="row.topic_id ?? row.id ?? 'schedule'" class="schedule-row">
+                            <button class="schedule-row-main schedule-row-edit" type="button" @click="editSchedule(row)"><strong>{{ row.topic_label }}</strong><small>{{ row.subject_label || 'Tanpa mata pelajaran' }} · {{ scheduleAudienceLabel(row) }}</small></button>
                             <span :class="['schedule-row-state', `state-${row.state}`]">{{ scheduleStateLabel(row.state) }}</span>
                             <span class="schedule-row-time">{{ formatScheduleWindow(row) }}</span>
-                          </button>
+                            <button class="schedule-row-share" type="button" @click="openScheduleShare(row)">Bagikan WA</button>
+                          </article>
                         </div>
                       </template>
                     </div>
@@ -305,20 +326,22 @@
                   <details v-if="group.key === 'ended' && group.rows.length" class="schedule-ended-accordion">
                     <summary><span>{{ group.label }}</span><b>{{ group.rows.length }}</b></summary>
                     <div class="schedule-group schedule-ended-group">
-                      <button v-for="row in group.rows" :key="row.topic_id ?? row.id ?? 'schedule'" type="button" class="schedule-row" @click="editSchedule(row)">
-                        <span class="schedule-row-main"><strong>{{ row.topic_label }}</strong><small>{{ row.subject_label || 'Tanpa mata pelajaran' }} · {{ scheduleAudienceLabel(row) }}</small></span>
+                      <article v-for="row in group.rows" :key="row.topic_id ?? row.id ?? 'schedule'" class="schedule-row">
+                        <button class="schedule-row-main schedule-row-edit" type="button" @click="editSchedule(row)"><strong>{{ row.topic_label }}</strong><small>{{ row.subject_label || 'Tanpa mata pelajaran' }} · {{ scheduleAudienceLabel(row) }}</small></button>
                         <span :class="['schedule-row-state', `state-${row.state}`]">{{ scheduleStateLabel(row.state) }}</span>
                         <span class="schedule-row-time">{{ formatScheduleWindow(row) }}</span>
-                      </button>
+                        <button class="schedule-row-share" type="button" @click="openScheduleShare(row)">Bagikan WA</button>
+                      </article>
                     </div>
                   </details>
                   <div v-else-if="group.rows.length" class="schedule-group">
                     <h4>{{ group.label }} <span>{{ group.rows.length }}</span></h4>
-                    <button v-for="row in group.rows" :key="row.topic_id ?? row.id ?? 'schedule'" type="button" class="schedule-row" @click="editSchedule(row)">
-                      <span class="schedule-row-main"><strong>{{ row.topic_label }}</strong><small>{{ row.subject_label || 'Tanpa mata pelajaran' }} · {{ scheduleAudienceLabel(row) }}</small></span>
+                    <article v-for="row in group.rows" :key="row.topic_id ?? row.id ?? 'schedule'" class="schedule-row">
+                      <button class="schedule-row-main schedule-row-edit" type="button" @click="editSchedule(row)"><strong>{{ row.topic_label }}</strong><small>{{ row.subject_label || 'Tanpa mata pelajaran' }} · {{ scheduleAudienceLabel(row) }}</small></button>
                       <span :class="['schedule-row-state', `state-${row.state}`]">{{ scheduleStateLabel(row.state) }}</span>
                       <span class="schedule-row-time">{{ formatScheduleWindow(row) }}</span>
-                    </button>
+                      <button class="schedule-row-share" type="button" @click="openScheduleShare(row)">Bagikan WA</button>
+                    </article>
                   </div>
                 </template>
               </div>
@@ -731,7 +754,44 @@ const scheduleParticipants = ref<AdminUser[]>([]);
 const scheduleSaving = ref(false);
 const scheduleMessage = ref('');
 const scheduleMessageType = ref<'success' | 'error'>('success');
+const shareScheduleOpen = ref(false);
+const shareScheduleRow = ref<AssessmentSchedule | null>(null);
+const shareScheduleToken = ref('');
 const scheduleTopicOptions = computed(() => topics.value.map((item) => ({ value: item.id, label: `${item.subject_label} — ${item.label} · ${topicScopeLabel(item)}` })));
+const shareScheduleTopic = computed(() => {
+  const topicId = shareScheduleRow.value?.topic_id;
+  return topicId ? topics.value.find((topic) => topic.id === topicId) ?? null : null;
+});
+const shareScheduleNeedsToken = computed(() => Boolean(shareScheduleTopic.value?.requires_token ?? true));
+const shareScheduleMessage = computed(() => {
+  const row = shareScheduleRow.value;
+  const topic = shareScheduleTopic.value;
+  if (!row) return '';
+  const subjectLabel = row.subject_label || topic?.subject_label || 'Asesmen';
+  const topicLabel = row.topic_label || topic?.label || 'Topik';
+  const questionCount = topic?.question_count ?? 0;
+  const duration = topic?.duration_minutes ? `${topic.duration_minutes} menit` : 'sesuai pengaturan';
+  const target = row.access_mode === 'individual'
+    ? `Target: *${scheduleAudienceLabel(row)}*`
+    : `Kelas: *${topic ? topicScopeLabel(topic) : 'sesuai kelas topik'}*`;
+  const scheduleTime = formatShareScheduleTime(row);
+  const tokenLine = shareScheduleNeedsToken.value ? `*TOKEN:* ${shareScheduleToken.value.trim() || '[masukkan token topik]'}` : '';
+  return [
+    `${subjectLabel} (*${topicLabel}*)`,
+    '',
+    `Jumlah Soal: *${questionCount}*`,
+    `Waktu: *${duration}*`,
+    target,
+    '',
+    '*Link Asesmen:*',
+    `${window.location.origin}/`,
+    '',
+    '*Waktu:*',
+    scheduleTime,
+    tokenLine,
+    row.notes ? `Catatan: ${row.notes}` : '',
+  ].filter(Boolean).join('\n');
+});
 const scheduleGroups = computed(() => [
   { key: 'open', label: 'Sedang Berlangsung', rows: scheduleRows.value.filter((row) => row.state === 'open') },
   { key: 'upcoming', label: 'Akan Datang', rows: scheduleRows.value.filter((row) => row.state === 'upcoming') },
@@ -1145,6 +1205,38 @@ function scheduleStateLabel(state: AssessmentSchedule['state']) {
 
 function scheduleAudienceLabel(row: AssessmentSchedule) {
   return row.access_mode === 'individual' ? `Remedial · ${row.participant_count ?? row.participant_ids?.length ?? 0} siswa` : 'Semua siswa sesuai kelas';
+}
+
+function formatShareScheduleTime(row: AssessmentSchedule) {
+  if (!row.start_at) return row.end_at ? `Segera, batas akhir ${formatScheduleLabel(row.end_at)}` : 'Segera setelah dibuka oleh guru.';
+  const start = new Date(row.start_at);
+  if (Number.isNaN(start.getTime())) return row.start_at;
+  const date = start.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const time = start.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
+  const endValue = row.end_at;
+  const end = endValue ? new Date(endValue) : null;
+  const endText = endValue && end && !Number.isNaN(end.getTime()) ? ` hingga ${formatScheduleLabel(endValue)}` : ' tanpa batas akhir';
+  return `${date} mulai pukul ${time}${endText}`;
+}
+
+function openScheduleShare(row: AssessmentSchedule) {
+  if (!row.topic_id) return;
+  shareScheduleRow.value = row;
+  shareScheduleToken.value = revealedTopicTokens[row.topic_id] ?? '';
+  shareScheduleOpen.value = true;
+}
+
+function closeScheduleShare() {
+  shareScheduleOpen.value = false;
+  shareScheduleRow.value = null;
+  shareScheduleToken.value = '';
+}
+
+function openWhatsAppShare() {
+  if (!shareScheduleRow.value || (shareScheduleNeedsToken.value && !shareScheduleToken.value.trim())) return;
+  const url = `https://wa.me/?text=${encodeURIComponent(shareScheduleMessage.value)}`;
+  window.open(url, '_blank', 'noopener,noreferrer');
+  closeScheduleShare();
 }
 
 function formatScheduleWindow(row: AssessmentSchedule) {
@@ -1693,15 +1785,19 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .schedule-ended-accordion[open] summary::after { transform: rotate(180deg); }
 .schedule-ended-accordion summary b { min-width: 20px; padding: 3px 6px; border-radius: 999px; color: #9b6500; background: #fff2c2; font-size: .65rem; text-align: center; }
 .schedule-ended-group { padding: 0 8px 8px; }
-.schedule-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; width: 100%; padding: 12px; border: 1px solid #e1eaf4; border-radius: 11px; color: #385b86; background: #fff; font: inherit; text-align: left; cursor: pointer; transition: border-color .16s ease, transform .16s ease, box-shadow .16s ease; }
+.schedule-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 4px 10px; width: 100%; padding: 12px; border: 1px solid #e1eaf4; border-radius: 11px; color: #385b86; background: #fff; font: inherit; text-align: left; transition: border-color .16s ease, transform .16s ease, box-shadow .16s ease; }
 .schedule-row:hover { border-color: #8bb8ea; box-shadow: 0 6px 14px rgba(35, 101, 199, .1); transform: translateY(-1px); }
 .schedule-row-main { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.schedule-row-edit { grid-column: 1; grid-row: 1; width: 100%; padding: 0; border: 0; color: inherit; background: transparent; font: inherit; text-align: left; cursor: pointer; }
+.schedule-row-edit:hover { color: inherit; background: transparent; }
 .schedule-row-main strong { overflow: hidden; color: #244978; font-size: .82rem; text-overflow: ellipsis; white-space: nowrap; }
 .schedule-row-main small, .schedule-row-time { color: #8196ae; font-size: .7rem; }
 .schedule-row-state { align-self: start; padding: 4px 7px; border-radius: 999px; color: #23734b; background: #dcf7e9; font-size: .65rem; font-weight: 800; white-space: nowrap; }
 .schedule-row-state.state-upcoming { color: #916300; background: #fff2c2; }
 .schedule-row-state.state-ended, .schedule-row-state.state-disabled { color: #a24d58; background: #ffebeb; }
-.schedule-row-time { grid-column: 1 / -1; line-height: 1.4; }
+.schedule-row-time { grid-column: 1 / -1; grid-row: 2; line-height: 1.4; }
+.schedule-row-share { grid-column: 3; grid-row: 1; align-self: start; padding: 5px 8px; border: 1px solid #c8dcef; border-radius: 7px; color: #2a65b5; background: #f4f9ff; font: inherit; font-size: .67rem; font-weight: 800; white-space: nowrap; cursor: pointer; }
+.schedule-row-share:hover { border-color: #8bb8ea; background: #e7f1ff; }
 
 .schedule-status {
   padding: 5px 10px;
@@ -1829,6 +1925,10 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .editor-view :deep(.schedule-selected-participant button:hover) { color: #ff9aa8; background: #3a2930; }
 .editor-view .schedule-ended-accordion { border-color: #3d3c43; background: #202023; }
 .editor-view .schedule-ended-accordion summary { color: #aaa6b0; }
+.editor-view .schedule-row-edit { color: #d5d1d8; }
+.editor-view .schedule-row-edit:hover { color: #fff; background: transparent; }
+.editor-view .schedule-row-share { border-color: #514b68; color: #c7b8ff; background: #2b2738; }
+.editor-view .schedule-row-share:hover { border-color: #8d7bc9; background: #393542; }
 .editor-view .schedule-row-main strong { color: #f0ebf2; }
 .editor-view .schedule-row-main small, .editor-view .schedule-row-time { color: #96919d; }
 .editor-view :deep(.report-toolbar) { border-color: #3d3c43; background: #25252a; }
@@ -1920,6 +2020,13 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .teacher-report-modal { width: min(100%, 1080px); }
 .teacher-question-modal { width: min(100%, 900px); }
 .teacher-feedback-modal { width: min(100%, 760px); }
+.share-schedule-modal { width: min(100%, 620px); }
+.share-schedule-preview { padding: 14px; border: 1px solid #45444e; border-radius: 12px; background: #1a1a1e; }
+.share-schedule-preview pre { margin: 0; color: #e5e0e8; font: inherit; font-size: .78rem; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+.share-schedule-token { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; color: #d5d1d8; font-size: .75rem; font-weight: 700; }
+.share-schedule-token input { width: 100%; min-height: 40px; padding: 9px 11px; border: 1px solid #4b4a52; border-radius: 8px; color: #f4f0ea; background: #1a1a1e; font: inherit; font-weight: 400; }
+.share-schedule-token small { color: #9b97a2; font-size: .68rem; font-weight: 400; line-height: 1.5; }
+.share-schedule-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 18px; }
 .support-prompt-backdrop { z-index: 110; }
 .support-prompt-modal { position: relative; width: min(100%, 560px); padding: 34px; border: 1px solid #45444e; border-radius: 22px; color: #f6f2eb; background: linear-gradient(145deg, #24232a, #1b1b1f); box-shadow: 0 30px 80px rgba(0, 0, 0, .52); }
 .support-prompt-close { position: absolute; top: 18px; right: 18px; }
@@ -2105,6 +2212,11 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .teacher-workspace-view[data-theme="light"] .modal-eyebrow { color: #5c50b5; }
 .teacher-workspace-view[data-theme="light"] .teacher-workspace-modal-close { color: #55718f; background: #eef4fb; }
 .teacher-workspace-view[data-theme="light"] .teacher-workspace-modal-close:hover { color: #2454a0; background: #dceafb; }
+.teacher-workspace-view[data-theme="light"] .share-schedule-preview { border-color: #d7e2ee; background: #f7faff; }
+.teacher-workspace-view[data-theme="light"] .share-schedule-preview pre { color: #294c7a; }
+.teacher-workspace-view[data-theme="light"] .share-schedule-token { color: #435d7d; }
+.teacher-workspace-view[data-theme="light"] .share-schedule-token input { border-color: #d4e0ee; color: #294c7a; background: #f9fbfe; }
+.teacher-workspace-view[data-theme="light"] .share-schedule-token small { color: #7890aa; }
 .teacher-workspace-view[data-theme="light"] .support-prompt-modal { border-color: #d7e2ee; color: #1d3557; background: linear-gradient(145deg, #fff, #f5f9ff); box-shadow: 0 30px 80px rgba(31, 74, 126, .2); }
 .teacher-workspace-view[data-theme="light"] .support-prompt-icon { border-color: #b8a8e8; color: #7650b6; background: #f0eaff; }
 .teacher-workspace-view[data-theme="light"] .support-prompt-modal h2 { color: #173e7f; }
@@ -2117,6 +2229,14 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .teacher-workspace-view[data-theme="light"] .support-prompt-secondary:hover { border-color: #987fe0; background: #ece5ff; }
 .teacher-workspace-view[data-theme="light"] .support-prompt-note { color: #8498b1; }
 .teacher-workspace-view[data-theme="light"] .workspace-schedule-panel .schedule-editor-form, .teacher-workspace-view[data-theme="light"] .workspace-schedule-panel .schedule-list-card { border-color: #dfe8f2; background: #fff; }
+.admin-view[data-theme="light"] .schedule-row { border-color: #e1eaf4; color: #385b86; background: #fff; }
+.admin-view[data-theme="light"] .schedule-row:hover { border-color: #8bb8ea; background: #fbfdff; }
+.admin-view[data-theme="light"] .schedule-row-edit { color: #385b86; }
+.admin-view[data-theme="light"] .schedule-row-edit:hover { color: #385b86; background: transparent; }
+.admin-view[data-theme="light"] .schedule-row-main strong { color: #244978; }
+.admin-view[data-theme="light"] .schedule-row-main small, .admin-view[data-theme="light"] .schedule-row-time { color: #8196ae; }
+.admin-view[data-theme="light"] .schedule-row-share { border-color: #c8dcef; color: #2a65b5; background: #f4f9ff; }
+.admin-view[data-theme="light"] .schedule-row-share:hover { border-color: #8bb8ea; background: #e7f1ff; }
 
 .teacher-workspace-view[data-theme="light"] :deep(.simple-report-header), .teacher-workspace-view[data-theme="light"] :deep(.simple-report-filters), .teacher-workspace-view[data-theme="light"] :deep(.simple-report-results), .teacher-workspace-view[data-theme="light"] :deep(.simple-report-summary article) { border-color: #d7e2ee; color: #1d3557; background: #fff; }
 .teacher-workspace-view[data-theme="light"] :deep(.simple-report-header h2), .teacher-workspace-view[data-theme="light"] :deep(.simple-report-filters > div strong), .teacher-workspace-view[data-theme="light"] :deep(.simple-report-results-heading strong), .teacher-workspace-view[data-theme="light"] :deep(.simple-report-summary strong) { color: #173e7f; }
