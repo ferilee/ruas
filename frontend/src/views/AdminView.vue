@@ -93,7 +93,7 @@
             </div>
             <div class="admin-header-actions">
               <span :class="['realtime-indicator', `realtime-${realtimeStatus}`]" :title="realtimeStatusLabel"><i></i>{{ realtimeStatusLabel }}</span>
-              <button class="secondary-btn" @click="logout">Keluar</button>
+              <button class="secondary-btn editor-logout-btn" type="button" aria-label="Keluar dari editor" @click="logout">Keluar dari Editor</button>
             </div>
           </div>
 
@@ -1073,7 +1073,7 @@ function logout() {
   closeSupportPrompt();
   sessionStorage.removeItem(supportPromptSeenKey);
   supportPromptShown.value = false;
-  router.replace('/admin');
+  router.replace('/');
 }
 
 const realtimeStatusLabel = computed(() => ({ connecting: 'Menghubungkan live', connected: 'Live aktif', disconnected: 'Live terputus' }[realtimeStatus.value]));
@@ -1567,6 +1567,7 @@ onUnmounted(() => {
 .admin-content { min-width: 0; }
 .mobile-bottom-nav, .mobile-more-menu, .mobile-more-backdrop { display: none; }
 .dashboard-header { margin-bottom: 25px; }
+.editor-view .dashboard-header { padding-right: 58px; }
 .dashboard-header .page-title { margin-top: 10px; }
 .overview-section { display: flex; flex-direction: column; gap: 20px; }
 .welcome-card { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 28px 30px; border-radius: 18px; color: #fff; background: linear-gradient(115deg, #185db7 0%, #2686df 100%); box-shadow: 0 14px 30px rgba(29, 103, 190, .2); }
@@ -1593,7 +1594,8 @@ onUnmounted(() => {
 .quick-action-grid strong { color: #24589e; font-size: .84rem; }
 .quick-action-grid span { font-size: .75rem; line-height: 1.45; }
 .admin-header, .toolbar, .panel-heading, .import-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.admin-header-actions { display: flex; align-items: center; gap: 10px; }
+.admin-header-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px; }
+.editor-logout-btn { position: relative; z-index: 1; white-space: nowrap; }
 .realtime-indicator { display: inline-flex; align-items: center; gap: 6px; padding: 7px 9px; border-radius: 999px; color: #607693; background: #edf3f9; font-size: .7rem; font-weight: 800; white-space: nowrap; }
 .realtime-indicator i { width: 7px; height: 7px; border-radius: 50%; background: #8b9bae; }
 .realtime-connected { color: #207553; background: #e4f7ed; }.realtime-connected i { background: #2ca673; box-shadow: 0 0 0 3px rgba(44,166,115,.15); }
@@ -2122,6 +2124,8 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
   .admin-sidebar { display: none; }
   .welcome-card { align-items: flex-start; flex-direction: column; padding: 22px; }
   .dashboard-header { align-items: flex-start; }
+  .editor-view .dashboard-header { padding-right: 0; }
+  .dashboard-header .admin-header-actions { width: 100%; justify-content: flex-start; }
   .dashboard-header .secondary-btn { align-self: flex-start; }
   .question-toolbar { align-items: stretch; flex-direction: column; }
   .toolbar-search { width: 100%; }
