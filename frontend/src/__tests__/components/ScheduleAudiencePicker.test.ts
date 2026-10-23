@@ -8,12 +8,15 @@ const participants = [
 ];
 
 describe('ScheduleAudiencePicker', () => {
-  it('switches to individual targeting and selects a student', async () => {
+  it('switches to individual targeting', async () => {
     const wrapper = mount(ScheduleAudiencePicker, { props: { mode: 'class', participantIds: [], participants } });
 
     await wrapper.findAll('input[type="radio"]')[1]?.trigger('change');
     expect(wrapper.emitted('update:mode')).toEqual([['individual']]);
-    await wrapper.setProps({ mode: 'individual' });
+  });
+
+  it('selects a student in individual mode', async () => {
+    const wrapper = mount(ScheduleAudiencePicker, { props: { mode: 'individual', participantIds: [], participants } });
 
     await wrapper.findAll('input[type="checkbox"]')[0]?.trigger('change');
     expect(wrapper.emitted('update:participantIds')).toEqual([[[1]]]);
