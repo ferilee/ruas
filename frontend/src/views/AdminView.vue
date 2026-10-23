@@ -109,6 +109,7 @@
               @create="handleTeacherWorkspaceAction"
               @navigate="handleTeacherWorkspaceNavigation"
               @feedback="openFeedbackModal"
+              @logout="logout"
             />
             <div v-if="supportPromptOpen" class="teacher-workspace-modal-backdrop support-prompt-backdrop" role="presentation" @click.self="closeSupportPrompt">
               <section class="support-prompt-modal" role="dialog" aria-modal="true" aria-labelledby="support-prompt-title">
@@ -2185,6 +2186,8 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .teacher-workspace-view[data-theme="light"] :deep(.teacher-workspace-heading h2) { color: #172b4d; }
 .teacher-workspace-view[data-theme="light"] :deep(.teacher-workspace-heading p) { color: #667b95; }
 .teacher-workspace-view[data-theme="light"] :deep(.teacher-workspace-badge) { border-color: #cbd9e8; color: #315f9c; }
+.teacher-workspace-view[data-theme="light"] :deep(.teacher-workspace-logout) { border-color: #cbd9e8; color: #365678; background: #fff; }
+.teacher-workspace-view[data-theme="light"] :deep(.teacher-workspace-logout:hover) { border-color: #8bb5e4; color: #1d5fc0; background: #edf5ff; }
 .teacher-workspace-view[data-theme="light"] :deep(.teacher-workspace-divider) { background: #d7e2ee; }
 .teacher-workspace-view[data-theme="light"] :deep(.teacher-workspace-section-label) { color: #7790aa; }
 .teacher-workspace-view[data-theme="light"] :deep(.teacher-workspace-card) { border-color: #d7e2ee; color: #243f63; background: #fff; box-shadow: 0 10px 24px rgba(31, 74, 126, .06); }

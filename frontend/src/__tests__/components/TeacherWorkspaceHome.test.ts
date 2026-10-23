@@ -28,8 +28,10 @@ describe('TeacherWorkspaceHome', () => {
 
     await wrapper.findAll('.workspace-action-button')[4].trigger('click');
     await wrapper.find('.workspace-mini-link').trigger('click');
+    await wrapper.find('.teacher-workspace-logout').trigger('click');
 
     expect(wrapper.emitted('create')).toEqual([['question']]);
     expect(wrapper.emitted('navigate')).toEqual([['questions']]);
+    expect(wrapper.emitted('logout')).toEqual([[]]);
   });
 });

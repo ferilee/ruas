@@ -6,7 +6,10 @@
         <h2 id="teacher-workspace-title">Apa yang ingin Anda siapkan hari ini?</h2>
         <p>Mulai dari satu langkah untuk menyiapkan asesmen kelas Anda.</p>
       </div>
-      <span class="teacher-workspace-badge">RUAS · GURU</span>
+      <div class="teacher-workspace-heading-actions">
+        <span class="teacher-workspace-badge">RUAS · GURU</span>
+        <button class="teacher-workspace-logout" type="button" @click="emit('logout')">Keluar dari Editor</button>
+      </div>
     </div>
 
     <div class="teacher-workspace-divider" aria-hidden="true"></div>
@@ -103,6 +106,7 @@ const emit = defineEmits<{
   create: [action: WorkspaceAction];
   navigate: [section: WorkspaceSection];
   feedback: [kind: FeedbackKind];
+  logout: [];
 }>();
 
 const actions: Array<{ id: WorkspaceAction; label: string; icon: string; tone: CardTone }> = [
@@ -127,10 +131,13 @@ const structureCountLabel = computed(() => `${props.classCount} kelas · ${props
 }
 
 .teacher-workspace-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+.teacher-workspace-heading-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; margin-right: 52px; }
 .teacher-workspace-eyebrow, .teacher-workspace-section-label { color: #8da4ff; font-size: .67rem; font-weight: 800; letter-spacing: .16em; }
 .teacher-workspace-heading h2 { max-width: 760px; margin-top: 15px; color: #f7f2eb; font-size: clamp(2rem, 4vw, 3.55rem); font-weight: 800; letter-spacing: -.045em; line-height: 1.02; }
 .teacher-workspace-heading p { margin-top: 18px; color: #9e9aa5; font-size: .95rem; }
 .teacher-workspace-badge { padding: 8px 11px; border: 1px solid #3e3d48; border-radius: 999px; color: #aab8ff; font-size: .65rem; font-weight: 800; letter-spacing: .08em; white-space: nowrap; }
+.teacher-workspace-logout { padding: 8px 11px; border: 1px solid #4b4a52; border-radius: 8px; color: #d5d1d8; background: #25252a; font: inherit; font-size: .68rem; font-weight: 700; white-space: nowrap; cursor: pointer; }
+.teacher-workspace-logout:hover { border-color: #9b8fd0; color: #fff; background: #393542; }
 .teacher-workspace-divider { height: 1px; margin: 42px 0 27px; background: #3b3a41; }
 .teacher-workspace-section-label { margin-bottom: 16px; color: #92909b; font-size: .62rem; }
 .teacher-workspace-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
@@ -248,6 +255,7 @@ const structureCountLabel = computed(() => `${props.classCount} kelas · ${props
 @media (max-width: 720px) {
   .teacher-workspace-home { min-height: calc(100vh - 130px); padding: 28px 18px 34px; }
   .teacher-workspace-heading { flex-direction: column; }
+  .teacher-workspace-heading-actions { width: 100%; flex-direction: row; align-items: center; justify-content: space-between; margin-right: 0; }
   .teacher-workspace-heading h2 { font-size: 2.3rem; }
   .teacher-workspace-divider { margin-top: 30px; }
   .teacher-workspace-grid { grid-template-columns: 1fr; }
