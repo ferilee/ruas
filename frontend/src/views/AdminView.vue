@@ -1821,6 +1821,12 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .editor-view :deep(.schedule-audience-option:hover), .editor-view :deep(.schedule-participant-option:hover) { background: #393542; }
 .editor-view :deep(.schedule-participant-picker) { border-color: #3d3c43; }
 .editor-view :deep(.schedule-participant-search) { border-color: #4b4a52; color: #f4f0ea; background: #1a1a1e; }
+.editor-view :deep(.schedule-selected-participants) { border-color: #45444e; background: #29282e; }
+.editor-view :deep(.schedule-selected-heading), .editor-view :deep(.schedule-selected-participant strong) { color: #d5d1d8; }
+.editor-view :deep(.schedule-selected-heading span), .editor-view :deep(.schedule-selected-participant small) { color: #96919d; }
+.editor-view :deep(.schedule-selected-participant) { background: #1a1a1e; }
+.editor-view :deep(.schedule-selected-participant button) { color: #aaa6b0; }
+.editor-view :deep(.schedule-selected-participant button:hover) { color: #ff9aa8; background: #3a2930; }
 .editor-view .schedule-ended-accordion { border-color: #3d3c43; background: #202023; }
 .editor-view .schedule-ended-accordion summary { color: #aaa6b0; }
 .editor-view .schedule-row-main strong { color: #f0ebf2; }

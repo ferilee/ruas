@@ -29,4 +29,15 @@ describe('ScheduleAudiencePicker', () => {
     expect(wrapper.findAll('.schedule-participant-option')).toHaveLength(1);
     expect(wrapper.text()).toContain('Siswa Dua');
   });
+
+  it('shows selected students with their class and allows removing them', async () => {
+    const wrapper = mount(ScheduleAudiencePicker, { props: { mode: 'individual', participantIds: [1], participants } });
+
+    expect(wrapper.findAll('.schedule-selected-participant')).toHaveLength(1);
+    expect(wrapper.find('.schedule-selected-participant').text()).toContain('Siswa Satu');
+    expect(wrapper.find('.schedule-selected-participant').text()).toContain('X TKJ A');
+
+    await wrapper.find('.schedule-selected-participant button').trigger('click');
+    expect(wrapper.emitted('update:participantIds')).toEqual([[[]]]);
+  });
 });
