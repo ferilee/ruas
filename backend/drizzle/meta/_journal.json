@@ -218,6 +218,20 @@
       "when": 1793011000000,
       "tag": "0030_feedback_entries",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "5",
+      "when": 1793020000000,
+      "tag": "0031_schedule_access_mode",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "5",
+      "when": 1793020001000,
+      "tag": "0032_schedule_participants",
+      "breakpoints": true
     }
   ]
 }

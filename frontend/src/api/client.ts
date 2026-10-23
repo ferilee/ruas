@@ -537,7 +537,7 @@ export async function fetchAdminReportDetail(attemptId: number): Promise<AdminRe
   return data.report;
 }
 
-export async function updateAdminSchedule(topicId: number, input: { start_at: string | null; end_at: string | null; enabled: boolean; notes: string | null }): Promise<AssessmentSchedule> {
+export async function updateAdminSchedule(topicId: number, input: { start_at: string | null; end_at: string | null; enabled: boolean; access_mode: 'class' | 'individual'; participant_ids: number[]; notes: string | null }): Promise<AssessmentSchedule> {
   const data = await adminRequest<{ schedule: AssessmentSchedule }>(`/admin/schedule/${topicId}`, {
     method: 'PUT',
     body: JSON.stringify(input),

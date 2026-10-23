@@ -32,7 +32,7 @@ export function examAttemptRoutes(pool: Pool, mediaStorage: MediaStorage | null 
     const parsed = attemptSchema.safeParse(await c.req.json());
     if (!parsed.success) return c.json({ error: 'invalid_body', message: 'Data sesi ujian tidak valid.' }, 400);
     if (typeof (db as { select?: unknown }).select === 'function') {
-      const schedule = await getAssessmentScheduleStatusFromDb(db, parsed.data.topic_id);
+      const schedule = await getAssessmentScheduleStatusFromDb(db, parsed.data.topic_id, identityKey);
       if (!schedule.is_open) return c.json({ error: 'assessment_not_started', message: 'Asesmen belum dibuka oleh editor.', schedule }, 403);
     }
     const created = await createAttempt(db, identityKey, parsed.data);

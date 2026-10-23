@@ -6,6 +6,7 @@ export { questions } from './questions';
 export { questionOptions } from './question-options';
 export { questionMedia } from './question-media';
 export { assessmentSchedule } from './assessment-schedule';
+export { assessmentScheduleParticipants } from './assessment-schedule-participants';
 export { educationClasses } from './education-classes';
 export { assessmentTypes } from './assessment-types';
 export { participantProfiles } from './participant-profiles';

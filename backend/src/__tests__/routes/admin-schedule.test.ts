@@ -10,6 +10,15 @@ describe('adminScheduleRoutes', () => {
   it('returns schedules grouped by topic', async () => {
     drizzleMock.mockReturnValue({
       select: (shape?: unknown) => {
+        if (shape && typeof shape === 'object' && 'schedule_id' in (shape as Record<string, unknown>)) {
+          return {
+            from: () => ({
+              innerJoin: () => ({
+                where: async () => [],
+              }),
+            }),
+          };
+        }
         if (shape && typeof shape === 'object' && 'topic_label' in (shape as Record<string, unknown>)) {
           return {
             from: () => ({

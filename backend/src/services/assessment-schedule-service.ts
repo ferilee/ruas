@@ -1,10 +1,13 @@
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/mysql2';
 import { assessmentSchedule } from '@/db/schema/assessment-schedule';
+import { assessmentScheduleParticipants } from '@/db/schema/assessment-schedule-participants';
 import { assessmentTypes } from '@/db/schema/assessment-types';
 import { subjects } from '@/db/schema/subjects';
 import { topics } from '@/db/schema/topics';
+import { users } from '@/db/schema/users';
 import type { Pool } from '@/db/connection';
+import { canParticipantAccessTopic } from '@/services/topic-access-service';
 
 type ScheduleDb = ReturnType<typeof drizzle>;
 
@@ -16,13 +19,17 @@ export interface AssessmentScheduleStatus {
   start_at: string | null;
   end_at: string | null;
   enabled: boolean;
+  access_mode?: 'class' | 'individual';
+  participant_ids?: number[];
+  participant_labels?: string[];
+  participant_count?: number;
   state: 'open' | 'upcoming' | 'ended' | 'disabled';
   is_open: boolean;
   starts_in_seconds: number;
 }
 
 export function createAssessmentScheduleDb(pool: Pool) {
-  return drizzle(pool, { schema: { assessmentSchedule, assessmentTypes, subjects, topics }, mode: 'default' });
+  return drizzle(pool, { schema: { assessmentSchedule, assessmentScheduleParticipants, assessmentTypes, subjects, topics, users }, mode: 'default' });
 }
 
 export async function findAssessmentSchedule(db: ScheduleDb, topicId: number) {
@@ -87,6 +94,7 @@ export async function listAssessmentSchedulesFromDb(db: ScheduleDb, now = new Da
       start_at: assessmentSchedule.start_at,
       end_at: assessmentSchedule.end_at,
       enabled: assessmentSchedule.enabled,
+      access_mode: assessmentSchedule.access_mode,
       notes: assessmentSchedule.notes,
       updated_at: assessmentSchedule.updated_at,
     })
@@ -95,21 +103,41 @@ export async function listAssessmentSchedulesFromDb(db: ScheduleDb, now = new Da
     .innerJoin(subjects, eq(topics.subject_id, subjects.id))
     .leftJoin(assessmentTypes, eq(subjects.assessment_type_id, assessmentTypes.id));
 
-  return rows.map((row) => ({
+  const participantRows = rows.length > 0
+    ? await db
+      .select({ schedule_id: assessmentScheduleParticipants.schedule_id, user_id: users.id, display_name: users.display_name, username: users.username })
+      .from(assessmentScheduleParticipants)
+      .innerJoin(users, eq(assessmentScheduleParticipants.user_id, users.id))
+      .where(inArray(assessmentScheduleParticipants.schedule_id, rows.map((row) => row.id)))
+    : [];
+  const participantsBySchedule = new Map<number, Array<{ user_id: number; label: string }>>();
+  for (const participant of participantRows) {
+    const current = participantsBySchedule.get(participant.schedule_id) ?? [];
+    current.push({ user_id: participant.user_id, label: `${participant.display_name} · ${participant.username}` });
+    participantsBySchedule.set(participant.schedule_id, current);
+  }
+
+  return rows.map((row) => {
+    const participants = participantsBySchedule.get(row.id) ?? [];
+    return {
     ...row,
     ...getAssessmentScheduleStatus(row.start_at, row.end_at, Boolean(row.enabled), now),
     topic_id: row.topic_id,
     topic_label: row.topic_label,
     start_at: row.start_at?.toISOString() ?? null,
     end_at: row.end_at?.toISOString() ?? null,
-  }));
+    participant_ids: participants.map((participant) => participant.user_id),
+    participant_labels: participants.map((participant) => participant.label),
+    participant_count: participants.length,
+  };
+  });
 }
 
-export async function getAssessmentScheduleStatusFromDb(db: ScheduleDb, topicId?: number, now = new Date()) {
+export async function getAssessmentScheduleStatusFromDb(db: ScheduleDb, topicId?: number, identityKey?: string | null, now = new Date()) {
   if (!topicId) return getAssessmentScheduleStatus(null, null, true, now);
 
   const [topic] = await db
-    .select({ topic_id: topics.id, start_at: assessmentSchedule.start_at, end_at: assessmentSchedule.end_at, enabled: assessmentSchedule.enabled })
+    .select({ topic_id: topics.id, start_at: assessmentSchedule.start_at, end_at: assessmentSchedule.end_at, enabled: assessmentSchedule.enabled, access_mode: assessmentSchedule.access_mode })
     .from(topics)
     .leftJoin(assessmentSchedule, eq(assessmentSchedule.topic_id, topics.id))
     .where(eq(topics.id, topicId))
@@ -117,5 +145,8 @@ export async function getAssessmentScheduleStatusFromDb(db: ScheduleDb, topicId?
   if (!topic) return getAssessmentScheduleStatus(null, null, true, now);
 
   const status = getAssessmentScheduleStatus(topic.start_at, topic.end_at, topic.enabled === null ? true : Boolean(topic.enabled), now);
+  if (topic.access_mode === 'individual' && !(await canParticipantAccessTopic(db, topicId, identityKey, true))) {
+    return { ...status, topic_id: topic.topic_id, is_open: false, state: 'disabled' as const };
+  }
   return { ...status, topic_id: topic.topic_id };
 }

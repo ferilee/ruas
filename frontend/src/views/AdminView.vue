@@ -138,6 +138,7 @@
                       <label>Topik
                         <RuasSelect v-model="scheduleTopicId" class="schedule-topic-select" :options="scheduleTopicOptions" placeholder="Pilih topik" aria-label="Topik untuk jadwal" searchable search-placeholder="Cari topik, mata pelajaran, atau kelas..." />
                       </label>
+                      <ScheduleAudiencePicker v-model:mode="scheduleAccessMode" v-model:participant-ids="scheduleParticipantIds" :participants="scheduleParticipants" />
                       <label>Waktu mulai
                         <input v-model="scheduleStartAt" type="datetime-local" />
                       </label>
@@ -157,10 +158,20 @@
                       <div class="panel-heading"><div><h3>Jadwal per topik</h3><p>Pilih jadwal untuk mengubahnya.</p></div></div>
                       <div v-if="scheduleRows.length === 0" class="schedule-empty">Belum ada jadwal khusus. Peserta dapat mulai segera.</div>
                       <template v-for="group in scheduleGroups" :key="group.key">
-                        <div v-if="group.rows.length" class="schedule-group">
+                        <details v-if="group.key === 'ended' && group.rows.length" class="schedule-ended-accordion">
+                          <summary><span>{{ group.label }}</span><b>{{ group.rows.length }}</b></summary>
+                          <div class="schedule-group schedule-ended-group">
+                            <button v-for="row in group.rows" :key="row.topic_id ?? row.id ?? 'schedule'" type="button" class="schedule-row" @click="editSchedule(row)">
+                              <span class="schedule-row-main"><strong>{{ row.topic_label }}</strong><small>{{ row.subject_label || 'Tanpa mata pelajaran' }} · {{ scheduleAudienceLabel(row) }}</small></span>
+                              <span :class="['schedule-row-state', `state-${row.state}`]">{{ scheduleStateLabel(row.state) }}</span>
+                              <span class="schedule-row-time">{{ formatScheduleWindow(row) }}</span>
+                            </button>
+                          </div>
+                        </details>
+                        <div v-else-if="group.rows.length" class="schedule-group">
                           <h4>{{ group.label }} <span>{{ group.rows.length }}</span></h4>
                           <button v-for="row in group.rows" :key="row.topic_id ?? row.id ?? 'schedule'" type="button" class="schedule-row" @click="editSchedule(row)">
-                            <span class="schedule-row-main"><strong>{{ row.topic_label }}</strong><small>{{ row.subject_label || 'Tanpa mata pelajaran' }} · {{ row.notes || 'Tanpa catatan' }}</small></span>
+                            <span class="schedule-row-main"><strong>{{ row.topic_label }}</strong><small>{{ row.subject_label || 'Tanpa mata pelajaran' }} · {{ scheduleAudienceLabel(row) }}</small></span>
                             <span :class="['schedule-row-state', `state-${row.state}`]">{{ scheduleStateLabel(row.state) }}</span>
                             <span class="schedule-row-time">{{ formatScheduleWindow(row) }}</span>
                           </button>
@@ -265,10 +276,11 @@
             <div class="schedule-layout">
               <form class="schedule-form schedule-editor-form" @submit.prevent="saveSchedule">
                 <div class="panel-heading"><div><h3>Atur jadwal</h3><p>Pilih topik, lalu tentukan jendela pengerjaannya.</p></div></div>
-                <label>Topik
-                  <RuasSelect v-model="scheduleTopicId" class="schedule-topic-select" :options="scheduleTopicOptions" placeholder="Pilih topik" aria-label="Topik untuk jadwal" searchable search-placeholder="Cari topik, mata pelajaran, atau kelas..." />
-                </label>
-                <label>Waktu mulai
+                  <label>Topik
+                    <RuasSelect v-model="scheduleTopicId" class="schedule-topic-select" :options="scheduleTopicOptions" placeholder="Pilih topik" aria-label="Topik untuk jadwal" searchable search-placeholder="Cari topik, mata pelajaran, atau kelas..." />
+                  </label>
+                  <ScheduleAudiencePicker v-model:mode="scheduleAccessMode" v-model:participant-ids="scheduleParticipantIds" :participants="scheduleParticipants" />
+                  <label>Waktu mulai
                   <input v-model="scheduleStartAt" type="datetime-local" />
                 </label>
                 <label>Waktu selesai <span class="label-optional">(opsional)</span>
@@ -290,10 +302,20 @@
                 <div class="panel-heading"><div><h3>Jadwal per topik</h3><p>Urutan status: Sedang Berlangsung, Akan Datang, lalu Sudah Berakhir.</p></div></div>
                 <div v-if="scheduleRows.length === 0" class="schedule-empty">Belum ada jadwal khusus. Peserta dapat mulai segera.</div>
                 <template v-for="group in scheduleGroups" :key="group.key">
-                  <div v-if="group.rows.length" class="schedule-group">
+                  <details v-if="group.key === 'ended' && group.rows.length" class="schedule-ended-accordion">
+                    <summary><span>{{ group.label }}</span><b>{{ group.rows.length }}</b></summary>
+                    <div class="schedule-group schedule-ended-group">
+                      <button v-for="row in group.rows" :key="row.topic_id ?? row.id ?? 'schedule'" type="button" class="schedule-row" @click="editSchedule(row)">
+                        <span class="schedule-row-main"><strong>{{ row.topic_label }}</strong><small>{{ row.subject_label || 'Tanpa mata pelajaran' }} · {{ scheduleAudienceLabel(row) }}</small></span>
+                        <span :class="['schedule-row-state', `state-${row.state}`]">{{ scheduleStateLabel(row.state) }}</span>
+                        <span class="schedule-row-time">{{ formatScheduleWindow(row) }}</span>
+                      </button>
+                    </div>
+                  </details>
+                  <div v-else-if="group.rows.length" class="schedule-group">
                     <h4>{{ group.label }} <span>{{ group.rows.length }}</span></h4>
                     <button v-for="row in group.rows" :key="row.topic_id ?? row.id ?? 'schedule'" type="button" class="schedule-row" @click="editSchedule(row)">
-                      <span class="schedule-row-main"><strong>{{ row.topic_label }}</strong><small>{{ row.subject_label || 'Tanpa mata pelajaran' }} · {{ row.notes || 'Tanpa catatan' }}</small></span>
+                      <span class="schedule-row-main"><strong>{{ row.topic_label }}</strong><small>{{ row.subject_label || 'Tanpa mata pelajaran' }} · {{ scheduleAudienceLabel(row) }}</small></span>
                       <span :class="['schedule-row-state', `state-${row.state}`]">{{ scheduleStateLabel(row.state) }}</span>
                       <span class="schedule-row-time">{{ formatScheduleWindow(row) }}</span>
                     </button>
@@ -544,6 +566,7 @@ import TeacherRequestsPanel from '@/components/TeacherRequestsPanel.vue';
 import TeacherWorkspaceHome from '@/components/TeacherWorkspaceHome.vue';
 import TeacherQuestionListModal from '@/components/TeacherQuestionListModal.vue';
 import FeedbackPanel from '@/components/FeedbackPanel.vue';
+import ScheduleAudiencePicker from '@/components/ScheduleAudiencePicker.vue';
 import {
   adminLogin,
   createAdminQuestion,
@@ -554,6 +577,7 @@ import {
   fetchAdminParticipantCount,
   fetchAdminSchedule,
   fetchAdminTopics,
+  fetchAdminUsers,
   fetchAdminCurriculum,
   deleteAdminQuestionMedia,
   importAdminQuestions,
@@ -563,7 +587,7 @@ import {
   updateAdminQuestion,
   updateAdminSchedule,
 } from '@/api/client';
-import type { AdminQuestionInput, AdminQuestionListItem, AdminTopic, AssessmentSchedule, CurriculumData, ImportSummary, QuestionMedia } from '@/types';
+import type { AdminQuestionInput, AdminQuestionListItem, AdminTopic, AdminUser, AssessmentSchedule, CurriculumData, ImportSummary, QuestionMedia } from '@/types';
 import type { AdminSession } from '@/types';
 import { connectAdminRealtime, dispatchAdminRealtimeEvent, type AdminRealtimeEvent, type AdminRealtimeStatus } from '@/lib/admin-realtime';
 
@@ -701,6 +725,9 @@ const scheduleEnabled = ref(true);
 const scheduleNotes = ref('');
 const scheduleTopicId = ref<number | null>(null);
 const scheduleRows = ref<AssessmentSchedule[]>([]);
+const scheduleAccessMode = ref<'class' | 'individual'>('class');
+const scheduleParticipantIds = ref<number[]>([]);
+const scheduleParticipants = ref<AdminUser[]>([]);
 const scheduleSaving = ref(false);
 const scheduleMessage = ref('');
 const scheduleMessageType = ref<'success' | 'error'>('success');
@@ -708,8 +735,15 @@ const scheduleTopicOptions = computed(() => topics.value.map((item) => ({ value:
 const scheduleGroups = computed(() => [
   { key: 'open', label: 'Sedang Berlangsung', rows: scheduleRows.value.filter((row) => row.state === 'open') },
   { key: 'upcoming', label: 'Akan Datang', rows: scheduleRows.value.filter((row) => row.state === 'upcoming') },
-  { key: 'ended', label: 'Sudah Berakhir', rows: scheduleRows.value.filter((row) => row.state === 'ended' || row.state === 'disabled') },
+  { key: 'disabled', label: 'Nonaktif', rows: scheduleRows.value.filter((row) => row.state === 'disabled') },
+  { key: 'ended', label: 'Sudah Berakhir', rows: scheduleRows.value.filter((row) => row.state === 'ended') },
 ]);
+
+watch(scheduleTopicId, (topicId) => {
+  if (topicId === null) return;
+  const existing = scheduleRows.value.find((row) => row.topic_id === topicId);
+  loadScheduleDraft(existing ?? null);
+});
 
 watch(search, () => {
   if (questionSearchTimer) clearTimeout(questionSearchTimer);
@@ -1048,12 +1082,13 @@ function goToQuestionPage(page: number) {
 
 async function loadData() {
   try {
-    const [questionRows, topicRows, schedules, curriculumData, participantTotal] = await Promise.all([
+    const [questionRows, topicRows, schedules, curriculumData, participantTotal, userRows] = await Promise.all([
       fetchAdminQuestions(),
       fetchAdminTopics(),
       fetchAdminSchedule(),
       fetchAdminCurriculum(),
       fetchAdminParticipantCount().catch(() => 0),
+      fetchAdminUsers().catch(() => []),
     ]);
     questions.value = questionRows.questions;
     questionPage.value = questionRows.page;
@@ -1064,6 +1099,7 @@ async function loadData() {
     curriculum.value = curriculumData;
     syncTopicAccessDrafts(topicRows);
     scheduleRows.value = schedules;
+    scheduleParticipants.value = userRows.filter((user) => user.role === 'participant');
     participantCount.value = participantTotal;
     const selectedId = scheduleTopicId.value ?? topics.value[0]?.id ?? null;
     scheduleTopicId.value = selectedId;
@@ -1092,6 +1128,8 @@ function loadScheduleDraft(row: AssessmentSchedule | null) {
   scheduleStartAt.value = toDateTimeLocal(row?.start_at ?? null);
   scheduleEndAt.value = toDateTimeLocal(row?.end_at ?? null);
   scheduleEnabled.value = row?.enabled ?? true;
+  scheduleAccessMode.value = row?.access_mode ?? 'class';
+  scheduleParticipantIds.value = [...(row?.participant_ids ?? [])];
   scheduleNotes.value = row?.notes ?? '';
 }
 
@@ -1103,6 +1141,10 @@ function editSchedule(row: AssessmentSchedule) {
 
 function scheduleStateLabel(state: AssessmentSchedule['state']) {
   return { open: 'Terbuka', upcoming: 'Menunggu', ended: 'Berakhir', disabled: 'Nonaktif' }[state];
+}
+
+function scheduleAudienceLabel(row: AssessmentSchedule) {
+  return row.access_mode === 'individual' ? `Remedial · ${row.participant_count ?? row.participant_ids?.length ?? 0} siswa` : 'Semua siswa sesuai kelas';
 }
 
 function formatScheduleWindow(row: AssessmentSchedule) {
@@ -1143,11 +1185,16 @@ async function saveSchedule() {
     scheduleMessage.value = 'Waktu selesai harus setelah waktu mulai.';
     return;
   }
+  if (scheduleAccessMode.value === 'individual' && scheduleParticipantIds.value.length === 0) {
+    scheduleMessageType.value = 'error';
+    scheduleMessage.value = 'Pilih setidaknya satu siswa untuk jadwal individual.';
+    return;
+  }
 
   scheduleSaving.value = true;
   scheduleMessage.value = '';
   try {
-    await updateAdminSchedule(scheduleTopicId.value, { start_at: startAt, end_at: endAt, enabled: scheduleEnabled.value, notes: scheduleNotes.value || null });
+    await updateAdminSchedule(scheduleTopicId.value, { start_at: startAt, end_at: endAt, enabled: scheduleEnabled.value, access_mode: scheduleAccessMode.value, participant_ids: scheduleParticipantIds.value, notes: scheduleNotes.value || null });
     scheduleRows.value = await fetchAdminSchedule();
     loadScheduleDraft(scheduleRows.value.find((row) => row.topic_id === scheduleTopicId.value) ?? null);
     scheduleMessageType.value = 'success';
@@ -1639,6 +1686,13 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .schedule-group { display: flex; flex-direction: column; gap: 8px; }
 .schedule-group h4 { display: flex; align-items: center; gap: 7px; margin: 8px 2px 0; color: #456382; font-size: .76rem; }
 .schedule-group h4 span { display: inline-grid; min-width: 20px; height: 20px; place-items: center; border-radius: 999px; color: #2a65b5; background: #e7f1ff; font-size: .65rem; }
+.schedule-ended-accordion { border: 1px solid #e1eaf4; border-radius: 11px; background: #f8fbff; }
+.schedule-ended-accordion summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 11px 12px; color: #617793; font-size: .76rem; font-weight: 800; cursor: pointer; list-style: none; }
+.schedule-ended-accordion summary::-webkit-details-marker { display: none; }
+.schedule-ended-accordion summary::after { content: '⌄'; color: #8196ae; font-size: 1rem; transition: transform .16s ease; }
+.schedule-ended-accordion[open] summary::after { transform: rotate(180deg); }
+.schedule-ended-accordion summary b { min-width: 20px; padding: 3px 6px; border-radius: 999px; color: #9b6500; background: #fff2c2; font-size: .65rem; text-align: center; }
+.schedule-ended-group { padding: 0 8px 8px; }
 .schedule-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; width: 100%; padding: 12px; border: 1px solid #e1eaf4; border-radius: 11px; color: #385b86; background: #fff; font: inherit; text-align: left; cursor: pointer; transition: border-color .16s ease, transform .16s ease, box-shadow .16s ease; }
 .schedule-row:hover { border-color: #8bb8ea; box-shadow: 0 6px 14px rgba(35, 101, 199, .1); transform: translateY(-1px); }
 .schedule-row-main { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
@@ -1761,6 +1815,14 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .editor-view .schedule-hero h2, .editor-view .schedule-editor-form .panel-heading h3, .editor-view .schedule-list-card .panel-heading h3 { color: #f0ebf2; }
 .editor-view .schedule-hero p, .editor-view .schedule-editor-form label, .editor-view .schedule-empty { color: #9b97a2; }
 .editor-view .schedule-editor-form, .editor-view .schedule-list-card, .editor-view .schedule-row { border-color: #3d3c43; background: #25252a; }
+.editor-view :deep(.schedule-audience) { border-color: #45444e; background: #202023; }
+.editor-view :deep(.schedule-audience legend), .editor-view :deep(.schedule-audience-option strong), .editor-view :deep(.schedule-participant-option strong) { color: #d5d1d8; }
+.editor-view :deep(.schedule-audience-option small), .editor-view :deep(.schedule-participant-option small), .editor-view :deep(.schedule-audience .field-hint) { color: #96919d; }
+.editor-view :deep(.schedule-audience-option:hover), .editor-view :deep(.schedule-participant-option:hover) { background: #393542; }
+.editor-view :deep(.schedule-participant-picker) { border-color: #3d3c43; }
+.editor-view :deep(.schedule-participant-search) { border-color: #4b4a52; color: #f4f0ea; background: #1a1a1e; }
+.editor-view .schedule-ended-accordion { border-color: #3d3c43; background: #202023; }
+.editor-view .schedule-ended-accordion summary { color: #aaa6b0; }
 .editor-view .schedule-row-main strong { color: #f0ebf2; }
 .editor-view .schedule-row-main small, .editor-view .schedule-row-time { color: #96919d; }
 .editor-view :deep(.report-toolbar) { border-color: #3d3c43; background: #25252a; }

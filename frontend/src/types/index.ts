@@ -69,6 +69,10 @@ export interface AssessmentSchedule {
   start_at: string | null;
   end_at: string | null;
   enabled: boolean;
+  access_mode?: 'class' | 'individual';
+  participant_ids?: number[];
+  participant_labels?: string[];
+  participant_count?: number;
   state: 'open' | 'upcoming' | 'ended' | 'disabled';
   is_open: boolean;
   starts_in_seconds: number;

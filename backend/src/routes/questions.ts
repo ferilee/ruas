@@ -33,7 +33,7 @@ import { listQuestionMedia } from '@/services/question-media-service';
 type QuestionsDb = ReturnType<typeof createQuestionsDb>;
 
 async function requireAssessmentOpen(c: Context, db: QuestionsDb, topicId?: number) {
-  const schedule = await getAssessmentScheduleStatusFromDb(db, topicId);
+  const schedule = await getAssessmentScheduleStatusFromDb(db, topicId, getParticipantIdentity(c));
   if (!schedule.is_open) {
     return c.json(
       {

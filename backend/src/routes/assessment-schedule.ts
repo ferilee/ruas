@@ -5,6 +5,7 @@ import {
   createAssessmentScheduleDb,
   getAssessmentScheduleStatusFromDb,
 } from '@/services/assessment-schedule-service';
+import { getParticipantIdentity } from '@/lib/participant-identity';
 
 export function assessmentScheduleRoutes(pool: Pool) {
   const db = createAssessmentScheduleDb(pool);
@@ -12,7 +13,7 @@ export function assessmentScheduleRoutes(pool: Pool) {
 
   app.get('/', async (c) => {
     const topicId = z.coerce.number().int().positive().optional().safeParse(c.req.query('topic_id'));
-    return c.json({ schedule: await getAssessmentScheduleStatusFromDb(db, topicId.success ? topicId.data : undefined) });
+    return c.json({ schedule: await getAssessmentScheduleStatusFromDb(db, topicId.success ? topicId.data : undefined, getParticipantIdentity(c)) });
   });
 
   return app;

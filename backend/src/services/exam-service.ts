@@ -354,7 +354,7 @@ export async function getAttemptAvailability(db: ExamDb, identityKey: string, su
     .limit(1);
   const assignedSubjectId = profile ? await findAssignedSubjectId(db, identityKey, profile.subject_id) : null;
   if (!assignedSubjectId || assignedSubjectId !== subjectId) return null;
-  if (!(await canParticipantAccessTopic(db, topicId, identityKey))) return null;
+  if (!(await canParticipantAccessTopic(db, topicId, identityKey, true))) return null;
 
   const [subject] = await db
     .select({ id: subjects.id, max_attempts: subjects.max_attempts })
@@ -474,7 +474,7 @@ export async function createAttempt(
 
   const topicAccess = await getTopicAccess(db, input.topic_id);
   if (!topicAccess) return null;
-  const classAccess = await canParticipantAccessTopic(db, input.topic_id, identityKey);
+  const classAccess = await canParticipantAccessTopic(db, input.topic_id, identityKey, true);
   const tokenAccess = topicAccess.requires_token && canAccessTopic(topicAccess, input.topic_access_token);
   if (!classAccess && !tokenAccess) return { assignmentMismatch: true as const };
   if (!canAccessTopic(topicAccess, input.topic_access_token)) return { tokenRequired: true as const };
