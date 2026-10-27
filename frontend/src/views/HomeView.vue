@@ -68,6 +68,12 @@
       </div>
     </section>
 
+    <a class="simak-link" href="https://simak.smkpasirian-lmj.sch.id/login" target="_blank" rel="noopener noreferrer">
+      <span class="simak-link-icon" aria-hidden="true">↗</span>
+      <span class="simak-link-copy"><strong>Buka SIMAK</strong><small>Materi, LKPD &amp; Ruang Guru</small></span>
+      <span class="simak-link-arrow" aria-hidden="true">→</span>
+    </a>
+
     <footer class="home-footer">Ruang Asesmen — Belajar dan berlatih dengan terarah.</footer>
   </div>
 </template>
@@ -384,6 +390,31 @@ onUnmounted(() => {
   font-size: 0.68rem;
   box-shadow: 0 3px 8px rgba(21, 64, 100, 0.1);
 }
+
+.simak-link {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: min(100%, 520px);
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  padding: 14px 17px;
+  border: 1px solid rgba(255, 255, 255, .82);
+  border-radius: 18px;
+  color: #244978;
+  background: rgba(255, 255, 255, .72);
+  box-shadow: 8px 10px 18px rgba(133, 159, 207, .12), inset 2px 2px 8px rgba(255, 255, 255, .65);
+  text-decoration: none;
+  transition: border-color .16s ease, background .16s ease, transform .16s ease;
+}
+
+.simak-link:hover { border-color: rgba(35, 139, 255, .52); background: rgba(255, 255, 255, .92); transform: translateY(-1px); }
+.simak-link-icon { display: grid; width: 32px; height: 32px; flex: 0 0 auto; place-items: center; border: 1px solid #8bb5e4; border-radius: 10px; color: #236bdc; background: #e7f1ff; font-size: 1.05rem; font-weight: 800; }
+.simak-link-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 2px; }
+.simak-link-copy strong { color: #234978; font-size: .78rem; }
+.simak-link-copy small { color: #66809e; font-size: .69rem; }
+.simak-link-arrow { color: #356fbd; font-size: 1.1rem; }
 
 @media (max-width: 520px) {
   .selection-card {

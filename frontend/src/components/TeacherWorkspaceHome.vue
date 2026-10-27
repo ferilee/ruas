@@ -78,6 +78,12 @@
         <span class="teacher-workspace-card-copy"><strong>Dukung RUAS</strong><small>Bantu RUAS tetap gratis dan terus berkembang untuk guru.</small><em>Lihat cara mendukung →</em></span>
         <span class="teacher-workspace-arrow" aria-hidden="true">→</span>
       </router-link>
+
+      <a class="teacher-workspace-card workspace-link-card workspace-simak-card" href="https://simak.smkpasirian-lmj.sch.id/login" target="_blank" rel="noopener noreferrer">
+        <span class="teacher-workspace-icon tone-blue" aria-hidden="true">↗</span>
+        <span class="teacher-workspace-card-copy"><strong>Buka SIMAK</strong><small>Materi, LKPD &amp; Ruang Guru dalam satu akun.</small><em>Buka halaman login SIMAK</em></span>
+        <span class="teacher-workspace-arrow" aria-hidden="true">→</span>
+      </a>
     </div>
 
     <p class="teacher-workspace-hint">Pilih kartu untuk membuka pengelolaan yang Anda perlukan. Navigasi tambahan tetap tersedia di perangkat mobile.</p>
@@ -241,6 +247,8 @@ const structureCountLabel = computed(() => `${props.classCount} kelas · ${props
 .workspace-feedback-actions span { color: #bca7ff; font-size: .95rem; }
 .workspace-support-card { text-decoration: none; }
 .workspace-support-card .teacher-workspace-card-copy em { color: #bca7ff; }
+.workspace-simak-card { text-decoration: none; }
+.workspace-simak-card .teacher-workspace-card-copy em { color: #91a8ff; }
 .teacher-workspace-card-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 9px; }
 .teacher-workspace-card-copy strong { color: #f8f3ed; font-size: 1rem; text-transform: uppercase; }
 .teacher-workspace-card-copy small { max-width: 330px; color: #aaa6b0; font-size: .83rem; line-height: 1.55; }

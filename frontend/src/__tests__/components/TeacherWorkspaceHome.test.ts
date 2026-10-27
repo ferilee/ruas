@@ -11,13 +11,15 @@ describe('TeacherWorkspaceHome', () => {
       global: { stubs: { RouterLink: routerLinkStub } },
     });
 
-    expect(wrapper.findAll('.teacher-workspace-card')).toHaveLength(7);
+    expect(wrapper.findAll('.teacher-workspace-card')).toHaveLength(8);
     expect(wrapper.findAll('.workspace-action-button')).toHaveLength(5);
     expect(wrapper.text()).toContain('3 kelas');
     expect(wrapper.text()).toContain('18 soal tersedia');
     expect(wrapper.text()).toContain('2 topik memiliki jadwal');
     expect(wrapper.text()).toContain('30 siswa terdaftar');
     expect(wrapper.find('.workspace-support-card').attributes('href')).toBe('/dukung');
+    expect(wrapper.find('.workspace-simak-card').attributes('href')).toBe('https://simak.smkpasirian-lmj.sch.id/login');
+    expect(wrapper.find('.workspace-simak-card').attributes('target')).toBe('_blank');
   });
 
   it('emits create and navigate actions from the dashboard', async () => {
