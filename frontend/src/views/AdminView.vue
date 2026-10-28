@@ -1790,7 +1790,7 @@ onUnmounted(() => {
 .panel-empty { padding: 24px 20px; color: #778899; }
 .question-pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 16px; border-top: 1px solid #e5edf6; color: #7389a3; font-size: .72rem; }
 .pagination-controls { display: flex; align-items: center; gap: 7px; }
-.pagination-btn { display: grid; width: 29px; height: 29px; place-items: center; border: 1px solid #d4e2f1; border-radius: 8px; color: #246bc5; background: #f4f8fd; font-size: 1.05rem; line-height: 1; cursor: pointer; }
+.pagination-btn { display: grid; width: 44px; height: 44px; place-items: center; border: 1px solid #d4e2f1; border-radius: 8px; color: #246bc5; background: #f4f8fd; font-size: 1.05rem; line-height: 1; cursor: pointer; }
 .pagination-btn:disabled { color: #aab9c9; background: #f1f4f8; cursor: default; }
 .pagination-controls .ruas-select { width: 104px; }
 .form-panel form { display: flex; flex-direction: column; gap: 14px; padding: 20px; }

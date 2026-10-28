@@ -531,19 +531,19 @@ onMounted(() => {
 .participant-label strong { font-size: .88rem; color: #fff; }
 .security-badge { padding: 7px 12px; border: 1px solid rgba(255,255,255,.5); border-radius: 18px; color: #fff; background: rgba(0, 35, 68, .18); font-size: .72rem; font-weight: 700; white-space: nowrap; }
 .exam-actions { display: flex; align-items: center; gap: 10px; }
-.topbar-button { min-height: 40px; padding: 8px 16px; border: 1px solid rgba(255,255,255,.68); border-radius: 22px; color: #fff; background: rgba(255,255,255,.08); font: inherit; font-size: .82rem; font-weight: 700; cursor: pointer; }
+.topbar-button { min-height: 44px; padding: 8px 16px; border: 1px solid rgba(255,255,255,.68); border-radius: 22px; color: #fff; background: rgba(255,255,255,.08); font: inherit; font-size: .82rem; font-weight: 700; cursor: pointer; }
 .topbar-button:hover { background: rgba(255,255,255,.18); }
 .question-list-button { background: #fff; color: #1266a5; border-color: #fff; }
 .grid-icon { margin-left: 5px; font-size: 1.05rem; }
 .exam-main { width: min(1280px, 100%); margin: 0 auto; padding: 24px 32px 32px; }
 .exam-heading { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; margin-bottom: 18px; }
-.exam-back { padding: 0; border: 0; color: #587087; background: transparent; font: inherit; font-size: .86rem; cursor: pointer; }
+.exam-back { display: inline-flex; min-height: 44px; align-items: center; padding: 0; border: 0; color: #587087; background: transparent; font: inherit; font-size: .86rem; cursor: pointer; }
 .exam-back:hover { color: #1266a5; }
 .exam-heading h1 { margin-top: 5px; color: #1a2d40; font-size: 1.7rem; }
 .exam-heading p { margin-top: 3px; color: #587087; font-size: .95rem; }
 .font-controls { display: flex; align-items: center; gap: 8px; color: #587087; font-size: .82rem; }
 .font-size-name { margin-left: 4px; font-size: .68rem; font-weight: 700; }
-.font-controls button { min-width: 28px; border: 0; color: #49647b; background: transparent; cursor: pointer; }
+.font-controls button { min-width: 44px; min-height: 44px; padding: 6px 4px; border: 0; border-radius: 8px; color: #49647b; background: transparent; cursor: pointer; }
 .font-controls button:nth-of-type(1) { font-size: .8rem; }
 .font-controls button:nth-of-type(2) { font-size: 1rem; }
 .font-controls button:nth-of-type(3) { font-size: 1.2rem; }
@@ -611,11 +611,11 @@ onMounted(() => {
 .exam-modal h2 { margin: 5px 0 12px; color: #233b51; }
 .exam-modal p, .exam-modal li { color: #63798c; line-height: 1.7; }
 .exam-modal ul { margin: 14px 0 22px; padding-left: 20px; }
-.modal-close { position: absolute; top: 12px; right: 16px; border: 0; color: #71869a; background: transparent; font-size: 1.6rem; cursor: pointer; }
+.modal-close { position: absolute; top: 8px; right: 10px; width: 44px; height: 44px; display: grid; place-items: center; border: 0; color: #587087; background: transparent; font-size: 1.6rem; cursor: pointer; }
 .question-list-modal { width: min(600px, 100%); }
 .modal-description { margin-bottom: 18px; }
 .question-number-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; }
-.question-number { min-height: 38px; display: grid; place-items: center; border: 1px solid #d4e0ea; border-radius: 7px; color: #60778a; background: #f8fafc; font: inherit; font-weight: 700; cursor: pointer; }
+.question-number { min-height: 44px; display: grid; place-items: center; border: 1px solid #d4e0ea; border-radius: 7px; color: #60778a; background: #f8fafc; font: inherit; font-weight: 700; cursor: pointer; }
 .question-number:hover { border-color: #1477c4; color: #1477c4; }
 .question-number.current { color: #fff; border-color: #1477c4; background: #1477c4; }
 .question-number.answered { color: #fff; border-color: #48a47a; background: #48a47a; }
@@ -650,12 +650,13 @@ onMounted(() => {
   .pane-scroll { flex: none; max-height: none; overflow: visible; }
 }
 @media (max-width: 600px) {
+  .exam-workspace, .exam-navigation, .exam-heading { max-width: 100%; }
   .exam-topbar { min-height: 68px; padding: 10px 14px; flex-wrap: wrap; gap: 10px; }
   .brand-mark { width: 36px; height: 36px; font-size: .7rem; }
   .brand-copy strong { font-size: .8rem; }
   .brand-copy small { font-size: .6rem; }
   .exam-actions { width: 100%; margin-left: 0; justify-content: space-between; }
-  .topbar-button { min-height: 38px; padding: 8px 10px; font-size: .72rem; }
+  .topbar-button { min-height: 44px; padding: 8px 10px; font-size: .72rem; }
   .question-list-button { font-size: 0; }
   .question-list-button .grid-icon { margin: 0; font-size: 1.2rem; }
   .exam-main { padding: 16px 12px calc(32px + env(safe-area-inset-bottom)); }
