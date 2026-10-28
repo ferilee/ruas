@@ -53,7 +53,7 @@
               <label class="topic-class-option topic-class-all"><input type="checkbox" :checked="topicForm.class_ids.length === 0" @change="toggleAllTopicClasses" /><span>Semua kelas</span></label>
               <label v-for="item in curriculum.classes" :key="item.id" class="topic-class-option"><input type="checkbox" :checked="topicForm.class_ids.includes(item.id)" @change="toggleTopicClass(item.id, $event)" /><span>{{ item.label }}</span></label>
             </div>
-            <small>Kosongkan pilihan kelas untuk membuat topik tersedia untuk semua kelas.</small>
+            <small>Pilihan “Semua kelas” aktif berarti topik tersedia untuk semua kelas. Centang kelas tertentu untuk membatasi topik hanya ke kelas itu.</small>
           </div>
           <label><span>Urutan tampil</span><input v-model.number="topicForm.display_order" type="number" min="1" placeholder="1" required /></label>
           <div class="form-actions"><button class="primary-btn" type="submit">{{ editingTopicId ? 'Perbarui' : 'Tambah' }}</button><button class="secondary-btn" type="button" @click="closeMobileForm">Batal</button></div>

@@ -13,8 +13,8 @@
     <div v-if="!isAuthenticated" class="admin-header">
       <div>
         <router-link to="/" class="back-link">&larr; Kembali ke latihan</router-link>
-        <h1 class="page-title">Editor Soal</h1>
-        <p class="page-subtitle">Tambah, ubah, hapus, dan impor soal ujian sekolah.</p>
+        <h1 class="page-title">Ruang Kerja RUAS</h1>
+        <p class="page-subtitle">Ruang kerja guru &amp; admin: tambah, ubah, hapus, dan impor soal ujian sekolah.</p>
       </div>
     </div>
 
@@ -216,7 +216,7 @@
                       </template>
                     </div>
                   </div>
-                  <p class="field-hint schedule-hint">Kosongkan waktu mulai lalu simpan untuk membuka topik segera.</p>
+                  <p class="field-hint schedule-hint">Untuk membuka topik segera, gunakan tombol “Buka Sekarang” — waktu mulai dan selesai dikosongkan serta jadwal diaktifkan otomatis. “Simpan Jadwal” menyimpan persis waktu yang Anda isi.</p>
                   <p v-if="scheduleMessage" :class="scheduleMessageType === 'error' ? 'error-text' : 'success-text'">{{ scheduleMessage }}</p><p v-for="(message, field) in scheduleFieldErrors" :key="field" class="field-error" role="alert">{{ message }}</p>
                 </section>
               </section>
@@ -374,7 +374,7 @@
                 </template>
               </div>
             </div>
-            <p class="field-hint schedule-hint">Kosongkan waktu mulai lalu simpan untuk membuka topik segera. Matikan “Jadwal aktif” untuk menutup sementara.</p>
+            <p class="field-hint schedule-hint">Untuk membuka topik segera, gunakan tombol “Buka Sekarang” — waktu mulai dan selesai dikosongkan serta jadwal diaktifkan otomatis. “Simpan Jadwal” menyimpan persis waktu yang Anda isi. Matikan “Jadwal aktif” untuk menutup sementara.</p>
             <p v-if="scheduleMessage" :class="scheduleMessageType === 'error' ? 'error-text' : 'success-text'">{{ scheduleMessage }}</p><p v-for="(message, field) in scheduleFieldErrors" :key="field" class="field-error" role="alert">{{ message }}</p>
           </section>
 

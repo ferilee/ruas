@@ -1,13 +1,13 @@
 <template>
   <div ref="examPageRef" class="exam-page" :class="fontSizeClass">
     <header class="exam-topbar">
-      <router-link to="/" class="exam-brand" @click.prevent="tryExit">
+      <div class="exam-brand" aria-label="Ruang Asesmen">
         <span class="brand-mark">RA</span>
         <span class="brand-copy">
           <strong>RUANG ASESMEN</strong>
           <small>UJIAN SEKOLAH</small>
         </span>
-      </router-link>
+      </div>
 
       <div class="participant-label">
         <span>Peserta</span>
@@ -55,6 +55,7 @@
       <div v-else-if="state === 'ready'" class="exam-state-card ready-card">
         <span class="state-kicker">PERSIAPAN UJIAN</span>
         <h2>Siap mengerjakan?</h2>
+        <p class="exam-stage-note">Tahap terakhir: sebelumnya kamu memilih asesmen, lalu membuka topik dengan token. Tombol di bawah memulai ujian dan timer.</p>
         <p>{{ questionCount }} soal tersedia. Countdown dimulai setelah kamu menekan tombol mulai.</p>
         <section class="exit-rules" aria-labelledby="exit-rules-title">
           <h3 id="exit-rules-title">Aturan keluar ujian — {{ exitPolicy.modeLabel }}</h3>
@@ -168,8 +169,8 @@
 
         <nav class="exam-navigation" aria-label="Navigasi ujian">
           <p v-if="state === 'reviewing' && errorMessage" class="minimum-time-note" role="status">{{ errorMessage }}</p>
-          <button class="nav-button nav-secondary" type="button" :disabled="questionNavigationLoading" @click="goToPreviousQuestion">
-            <span>‹</span> {{ currentQuestionNumber > 1 ? questionNavigationLoading ? 'Memuat...' : 'Soal sebelumnya' : 'Keluar dari ujian' }}
+          <button class="nav-button nav-secondary" type="button" :disabled="questionNavigationLoading || currentQuestionNumber <= 1" @click="goToPreviousQuestion">
+            <span>‹</span> {{ questionNavigationLoading ? 'Memuat...' : 'Soal sebelumnya' }}
           </button>
           <button class="nav-button nav-doubt" :class="{ active: isDoubtful }" type="button" :disabled="flagSaving" @click="toggleDoubtful">
             <span>□</span> {{ isDoubtful ? 'Ragu-ragu ditandai' : 'Tandai ragu-ragu' }}
@@ -364,10 +365,7 @@ async function goToNextStep() {
 
 async function goToPreviousQuestion() {
   if (questionNavigationLoading.value) return;
-  if (currentQuestionNumber.value <= 1) {
-    tryExit();
-    return;
-  }
+  if (currentQuestionNumber.value <= 1) return;
   await previousQuestion();
 }
 
@@ -576,6 +574,7 @@ onMounted(() => {
 .exam-state-card h2 { color: #233b51; font-size: 1.45rem; }
 .exam-state-card p { max-width: 520px; color: #6b8194; }
 .ready-card .primary-exam-button, .resume-card .primary-exam-button, .error-card .primary-exam-button { margin-top: 8px; }
+.exam-stage-note { max-width: 520px; }
 .exit-rules { width: min(560px, 100%); padding: 14px 16px; border: 1px solid #d5e3f1; border-radius: 10px; background: #f8fbff; text-align: left; }
 .exit-rules h3 { color: #233b51; font-size: .9rem; }
 .exit-rules ul { margin: 8px 0 0 18px; color: #63798c; font-size: .82rem; line-height: 1.6; }
