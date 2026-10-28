@@ -3,7 +3,7 @@
     <template v-if="props.simple">
       <div class="simple-report-header">
         <div><span class="eyebrow">HASIL ASESMEN</span><h2>Laporan sederhana</h2><p>Pilih topik dan kelas untuk melihat hasil siswa.</p></div>
-        <div class="toolbar-actions"><button class="secondary-btn" type="button" :disabled="loading" @click="loadReport">Muat ulang</button><button class="primary-btn" type="button" :disabled="loading || rows.length === 0" @click="exportPdf">Unduh PDF</button></div>
+        <div class="toolbar-actions"><button class="secondary-btn" type="button" :disabled="loading" @click="loadReport">Muat ulang</button><button class="primary-btn" type="button" :disabled="loading || rows.length === 0" :title="rows.length === 0 ? 'Belum ada hasil untuk diunduh' : undefined" @click="exportPdf">Unduh PDF</button></div>
       </div>
 
       <section class="simple-report-filters">
@@ -22,7 +22,7 @@
         <div class="simple-report-results-heading"><div><strong>2. Lihat hasil siswa</strong><span>Klik nama siswa untuk melihat detail jawabannya.</span></div><span v-if="realtimeRefreshing" class="filter-live-status">Memperbarui…</span></div>
         <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
         <div v-if="loading" class="panel-empty">Memuat laporan...</div>
-        <div v-else-if="rows.length === 0" class="panel-empty">Belum ada hasil asesmen sesuai pilihan.</div>
+        <div v-else-if="rows.length === 0" class="panel-empty">Belum ada hasil asesmen sesuai pilihan. Unduh PDF aktif setelah ada hasil.</div>
         <div v-else class="simple-report-list">
           <button v-for="group in reportGroups" :key="group.key" type="button" class="simple-report-row" @click="openDetail(group.official.attempt_id)">
             <span class="simple-report-student"><strong>{{ group.official.participant_name }}</strong><small>{{ group.official.subject_label }} · {{ group.official.topic_label || 'Semua topik' }}</small></span>
@@ -44,7 +44,7 @@
       </div>
       <div class="toolbar-actions">
         <button class="secondary-btn" type="button" :disabled="loading" @click="loadReport">Muat ulang</button>
-        <button class="primary-btn" type="button" :disabled="loading || rows.length === 0" @click="exportPdf">Ekspor PDF</button>
+        <button class="primary-btn" type="button" :disabled="loading || rows.length === 0" :title="rows.length === 0 ? 'Belum ada hasil untuk diunduh' : undefined" @click="exportPdf">Ekspor PDF</button>
         <button v-if="props.canReset" class="danger-btn" type="button" :disabled="resetting || resetCount === 0" @click="openResetConfirmation">{{ resetting ? 'Mereset...' : `Reset hasil (${resetCount})` }}</button>
       </div>
     </div>

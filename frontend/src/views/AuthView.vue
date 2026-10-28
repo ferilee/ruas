@@ -131,6 +131,7 @@
           <span>{{ loading ? 'Memverifikasi...' : 'Masuk' }}</span>
           <span class="auth-btn-arrow" aria-hidden="true">→</span>
         </button>
+        <p v-if="!loading && (!username || !password)" class="auth-hint">Isi username dan password untuk masuk.</p>
       </form>
 
       <div v-if="demoAvailable" class="demo-access">
@@ -647,6 +648,7 @@ async function loginAsDemo() {
   cursor: pointer;
 }
 
+.auth-hint { margin-top: 10px; color: #7186a8; font-size: .76rem; text-align: center; }
 .auth-error {
   margin: -2px 0 0;
   color: #c33b57;

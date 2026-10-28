@@ -184,6 +184,7 @@
                       </label>
                       <label class="schedule-toggle"><input v-model="scheduleEnabled" type="checkbox" /> <span>Jadwal aktif</span></label>
                       <div class="schedule-actions">
+                        <p v-if="!scheduleTopicId" class="field-hint">Pilih topik dulu untuk menyimpan jadwal.</p>
                         <button class="primary-btn" type="submit" :disabled="scheduleSaving || !scheduleTopicId">{{ scheduleSaving ? 'Menyimpan...' : 'Simpan Jadwal' }}</button>
                         <button class="secondary-btn" type="button" :disabled="scheduleSaving || !scheduleTopicId" @click="openScheduleNow">Buka Sekarang</button>
                       </div>
@@ -338,6 +339,7 @@
                 </label>
                 <label class="schedule-toggle"><input v-model="scheduleEnabled" type="checkbox" /> <span>Jadwal aktif</span></label>
                 <div class="schedule-actions">
+                  <p v-if="!scheduleTopicId" class="field-hint">Pilih topik dulu untuk menyimpan jadwal.</p>
                   <button class="primary-btn" type="submit" :disabled="scheduleSaving || !scheduleTopicId">
                     {{ scheduleSaving ? 'Menyimpan...' : 'Simpan Jadwal' }}
                   </button>

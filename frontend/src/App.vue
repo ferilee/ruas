@@ -99,6 +99,12 @@ const wrapperClasses = computed(() => {
   padding: 0;
 }
 
+/* RUAS-007: tombol nonaktif harus terlihat nonaktif di seluruh aplikasi. */
+:where(button):disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 html,
 #app {
   min-height: 100%;

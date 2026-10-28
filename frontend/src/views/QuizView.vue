@@ -174,9 +174,10 @@
           <button class="nav-button nav-doubt" :class="{ active: isDoubtful }" type="button" :disabled="flagSaving" @click="toggleDoubtful">
             <span>□</span> {{ isDoubtful ? 'Ragu-ragu ditandai' : 'Tandai ragu-ragu' }}
           </button>
-          <button v-if="state === 'answering' || (state === 'reviewing' && answerChanged)" class="nav-button nav-primary" type="button" :disabled="selectedKeys.length === 0 || submittingAnswer" @click="submitAnswer">
+          <button v-if="state === 'answering' || (state === 'reviewing' && answerChanged)" class="nav-button nav-primary" type="button" :disabled="selectedKeys.length === 0 || submittingAnswer" :title="selectedKeys.length === 0 ? 'Pilih jawaban dulu untuk menyimpan' : undefined" @click="submitAnswer">
             {{ submittingAnswer ? 'Menyimpan...' : state === 'reviewing' ? 'Simpan perubahan' : 'Simpan jawaban' }} <span>›</span>
           </button>
+          <p v-if="(state === 'answering' || state === 'reviewing') && selectedKeys.length === 0" class="nav-hint">Pilih jawaban dulu untuk menyimpan.</p>
           <button v-else class="nav-button nav-primary" type="button" :disabled="questionNavigationLoading || (isLastQuestion && !canComplete)" @click="goToNextStep">
             {{ questionNavigationLoading ? 'Memuat soal...' : isLastQuestion ? canComplete ? 'Lihat hasil' : `Tunggu ${formatDuration(minimumTimeRemaining)}` : 'Soal berikutnya' }} <span>›</span>
           </button>
@@ -561,7 +562,9 @@ onMounted(() => {
 .doubt-badge { padding: 4px 9px; border-radius: 12px; color: #986700; background: #fff4c7; font-size: .72rem; font-weight: 700; }
 .exam-navigation { margin-top: 18px; padding: 12px 0 0; display: flex; align-items: center; justify-content: space-between; gap: 14px; }
 .nav-button, .primary-exam-button { min-height: 44px; padding: 10px 22px; border: 0; border-radius: 24px; font: inherit; font-weight: 700; cursor: pointer; text-decoration: none; text-align: center; }
-.nav-button:disabled { opacity: .5; cursor: default; }
+.nav-button:disabled { opacity: .5; cursor: not-allowed; }
+.nav-hint { flex: 1 1 100%; margin: 0; color: #71869a; font-size: .76rem; text-align: right; }
+.primary-exam-button:disabled { opacity: .55; cursor: not-allowed; }
 .nav-button span { font-size: 1.3em; line-height: 0; vertical-align: -1px; }
 .nav-secondary { color: #587087; background: #e8eef4; }
 .nav-secondary:hover { background: #dce6ee; }
