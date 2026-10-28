@@ -432,6 +432,7 @@
             class="question-row"
             :class="{ active: editingId === item.id }"
             type="button"
+            :title="item.question_text"
             @click="editQuestion(item.id)"
           >
             <span class="question-row-top"><span class="question-number">#{{ item.id }}</span><span class="topic-badge">{{ item.topic_labels.length > 1 ? `${item.topic_labels.length} topik` : item.topic_label }}</span><span class="question-type-badge">{{ questionTypeLabel(item.type) }}</span><span :class="['question-owner-badge', item.creator_role === 'editor' ? 'editor-owner' : 'admin-owner']">{{ item.creator_role === 'editor' ? `Editor · ${item.creator_display_name || item.created_by}` : 'Admin / Sistem' }}</span><span v-if="item.archived_at" class="question-status-badge">Diarsipkan</span><span class="question-menu" aria-hidden="true">⋮</span></span>
@@ -1765,7 +1766,7 @@ onUnmounted(() => {
 .difficulty-badge { color: #687c96; background: #eef2f7; }
 .difficulty-easy { color: #287b59; background: #e2f7ed; }.difficulty-medium { color: #9a691a; background: #fff3d9; }.difficulty-hard { color: #ae4d55; background: #ffebeb; }
 .question-menu { margin-left: auto; color: #8ca0b8; font-size: 1.25rem; line-height: 1; }
-.question-row > strong { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; color: #294b76; font-size: .87rem; line-height: 1.45; }
+.question-row > strong { display: block; overflow-wrap: anywhere; color: #294b76; font-size: .87rem; line-height: 1.45; }
 .row-id { overflow: hidden; color: #778899; font-size: .72rem; text-overflow: ellipsis; white-space: nowrap; }
 .panel-empty { padding: 24px 20px; color: #778899; }
 .question-pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 16px; border-top: 1px solid #e5edf6; color: #7389a3; font-size: .72rem; }
@@ -1794,8 +1795,8 @@ legend { padding: 0 6px; color: #445566; font-weight: 600; }
 .topic-mapping-checkbox { width: 18px !important; height: 18px; flex: 0 0 auto; margin: 0; padding: 0 !important; accent-color: #2454be; cursor: pointer; }
 .topic-mapping-icon { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 9px; color: #2b6dc2; background: #e7f1ff; font-size: .9rem; }
 .topic-mapping-copy { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
-.topic-mapping-copy strong { overflow: hidden; color: #274d7f; font-size: .79rem; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
-.topic-mapping-copy small { overflow: hidden; color: #7b91aa; font-size: .68rem; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.topic-mapping-copy strong { overflow-wrap: anywhere; color: #274d7f; font-size: .79rem; line-height: 1.3; }
+.topic-mapping-copy small { overflow-wrap: anywhere; color: #7b91aa; font-size: .68rem; font-weight: 500; line-height: 1.35; }
 .topic-mapping-check { display: grid; width: 21px; height: 21px; place-items: center; border-radius: 50%; color: transparent; background: #e9eff6; font-size: .72rem; font-weight: 800; }
 .topic-mapping-option.selected .topic-mapping-check { color: #fff; background: #2e6ed0; }
 .question-media-fieldset .question-media-gallery { margin: 8px 0; }
@@ -1898,7 +1899,7 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .schedule-row-main { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
 .schedule-row-edit { grid-column: 1; grid-row: 1; width: 100%; padding: 0; border: 0; color: inherit; background: transparent; font: inherit; text-align: left; cursor: pointer; }
 .schedule-row-edit:hover { color: inherit; background: transparent; }
-.schedule-row-main strong { overflow: hidden; color: #244978; font-size: .82rem; text-overflow: ellipsis; white-space: nowrap; }
+.schedule-row-main strong { overflow-wrap: anywhere; color: #244978; font-size: .82rem; line-height: 1.4; }
 .schedule-row-main small, .schedule-row-time { color: #8196ae; font-size: .7rem; }
 .schedule-row-state { align-self: start; padding: 4px 7px; border-radius: 999px; color: #23734b; background: #dcf7e9; font-size: .65rem; font-weight: 800; white-space: nowrap; }
 .schedule-row-state.state-upcoming { color: #916300; background: #fff2c2; }

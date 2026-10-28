@@ -78,8 +78,8 @@ function questionTypeLabel(value: AdminQuestionListItem['type']) {
 .teacher-question-row:hover { background: #393542; }
 .teacher-question-row-number { color: #bca7ff; font-size: .72rem; font-weight: 800; }
 .teacher-question-row-copy { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
-.teacher-question-row-copy strong { overflow: hidden; color: #f0ebf2; font-size: .8rem; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
-.teacher-question-row-copy small { overflow: hidden; color: #96919d; font-size: .68rem; text-overflow: ellipsis; white-space: nowrap; }
+.teacher-question-row-copy strong { overflow-wrap: anywhere; color: #f0ebf2; font-size: .8rem; line-height: 1.4; }
+.teacher-question-row-copy small { overflow-wrap: anywhere; color: #96919d; font-size: .68rem; line-height: 1.4; }
 .teacher-question-difficulty { padding: 4px 7px; border-radius: 999px; font-size: .64rem; font-weight: 700; white-space: nowrap; }
 .teacher-question-difficulty.difficulty-easy { color: #70d9ac; background: #17382d; }.teacher-question-difficulty.difficulty-medium { color: #e3bd70; background: #45371e; }.teacher-question-difficulty.difficulty-hard { color: #f08d8d; background: #45272c; }
 .teacher-question-row-arrow { color: #bca7ff; font-size: 1rem; }

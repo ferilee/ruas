@@ -32,7 +32,7 @@
         @mouseenter="highlightedIndex = entry.index"
         @click.stop="choose(entry.option)"
       >
-        <span>{{ entry.option.label }}</span>
+        <span :title="entry.option.label">{{ entry.option.label }}</span>
         <span v-if="isSelected(entry.option)" class="ruas-select-check" aria-hidden="true">✓</span>
       </button>
       <span v-if="visibleOptions.length === 0" class="ruas-select-empty">Tidak ada pilihan yang cocok</span>
@@ -177,7 +177,7 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
 .ruas-select-search input { width: 100%; min-height: 36px; padding: 8px 10px; border: 1px solid #cbdced; border-radius: 9px; outline: none; color: #294c7a; background: #f7faff; font: inherit; font-size: .76rem; }
 .ruas-select-search input:focus { border-color: #6ca7ea; box-shadow: 0 0 0 3px rgba(35, 139, 255, .13); }
 .ruas-select-option { display: flex; min-height: 38px; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 11px; border: 0; border-radius: 9px; color: #385b86; background: transparent; font: inherit; font-size: .77rem; line-height: 1.25; text-align: left; cursor: pointer; }
-.ruas-select-option > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ruas-select-option > span:first-child { min-width: 0; overflow-wrap: anywhere; white-space: normal; line-height: 1.4; text-align: left; }
 .ruas-select-option:hover, .ruas-select-option.highlighted { color: #194f9f; background: #edf5ff; }
 .ruas-select-option.selected { color: #fff; background: linear-gradient(105deg, #287bd7, #2251b5); font-weight: 700; box-shadow: 0 5px 11px rgba(35, 101, 199, .18); }
 .ruas-select-option.disabled { color: #a7b5c5; cursor: not-allowed; }

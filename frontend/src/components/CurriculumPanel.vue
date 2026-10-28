@@ -634,7 +634,8 @@ onUnmounted(() => { dismissToast(); window.removeEventListener(ADMIN_REALTIME_EV
 .curriculum-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 1px solid #e1e8f0; border-radius: 8px; background: #fff; }
 .curriculum-item strong, .curriculum-item small { display: block; }
 .curriculum-item strong { color: #314c70; font-size: .84rem; }
-.curriculum-item small { margin-top: 2px; color: #8292a6; font-size: .7rem; }
+.curriculum-item > div { min-width: 0; }
+.curriculum-item small { margin-top: 2px; color: #8292a6; font-size: .7rem; line-height: 1.5; overflow-wrap: anywhere; }
 .topic-list-toolbar { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(190px, .7fr); gap: 8px; margin-top: 13px; }
 .topic-search-field { display: block; min-width: 0; }
 .topic-search-field input { width: 100%; min-height: 42px; padding: 9px 11px; border: 1px solid #d4e0ee; border-radius: 10px; color: #294c7a; background: #fff; font: inherit; font-size: .78rem; outline: none; }
