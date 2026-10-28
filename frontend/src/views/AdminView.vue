@@ -955,14 +955,32 @@ function clearSupportPromptTimer() {
   supportPromptTimer = null;
 }
 
-function scheduleSupportPrompt() {
+function isWorkspaceOverlayOpen() {
+  return Boolean(
+    teacherWorkspaceModal.value
+    || curriculumFocus.value
+    || teacherQuestionFlow.value
+    || questionFormOpen.value
+    || importFormOpen.value
+    || confirmOpen.value
+    || shareScheduleOpen.value,
+  );
+}
+
+function scheduleSupportPrompt(delay = 60_000) {
   clearSupportPromptTimer();
   if (!isEditorSession.value || supportPromptShown.value) return;
   supportPromptTimer = setTimeout(() => {
+    // RUAS-010: jangan pernah menumpuk dialog dukungan di atas form/modal.
+    // Bila guru sedang mengisi form, tunda dan coba lagi nanti.
+    if (isWorkspaceOverlayOpen()) {
+      scheduleSupportPrompt(30_000);
+      return;
+    }
     supportPromptShown.value = true;
     sessionStorage.setItem(supportPromptSeenKey, '1');
     supportPromptOpen.value = true;
-  }, 60_000);
+  }, delay);
 }
 
 function closeSupportPrompt() {
