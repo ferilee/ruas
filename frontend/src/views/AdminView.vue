@@ -607,7 +607,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import MathText from '@/components/MathText.vue';
 import QuestionMediaGallery from '@/components/QuestionMediaGallery.vue';
@@ -647,8 +647,10 @@ import type { AdminSession } from '@/types';
 import { connectAdminRealtime, dispatchAdminRealtimeEvent, type AdminRealtimeEvent, type AdminRealtimeStatus } from '@/lib/admin-realtime';
 import { extractFieldErrors } from '@/lib/field-errors';
 import { suggestExternalId } from '@/lib/slug';
+import { buildAdminRouteQuery, parseAdminRouteQuery } from '@/lib/admin-route-state';
 
 const router = useRouter();
+const route = useRoute();
 type AdminSection = 'overview' | 'curriculum' | 'questions' | 'schedule' | 'reports' | 'users' | 'teacher-requests' | 'feedback';
 type TeacherWorkspaceAction = 'class' | 'assessment-type' | 'subject' | 'topic' | 'question';
 const navigation: Array<{ id: AdminSection; label: string; icon: string; title: string; description: string }> = [
@@ -861,6 +863,34 @@ function selectSection(section: AdminSection) {
   moreMenuOpen.value = false;
   errorMessage.value = '';
 }
+
+let applyingRouteState = false;
+function applyRouteState() {
+  const state = parseAdminRouteQuery(route.query as Record<string, unknown>);
+  applyingRouteState = true;
+  if (isEditorSession.value && state.workspace) {
+    activeSection.value = 'overview';
+    teacherWorkspaceModal.value = state.workspace;
+  } else {
+    teacherWorkspaceModal.value = null;
+    activeSection.value = state.section;
+  }
+  void nextTick(() => { applyingRouteState = false; });
+}
+
+watch([activeSection, teacherWorkspaceModal], () => {
+  if (applyingRouteState || !isAuthenticated.value) return;
+  const query = buildAdminRouteQuery({ section: activeSection.value, workspace: teacherWorkspaceModal.value });
+  const current = parseAdminRouteQuery(route.query as Record<string, unknown>);
+  const next = parseAdminRouteQuery(query);
+  if (current.section === next.section && current.workspace === next.workspace) return;
+  void router.replace({ query });
+});
+
+watch(() => route.query, () => {
+  if (applyingRouteState || !isAuthenticated.value) return;
+  applyRouteState();
+});
 
 function toggleAdminTheme() {
   adminTheme.value = adminTheme.value === 'dark' ? 'light' : 'dark';
@@ -1596,6 +1626,7 @@ onMounted(async () => {
       isAuthenticated.value = false;
     }
     if (adminEnabled.value && isAuthenticated.value) {
+      applyRouteState();
       scheduleSupportPrompt();
       await loadData();
       startRealtime();
