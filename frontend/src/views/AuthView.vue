@@ -68,6 +68,7 @@
 
       <h1 id="auth-title">Selamat Datang Kembali</h1>
       <p class="auth-subtitle">Masuk untuk melanjutkan</p>
+      <p class="auth-value-prop">RUAS adalah ruang asesmen sekolah: siswa berlatih dan ujian dengan terarah, guru menyiapkan bank soal, jadwal, dan laporan dari satu tempat. <router-link to="/tentang">Pelajari RUAS →</router-link></p>
 
       <form class="auth-form" @submit.prevent="login">
         <label class="auth-field">
@@ -140,6 +141,8 @@
       </div>
 
       <router-link to="/ajukan-guru" class="teacher-apply-link">Saya Guru, ingin mendaftar</router-link>
+
+      <p class="auth-help">Lupa password? Hubungi admin atau guru pengelola RUAS di sekolahmu untuk reset sandi. Demi keamanan, sandi tidak dapat direset sendiri dari halaman ini.</p>
 
       <div class="auth-divider" aria-hidden="true">
         <span></span>
@@ -553,6 +556,9 @@ async function loginAsDemo() {
   line-height: 1.15;
 }
 
+.auth-value-prop { max-width: 420px; margin: 10px auto 0; color: #58719c; font-size: .8rem; line-height: 1.6; text-align: center; }
+.auth-value-prop a { color: #1d5fc0; font-weight: 700; }
+.auth-help { max-width: 420px; margin: 12px auto 0; color: #7186a8; font-size: .76rem; line-height: 1.6; text-align: center; }
 .auth-subtitle {
   margin-top: 8px;
   color: #59709d;

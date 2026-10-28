@@ -21,6 +21,7 @@
         <div class="preview-row"><span><i></i> Asesmen Matematika</span><b>Sedang berlangsung</b></div>
         <div class="preview-row"><span><i class="violet"></i> Laporan kelas XI</span><b class="soft">Siap ditinjau</b></div>
         <div class="preview-note"><span>✓</span> 18 siswa menyelesaikan asesmen</div>
+        <p class="preview-disclaimer">Ilustrasi tampilan — angka pada gambar ini adalah contoh, bukan data sekolah nyata.</p>
       </div>
     </section>
 
@@ -180,6 +181,7 @@ const servicePoints = ['Alur aplikasi sesuai kebutuhan sekolah', 'Dashboard admi
 .preview-row i { display: inline-block; width: 8px; height: 8px; margin-right: 7px; border-radius: 50%; background: #2c9d6d; }
 .preview-row i.violet { background: #8065e8; }
 .preview-row b { color: #28815e; font-size: .62rem; }.preview-row b.soft { color: #8065d2; }
+.preview-disclaimer { margin-top: 8px; color: #8494ad; font-size: .68rem; }
 .preview-note { position: relative; z-index: 1; margin-top: 19px; padding-top: 13px; border-top: 1px solid #e8e4e8; color: #6a7282; font-size: .67rem; }.preview-note span { display: inline-grid; width: 17px; height: 17px; margin-right: 5px; place-items: center; border-radius: 50%; color: #fff; background: #34a273; font-size: .58rem; }
 
 .landing-section { padding: 92px 0; }
