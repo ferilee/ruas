@@ -160,7 +160,7 @@
         </div>
         <div class="curriculum-items">
           <div v-for="item in visibleTopics" :key="item.id" class="curriculum-item">
-            <div><strong>{{ item.label }}</strong><small>{{ item.slug }} · {{ item.subject_label }} · {{ item.class_labels.length ? item.class_labels.join(', ') : 'Semua kelas' }} · {{ item.token_configured ? 'Token aktif' : 'Tanpa token' }} · {{ ownerLabel(item) }}</small></div>
+            <div><strong>{{ item.label }}</strong><small>{{ item.slug }} · {{ item.subject_label }} · {{ item.class_labels.length ? item.class_labels.join(', ') : 'Semua kelas' }} · {{ item.token_configured ? 'Token aktif' : 'Tanpa token' }} · {{ ownerLabel(item) }}</small><small class="topic-readiness-line"><span :class="['topic-readiness-badge', `readiness-${topicReadiness(item).status}`]">{{ topicReadiness(item).label }}</span> {{ item.question_count ?? 0 }} soal<span v-if="!topicReadiness(item).isReady"> · Langkah berikutnya: {{ topicReadiness(item).nextStep }}</span></small></div>
             <div v-if="!readonly && canManage(item)" class="item-actions"><button type="button" @click="editTopic(item)">Edit</button><button type="button" class="delete-action" @click="removeTopic(item.id)">Hapus</button></div>
           </div>
           <p v-if="visibleTopics.length === 0" class="curriculum-empty">Belum ada topik yang sesuai filter.</p>
@@ -186,13 +186,14 @@ import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import RuasSelect from '@/components/RuasSelect.vue';
 import {
   createAdminAssessmentType, createAdminClass, createAdminSubject,
-  createAdminTopic, deleteAdminTopic, fetchAdminTopics,
+  createAdminTopic, deleteAdminTopic, fetchAdminSchedule, fetchAdminTopics,
   deleteAdminAssessmentType, deleteAdminClass, deleteAdminSubject,
   fetchAdminCurriculum, importAdminCurriculum, updateAdminAssessmentType, updateAdminClass, updateAdminSubject, updateAdminTopic,
   type CurriculumClassInput, type CurriculumItemInput, type CurriculumSubjectInput,
 } from '@/api/client';
 import type { AdminSession, AdminTopic, AdminTopicInput, AssessmentType, CurriculumClass, CurriculumData, CurriculumImportSummary, Subject } from '@/types';
 import { extractFieldErrors } from '@/lib/field-errors';
+import { getTopicReadiness } from '@/lib/topic-readiness';
 import { ADMIN_REALTIME_EVENT, type AdminRealtimeEvent } from '@/lib/admin-realtime';
 
 const props = withDefaults(defineProps<{ topicOnly?: boolean; workspaceOnly?: boolean; readonly?: boolean; adminSession?: AdminSession | null; initialForm?: CurriculumFormModal | null }>(), { topicOnly: false, workspaceOnly: false, readonly: false, adminSession: null, initialForm: null });
@@ -209,6 +210,7 @@ const editingTypeId = ref<number | null>(null);
 const editingSubjectId = ref<number | null>(null);
 const editingTopicId = ref<number | null>(null);
 const topics = ref<AdminTopic[]>([]);
+const scheduledTopicIds = ref<Set<number>>(new Set());
 type MobileCurriculumTab = 'classes' | 'types' | 'subjects' | 'topics';
 type CurriculumFormModal = 'class' | 'type' | 'subject' | 'topic';
 const mobileTab = ref<MobileCurriculumTab>(props.topicOnly ? 'topics' : 'subjects');
@@ -457,14 +459,25 @@ async function saveSubject() {
   } catch (error) { showError(error); }
 }
 async function saveTopic() {
+  const isNewTopic = editingTopicId.value === null;
   try {
     if (editingTopicId.value) await updateAdminTopic(editingTopicId.value, topicForm);
     else await createAdminTopic(topicForm);
+    const topicLabel = topicForm.label;
     resetTopic();
     await loadData();
     emit('topicsUpdated');
-    showSuccess('Topik berhasil disimpan.');
+    showSuccess(isNewTopic
+      ? `Topik "${topicLabel}" berhasil disimpan. Langkah berikutnya: tambah soal ke topik ini dari Bank Soal, lalu atur jadwalnya.`
+      : 'Topik berhasil disimpan.');
   } catch (error) { showError(error); }
+}
+function topicReadiness(item: AdminTopic) {
+  return getTopicReadiness({
+    questionCount: item.question_count ?? 0,
+    hasSchedule: item.id !== null && scheduledTopicIds.value.has(item.id),
+    tokenConfigured: item.token_configured,
+  });
 }
 function removeClass(id: number) { askConfirmation('Hapus kelas?', 'Kelas ini akan dihapus dari struktur asesmen.', async () => { try { await deleteAdminClass(id); await loadData(); showSuccess('Kelas berhasil dihapus.'); } catch (error) { showError(error); } }); }
 function removeType(id: number) { askConfirmation('Hapus jenis asesmen?', 'Jenis asesmen ini akan dihapus dari struktur asesmen.', async () => { try { await deleteAdminAssessmentType(id); await loadData(); showSuccess('Jenis asesmen berhasil dihapus.'); } catch (error) { showError(error); } }); }
@@ -486,9 +499,10 @@ function ownerLabel(resource: { created_by?: string | null }) {
 async function loadData() {
   loading.value = true;
   try {
-    const [curriculumData, topicRows] = await Promise.all([fetchAdminCurriculum(), fetchAdminTopics()]);
+    const [curriculumData, topicRows, scheduleRows] = await Promise.all([fetchAdminCurriculum(), fetchAdminTopics(), fetchAdminSchedule().catch(() => [])]);
     curriculum.value = curriculumData;
     topics.value = topicRows;
+    scheduledTopicIds.value = new Set(scheduleRows.map((row) => row.topic_id).filter((id): id is number => typeof id === 'number'));
   } catch (error) { showError(error); } finally { loading.value = false; }
 }
 function handleRealtime(event: Event) {
@@ -509,6 +523,10 @@ onUnmounted(() => { dismissToast(); window.removeEventListener(ADMIN_REALTIME_EV
 .secondary-btn { color: #1e40af; background: #e8edf5; }
 .primary-btn:disabled, .secondary-btn:disabled { opacity: .6; cursor: default; }
 .error-text { color: #c53030; }
+.topic-readiness-line { display: flex !important; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.topic-readiness-badge { padding: 2px 8px; border-radius: 99px; font-size: .64rem; font-weight: 800; }
+.topic-readiness-badge.readiness-ready { color: #237c67; background: #e2f5ec; }
+.topic-readiness-badge.readiness-no-questions, .topic-readiness-badge.readiness-unscheduled, .topic-readiness-badge.readiness-no-token { color: #986700; background: #fff3cf; }
 .field-error { color: #c53030 !important; font-size: .7rem; font-weight: 600; line-height: 1.4; }
 .success-text { color: #2f855a; }
 .curriculum-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }

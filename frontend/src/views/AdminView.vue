@@ -98,6 +98,17 @@
           </div>
 
           <template v-if="isEditorSession && activeSection === 'overview'">
+            <TeacherOnboardingWizard
+              :username="adminSession?.username ?? ''"
+              :class-count="curriculum.classes.length"
+              :subject-count="curriculum.subjects.length"
+              :assessment-type-count="curriculum.assessment_types.length"
+              :topic-count="topics.length"
+              :question-count="questionTotal"
+              :secured-topic-count="securedTopicCount"
+              :scheduled-topic-count="scheduleRows.length"
+              @navigate="handleWizardNavigation"
+            />
             <TeacherWorkspaceHome
               :class-count="curriculum.classes.length"
               :assessment-type-count="curriculum.assessment_types.length"
@@ -241,6 +252,17 @@
           </template>
 
           <section v-else-if="activeSection === 'overview'" class="overview-section">
+            <TeacherOnboardingWizard
+              :username="adminSession?.username ?? ''"
+              :class-count="curriculum.classes.length"
+              :subject-count="curriculum.subjects.length"
+              :assessment-type-count="curriculum.assessment_types.length"
+              :topic-count="topics.length"
+              :question-count="questionTotal"
+              :secured-topic-count="securedTopicCount"
+              :scheduled-topic-count="scheduleRows.length"
+              @navigate="handleWizardNavigation"
+            />
             <div class="welcome-card">
               <div>
                 <span class="eyebrow">{{ isEditorSession ? 'DASHBOARD GURU' : 'DASHBOARD ADMIN' }}</span>
@@ -591,6 +613,7 @@ import RuasSelect from '@/components/RuasSelect.vue';
 import UsersPanel from '@/components/UsersPanel.vue';
 import TeacherRequestsPanel from '@/components/TeacherRequestsPanel.vue';
 import TeacherWorkspaceHome from '@/components/TeacherWorkspaceHome.vue';
+import TeacherOnboardingWizard from '@/components/TeacherOnboardingWizard.vue';
 import TeacherQuestionListModal from '@/components/TeacherQuestionListModal.vue';
 import FeedbackPanel from '@/components/FeedbackPanel.vue';
 import ScheduleAudiencePicker from '@/components/ScheduleAudiencePicker.vue';
@@ -842,6 +865,16 @@ function toggleAdminTheme() {
 function applyAdminThemeToDocument() {
   document.documentElement.style.colorScheme = adminTheme.value;
   document.documentElement.dataset.ruasTheme = adminTheme.value;
+}
+
+const securedTopicCount = computed(() => topics.value.filter((topic) => topic.token_configured).length);
+
+function handleWizardNavigation(section: 'curriculum' | 'questions' | 'schedule') {
+  if (isEditorSession.value && section === 'schedule') {
+    handleTeacherWorkspaceNavigation('schedule');
+    return;
+  }
+  selectSection(section);
 }
 
 function handleTeacherWorkspaceAction(action: TeacherWorkspaceAction) {
