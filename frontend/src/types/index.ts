@@ -240,6 +240,18 @@ export interface UserClassMapping {
   created_at: string | null;
 }
 
+export interface MyClassOption {
+  id: number;
+  slug: string;
+  label: string;
+  academic_year: string;
+}
+
+export interface MyClassesData {
+  classes: MyClassOption[];
+  mappings: UserClassMapping[];
+}
+
 export interface AdminUser {
   id: number;
   username: string;

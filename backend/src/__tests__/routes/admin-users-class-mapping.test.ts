@@ -137,6 +137,27 @@ describe('adminUserRoutes teacher class mapping (class_ids)', () => {
     expect(inserted).toHaveLength(0);
   });
 
+  it('admin update can revoke a self-picked class by omitting it from class_ids', async () => {
+    const { db, inserted, deletedTables } = createFakeDb();
+    drizzleMock.mockReturnValue(db);
+
+    const { adminUserRoutes } = await import('@/routes/admin-users');
+    const app = adminUserRoutes({} as never);
+    // Guru sebelumnya memilih sendiri kelas 5; admin menyimpannya keluar dari
+    // daftar saat memperbarui pengguna, sehingga petaan self itu tercabut.
+    const response = await app.request('http://localhost/42', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...editorBody, class_ids: [3] }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(deletedTables).toContain(userClasses);
+    const mappingInsert = inserted.find((entry) => entry.table === userClasses);
+    const rows = mappingInsert?.values as Array<{ class_id: number }>;
+    expect(rows.map((row) => row.class_id)).toEqual([3]);
+  });
+
   it('replaces the whole mapping on update, revoking classes not listed anymore', async () => {
     const { db, inserted, deletedTables } = createFakeDb();
     drizzleMock.mockReturnValue(db);

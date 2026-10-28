@@ -24,6 +24,7 @@ import { adminReportRoutes } from './routes/admin-reports';
 import { adminRealtimeRoutes } from './routes/admin-realtime';
 import { teacherAccessRequestRoutes } from './routes/teacher-access-requests';
 import { adminTeacherRequestRoutes } from './routes/admin-teacher-requests';
+import { adminMyClassesRoutes } from './routes/admin-my-classes';
 import { feedbackRoutes } from './routes/feedback';
 import { publishRealtimeEvent } from './lib/realtime-events';
 import type { Pool } from './db/connection';
@@ -104,6 +105,8 @@ export function createApp(config: AppConfig) {
   app.use('/api/admin/realtime', requireAdminAuth);
   app.use('/api/admin/teacher-requests', requireAdminAuth);
   app.use('/api/admin/teacher-requests/*', requireAdminAuth);
+  app.use('/api/admin/my-classes', requireAdminAuth);
+  app.use('/api/admin/my-classes/*', requireAdminAuth);
   app.use('/api/admin/feedback', requireAdminAuth);
   app.use('/api/admin/reports/reset', requireAdminRole('admin'));
   app.use('/api/admin/reports/reset/*', requireAdminRole('admin'));
@@ -137,6 +140,7 @@ export function createApp(config: AppConfig) {
   app.route('/api/admin/reports', adminReportRoutes(config.pool));
   app.route('/api/admin/realtime', adminRealtimeRoutes());
   app.route('/api/admin/teacher-requests', adminTeacherRequestRoutes(config.pool));
+  app.route('/api/admin/my-classes', adminMyClassesRoutes(config.pool));
   app.route('/api', feedbackRoutes(config.pool));
 
   if (process.env.NODE_ENV === 'production') {

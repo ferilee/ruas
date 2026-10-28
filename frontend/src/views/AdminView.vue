@@ -127,6 +127,7 @@
               @back="goHome"
               @logout="logout"
             />
+            <TeacherClassesPanel />
             <div v-if="supportPromptOpen" class="teacher-workspace-modal-backdrop support-prompt-backdrop" role="presentation" @click.self="closeSupportPrompt">
               <section class="support-prompt-modal" role="dialog" aria-modal="true" aria-labelledby="support-prompt-title">
                 <button class="teacher-workspace-modal-close support-prompt-close" type="button" aria-label="Tutup informasi dukungan" @click="closeSupportPrompt">×</button>
@@ -623,6 +624,7 @@ import RuasSelect from '@/components/RuasSelect.vue';
 import UsersPanel from '@/components/UsersPanel.vue';
 import TeacherRequestsPanel from '@/components/TeacherRequestsPanel.vue';
 import TeacherWorkspaceHome from '@/components/TeacherWorkspaceHome.vue';
+import TeacherClassesPanel from '@/components/TeacherClassesPanel.vue';
 import TeacherOnboardingWizard from '@/components/TeacherOnboardingWizard.vue';
 import TeacherQuestionListModal from '@/components/TeacherQuestionListModal.vue';
 import FeedbackPanel from '@/components/FeedbackPanel.vue';

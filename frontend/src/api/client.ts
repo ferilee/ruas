@@ -24,6 +24,7 @@ import type {
   ExamAnswerRecord,
   ExamReviewResponse,
   ImportSummary,
+  MyClassesData,
   UserImportSummary,
   ParticipantProfile,
   ParticipantProfileInput,
@@ -430,6 +431,18 @@ export async function createAdminUser(input: AdminUserInput): Promise<AdminUser>
 export async function updateAdminUser(id: number, input: AdminUserInput): Promise<AdminUser> {
   const data = await adminRequest<{ user: AdminUser }>(`/admin/users/${id}`, { method: 'PUT', body: JSON.stringify(input) });
   return data.user;
+}
+
+export async function fetchMyClasses(): Promise<MyClassesData> {
+  return adminRequest<MyClassesData>('/admin/my-classes');
+}
+
+export async function addMyClass(classId: number): Promise<MyClassesData> {
+  return adminRequest<MyClassesData>('/admin/my-classes', { method: 'POST', body: JSON.stringify({ class_id: classId }) });
+}
+
+export async function removeMyClass(classId: number): Promise<MyClassesData> {
+  return adminRequest<MyClassesData>(`/admin/my-classes/${classId}`, { method: 'DELETE' });
 }
 
 export async function resetAdminUserPassword(id: number): Promise<{ user: AdminUser; temporary_password: string }> {
