@@ -56,6 +56,12 @@
         <span class="state-kicker">PERSIAPAN UJIAN</span>
         <h2>Siap mengerjakan?</h2>
         <p>{{ questionCount }} soal tersedia. Countdown dimulai setelah kamu menekan tombol mulai.</p>
+        <section class="exit-rules" aria-labelledby="exit-rules-title">
+          <h3 id="exit-rules-title">Aturan keluar ujian — {{ exitPolicy.modeLabel }}</h3>
+          <ul>
+            <li v-for="line in exitPolicy.prepLines" :key="line">{{ line }}</li>
+          </ul>
+        </section>
         <button class="primary-exam-button" type="button" :disabled="startingCountdown || !questionCountReady || questionCount === 0" @click="beginExam">{{ startingCountdown ? 'Bersiap...' : 'Mulai Ujian' }}</button>
       </div>
 
@@ -190,6 +196,7 @@
           <li v-if="minimumDurationSeconds > 0">Minimum waktu {{ Math.ceil(minimumDurationSeconds / 60) }} menit berlaku untuk seluruh sesi. Kamu tetap dapat berpindah soal, tetapi hasil baru dapat dilihat setelah semua soal selesai dan waktu minimum tercapai.</li>
           <li>Jawaban diperiksa setelah tombol simpan jawaban ditekan.</li>
           <li>Perpindahan tab, keluar layar penuh, dan shortcut terlarang akan menjeda ujian.</li>
+          <li v-for="line in exitPolicy.prepLines" :key="line">{{ line }}</li>
         </ul>
         <p v-if="violationCount" class="security-count">Aktivitas tercatat: <strong>{{ violationCount }}</strong></p>
         <button class="primary-exam-button" type="button" @click="showInfoModal = false">Mengerti</button>
@@ -220,16 +227,17 @@
       <section class="exam-modal exit-modal" role="dialog" aria-modal="true" aria-labelledby="exit-title">
         <span class="state-kicker">KONFIRMASI</span>
         <h2 id="exit-title">Keluar dari ujian?</h2>
-        <p>Progress sesi ini akan dihentikan.</p>
-        <label class="exit-password-field">
+        <p>{{ exitPolicy.dialogDescription }}</p>
+        <label v-if="exitPolicy.requiresSupervisorPassword" class="exit-password-field">
           <span>Kata sandi pengawas</span>
           <input v-model="exitPassword" type="password" autocomplete="off" placeholder="Masukkan kata sandi" :disabled="exitLoading" />
+          <small class="exit-password-hint">Kata sandi ini dipegang guru/pengawas ujian. Minta pengawas mengetikkannya bila kamu memang harus keluar.</small>
         </label>
         <p v-if="exitError" class="exit-error" role="alert">{{ exitError }}</p>
         <div class="modal-actions">
-          <button class="nav-button nav-secondary" type="button" @click="cancelExit">Lanjutkan</button>
-          <button class="nav-button nav-primary" type="button" :disabled="exitLoading || !exitPassword" @click="confirmExit">
-            {{ exitLoading ? 'Memeriksa...' : 'Keluar' }}
+          <button class="nav-button nav-secondary" type="button" @click="cancelExit">{{ exitPolicy.cancelLabel }}</button>
+          <button class="nav-button nav-primary" type="button" :disabled="exitLoading || (exitPolicy.requiresSupervisorPassword && !exitPassword)" @click="confirmExit">
+            {{ exitLoading ? 'Memeriksa...' : exitPolicy.requiresSupervisorPassword ? 'Keluar dengan izin pengawas' : 'Keluar dari latihan' }}
           </button>
         </div>
       </section>
@@ -263,7 +271,8 @@ import QuestionMediaGallery from '@/components/QuestionMediaGallery.vue';
 import OptionList from '@/components/OptionList.vue';
 import ExplanationPanel from '@/components/ExplanationPanel.vue';
 import TimerBar from '@/components/TimerBar.vue';
-import { verifyExamExitPassword } from '@/api/client';
+import { fetchParticipantProfile, verifyExamExitPassword } from '@/api/client';
+import { getExamExitPolicy } from '@/lib/exam-exit-policy';
 import { useQuizSession } from '@/composables/useQuizSession';
 import { useExamGuard, type ExamViolation, type ExamViolationType } from '@/composables/useExamGuard';
 
@@ -277,6 +286,7 @@ const securityMessage = ref('Aktivitas di luar halaman ujian terdeteksi.');
 const exitPassword = ref('');
 const exitError = ref('');
 const exitLoading = ref(false);
+const exitPolicy = ref(getExamExitPolicy({ isDemo: false }));
 const examPageRef = ref<HTMLElement | null>(null);
 const startingCountdown = ref(false);
 const countdownValue = ref(0);
@@ -446,17 +456,20 @@ function cancelExit() {
 }
 
 async function confirmExit() {
-  if (!exitPassword.value || exitLoading.value) return;
+  if (exitLoading.value) return;
+  if (exitPolicy.value.requiresSupervisorPassword && !exitPassword.value) return;
   exitLoading.value = true;
   exitError.value = '';
 
-  try {
-    await verifyExamExitPassword(exitPassword.value);
-  } catch (error) {
-    exitError.value = error instanceof Error ? error.message : 'Kata sandi pengawas salah.';
-    return;
-  } finally {
-    exitLoading.value = false;
+  if (exitPolicy.value.requiresSupervisorPassword) {
+    try {
+      await verifyExamExitPassword(exitPassword.value);
+    } catch (error) {
+      exitError.value = error instanceof Error ? error.message : 'Kata sandi pengawas salah.';
+      return;
+    } finally {
+      exitLoading.value = false;
+    }
   }
 
   examGuard.deactivate();
@@ -464,6 +477,7 @@ async function confirmExit() {
   try {
     await confirmExitState();
   } catch (error) {
+    exitLoading.value = false;
     exitError.value = error instanceof Error ? error.message : 'Sesi ujian gagal disimpan.';
     return;
   }
@@ -482,7 +496,20 @@ onBeforeRouteLeave((_to, _from, next) => {
   else next();
 });
 
-onMounted(() => { initializeSession(); });
+onMounted(() => {
+  initializeSession();
+  void fetchParticipantProfile()
+    .then((profile) => {
+      exitPolicy.value = getExamExitPolicy({
+        isDemo: Boolean(profile?.is_demo),
+        assessmentTypeLabel: profile?.assessment_type_label,
+      });
+    })
+    .catch(() => {
+      // Profil tidak terbaca: perlakukan sebagai ujian resmi (paling aman).
+      exitPolicy.value = getExamExitPolicy({ isDemo: false });
+    });
+});
 </script>
 
 <style scoped>
@@ -546,6 +573,10 @@ onMounted(() => { initializeSession(); });
 .exam-state-card h2 { color: #233b51; font-size: 1.45rem; }
 .exam-state-card p { max-width: 520px; color: #6b8194; }
 .ready-card .primary-exam-button, .resume-card .primary-exam-button, .error-card .primary-exam-button { margin-top: 8px; }
+.exit-rules { width: min(560px, 100%); padding: 14px 16px; border: 1px solid #d5e3f1; border-radius: 10px; background: #f8fbff; text-align: left; }
+.exit-rules h3 { color: #233b51; font-size: .9rem; }
+.exit-rules ul { margin: 8px 0 0 18px; color: #63798c; font-size: .82rem; line-height: 1.6; }
+.exit-password-hint { color: #71869a; font-size: .72rem; font-weight: 400; line-height: 1.45; }
 .timeout-notice { width: min(560px, 100%); margin: 0 0 12px; padding: 11px 14px; border: 1px solid #f0c7a6; border-radius: 10px; color: #9b5d2a; background: #fff8f1; font-size: .82rem; line-height: 1.45; }
 .resume-stats { width: min(560px, 100%); margin: 18px 0 10px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
 .resume-stats div { padding: 14px 8px; border-radius: 8px; background: #f1f6fa; }
