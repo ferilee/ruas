@@ -20,6 +20,8 @@
         <router-link to="/tentang" class="landing-link">Tentang &amp; Layanan</router-link>
         <router-link to="/dukung" class="support-link">Dukung RUAS</router-link>
         <router-link to="/admin" class="admin-link">Editor</router-link>
+        <span v-if="profileName" class="header-identity">{{ profileName }}<span v-if="profileRoleLabel"> · {{ profileRoleLabel }}</span></span>
+        <button v-if="isLoggedIn" type="button" class="header-logout" @click="logout">Keluar</button>
       </div>
     </header>
     <main :class="['app-main', { 'home-main': isHomeRoute, 'auth-main': isAuthRoute, 'profile-main-shell': isProfileRoute, 'topic-main': isTopicRoute, 'admin-main': isAdminRoute, 'landing-main': isLandingRoute || isSupportRoute }]">
@@ -29,10 +31,44 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-import { useRoute } from 'vue-router';
+import { computed, onMounted, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { fetchParticipantProfile } from '@/api/client';
 
 const route = useRoute();
+const router = useRouter();
+const isLoggedIn = ref(Boolean(sessionStorage.getItem('auth_token')));
+const profileName = ref('');
+const profileRoleLabel = ref('');
+
+async function refreshIdentity() {
+  isLoggedIn.value = Boolean(sessionStorage.getItem('auth_token'));
+  if (!isLoggedIn.value) {
+    profileName.value = '';
+    profileRoleLabel.value = '';
+    return;
+  }
+  try {
+    const profile = await fetchParticipantProfile();
+    profileName.value = profile?.name ?? '';
+    profileRoleLabel.value = profile?.is_demo ? 'Demo' : 'Peserta';
+  } catch {
+    profileName.value = '';
+    profileRoleLabel.value = '';
+  }
+}
+
+function logout() {
+  sessionStorage.removeItem('auth_token');
+  sessionStorage.removeItem('admin_token');
+  isLoggedIn.value = false;
+  profileName.value = '';
+  profileRoleLabel.value = '';
+  void router.push('/auth');
+}
+
+watch(() => route.fullPath, () => { void refreshIdentity(); });
+onMounted(() => { void refreshIdentity(); });
 const isExamRoute = computed(() => route.name === 'quiz');
 const isHomeRoute = computed(() => route.name === 'home');
 const isAuthRoute = computed(() => route.name === 'auth');
@@ -234,6 +270,8 @@ body {
   color: #59709d;
 }
 
+.header-identity { color: inherit; font-size: .8rem; font-weight: 700; opacity: .85; white-space: nowrap; }
+.header-logout { padding: 7px 13px; border: 1px solid currentColor; border-radius: 99px; color: inherit; background: transparent; font: inherit; font-size: .8rem; font-weight: 700; cursor: pointer; }
 .header-actions {
   position: absolute;
   right: 24px;

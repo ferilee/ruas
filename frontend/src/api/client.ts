@@ -269,6 +269,19 @@ export async function fetchAdminAuthStatus(): Promise<{ enabled: boolean; sessio
   return { enabled: Boolean(data.admin_auth_enabled), session: data.session ?? null };
 }
 
+export async function adminLoginFromSession(): Promise<AdminSession | null> {
+  const authToken = sessionStorage.getItem('auth_token');
+  if (!authToken) return null;
+  const res = await fetch(`${BASE}/admin/auth/session`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-auth-token': authToken },
+  });
+  if (!res.ok) return null;
+  const data = await res.json() as { token: string; session: AdminSession };
+  sessionStorage.setItem('admin_token', data.token);
+  return data.session;
+}
+
 export async function adminLogin(username: string, password: string): Promise<AdminSession> {
   const res = await fetch(`${BASE}/admin/auth`, {
     method: 'POST',

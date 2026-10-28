@@ -27,7 +27,7 @@
 
     <form v-else-if="!isAuthenticated" class="login-card" @submit.prevent="login">
       <h2>Masuk ke editor</h2>
-      <p>Gunakan akun admin atau akun guru yang sudah dibuat oleh admin.</p>
+      <p>Gunakan akun admin atau akun guru yang sudah dibuat oleh admin. Editor adalah ruang kerja terpisah; bila Anda sudah masuk lewat halaman login utama dengan akun guru/admin, editor terbuka otomatis tanpa login kedua.</p>
       <input v-model.trim="username" type="text" placeholder="Username admin/guru (kosongkan untuk ADMIN_PASSWORD)" autocomplete="username" autofocus />
       <input v-model="password" type="password" placeholder="Password" autocomplete="current-password" />
       <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
@@ -93,7 +93,9 @@
             </div>
             <div class="admin-header-actions">
               <span :class="['realtime-indicator', `realtime-${realtimeStatus}`]" :title="realtimeStatusLabel"><i></i>{{ realtimeStatusLabel }}</span>
-              <button class="secondary-btn editor-logout-btn" type="button" aria-label="Keluar dari editor" @click="logout">Keluar dari Editor</button>
+              <span v-if="adminSession" class="session-identity" :title="`Masuk sebagai ${adminSession.display_name}`">{{ adminSession.display_name }} · {{ adminSession.role === 'admin' ? 'Admin' : 'Guru' }}</span>
+              <button class="secondary-btn editor-logout-btn" type="button" @click="goHome">Kembali ke beranda</button>
+              <button class="secondary-btn editor-logout-btn" type="button" aria-label="Keluar dari akun" @click="logout">Keluar</button>
             </div>
           </div>
 
@@ -120,6 +122,7 @@
               @create="handleTeacherWorkspaceAction"
               @navigate="handleTeacherWorkspaceNavigation"
               @feedback="openFeedbackModal"
+              @back="goHome"
               @logout="logout"
             />
             <div v-if="supportPromptOpen" class="teacher-workspace-modal-backdrop support-prompt-backdrop" role="presentation" @click.self="closeSupportPrompt">
@@ -619,6 +622,7 @@ import FeedbackPanel from '@/components/FeedbackPanel.vue';
 import ScheduleAudiencePicker from '@/components/ScheduleAudiencePicker.vue';
 import {
   adminLogin,
+  adminLoginFromSession,
   createAdminQuestion,
   deleteAdminQuestion,
   fetchAdminAuthStatus,
@@ -1105,15 +1109,20 @@ async function login() {
   }
 }
 
+function goHome() {
+  router.push('/');
+}
+
 function logout() {
   stopRealtime();
   sessionStorage.removeItem('admin_token');
+  sessionStorage.removeItem('auth_token');
   adminSession.value = null;
   isAuthenticated.value = false;
   closeSupportPrompt();
   sessionStorage.removeItem(supportPromptSeenKey);
   supportPromptShown.value = false;
-  router.replace('/');
+  router.replace('/auth');
 }
 
 const realtimeStatusLabel = computed(() => ({ connecting: 'Menghubungkan live', connected: 'Live aktif', disconnected: 'Live terputus' }[realtimeStatus.value]));
@@ -1566,6 +1575,14 @@ onMounted(async () => {
     const authStatus = await fetchAdminAuthStatus();
     adminEnabled.value = authStatus.enabled;
     adminSession.value = authStatus.session;
+    if (!adminSession.value && !isAuthenticated.value) {
+      const bridgedSession = await adminLoginFromSession().catch(() => null);
+      if (bridgedSession) {
+        adminSession.value = bridgedSession;
+        adminEnabled.value = true;
+        isAuthenticated.value = true;
+      }
+    }
     if (!adminSession.value && isAuthenticated.value) {
       sessionStorage.removeItem('admin_token');
       isAuthenticated.value = false;
@@ -1640,6 +1657,7 @@ onUnmounted(() => {
 .admin-header, .toolbar, .panel-heading, .import-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .admin-header-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px; }
 .editor-logout-btn { position: relative; z-index: 1; white-space: nowrap; }
+.session-identity { padding: 7px 11px; border: 1px solid #dce7f4; border-radius: 99px; color: #365678; background: #f2f7fd; font-size: .72rem; font-weight: 700; white-space: nowrap; }
 .realtime-indicator { display: inline-flex; align-items: center; gap: 6px; padding: 7px 9px; border-radius: 999px; color: #607693; background: #edf3f9; font-size: .7rem; font-weight: 800; white-space: nowrap; }
 .realtime-indicator i { width: 7px; height: 7px; border-radius: 50%; background: #8b9bae; }
 .realtime-connected { color: #207553; background: #e4f7ed; }.realtime-connected i { background: #2ca673; box-shadow: 0 0 0 3px rgba(44,166,115,.15); }

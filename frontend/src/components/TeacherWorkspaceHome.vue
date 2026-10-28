@@ -8,7 +8,8 @@
       </div>
       <div class="teacher-workspace-heading-actions">
         <span class="teacher-workspace-badge">RUAS · GURU</span>
-        <button class="teacher-workspace-logout" type="button" @click="emit('logout')">Keluar dari Editor</button>
+        <button class="teacher-workspace-logout" type="button" @click="emit('back')">Kembali ke beranda</button>
+        <button class="teacher-workspace-logout" type="button" @click="emit('logout')">Keluar (logout)</button>
       </div>
     </div>
 
@@ -112,6 +113,7 @@ const emit = defineEmits<{
   create: [action: WorkspaceAction];
   navigate: [section: WorkspaceSection];
   feedback: [kind: FeedbackKind];
+  back: [];
   logout: [];
 }>();
 
