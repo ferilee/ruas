@@ -45,6 +45,7 @@ const app = createApp({
   pool,
   corsOrigin: config.CORS_ORIGIN,
   appUsername: config.APP_USERNAME,
+  schoolName: config.SCHOOL_NAME,
   appPassword: config.APP_PASSWORD,
   adminPassword: config.ADMIN_PASSWORD,
   examExitPassword: config.EXAM_EXIT_PASSWORD,

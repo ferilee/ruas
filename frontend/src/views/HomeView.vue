@@ -10,7 +10,7 @@
         </svg>
       </div>
 
-      <h1 id="selection-title">Asesmen SMKN Pasirian</h1>
+      <h1 id="selection-title">{{ pageTitle }}</h1>
       <p class="selection-subtitle">
         {{ assignmentLocked ? 'Penugasan asesmen Anda telah diatur langsung oleh admin.' : 'Pilih kelas, jenis asesmen, dan mata pelajaran untuk memulai asesmen' }}
       </p>
@@ -89,11 +89,14 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { fetchAssessmentSchedule, fetchCurriculum, fetchParticipantProfile } from '@/api/client';
+import { fetchAssessmentSchedule, fetchCurriculum, fetchParticipantProfile, fetchSchoolName } from '@/api/client';
+import { assessmentTitle } from '@/lib/school-title';
 import RuasSelect from '@/components/RuasSelect.vue';
 import type { AssessmentSchedule, CurriculumData, ParticipantProfile } from '@/types';
 
 const router = useRouter();
+const schoolName = ref<string | null>(null);
+const pageTitle = computed(() => assessmentTitle(schoolName.value));
 const curriculum = ref<CurriculumData>({ classes: [], assessment_types: [], subjects: [] });
 const selectedClassId = ref<number | ''>('');
 const selectedAssessmentTypeId = ref<number | ''>('');
@@ -157,8 +160,16 @@ async function loadSchedule(subjectId?: number) {
   }
 }
 
+async function loadSchoolName() {
+  try {
+    schoolName.value = await fetchSchoolName();
+  } catch {
+    schoolName.value = null;
+  }
+}
+
 async function loadData() {
-  await Promise.all([loadCurriculum(), loadSchedule()]);
+  await Promise.all([loadCurriculum(), loadSchedule(), loadSchoolName()]);
 }
 
 function formatStartAt(value: string | null) {

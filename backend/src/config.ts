@@ -9,6 +9,7 @@ export interface AppConfig {
   APP_PORT: number;
   FRONTEND_PORT: number;
   APP_USERNAME: string;
+  SCHOOL_NAME: string;
   APP_PASSWORD: string;
   ADMIN_PASSWORD: string;
   EXAM_EXIT_PASSWORD: string;
@@ -71,6 +72,7 @@ export function loadConfig(): AppConfig {
     APP_PORT: Number(getEnvValue(process.env.APP_PORT, fileEnv.APP_PORT, '3000')) || 3000,
     FRONTEND_PORT: frontendPort,
     APP_USERNAME: getEnvValue(process.env.APP_USERNAME, fileEnv.APP_USERNAME, ''),
+    SCHOOL_NAME: getEnvValue(process.env.SCHOOL_NAME, fileEnv.SCHOOL_NAME, ''),
     APP_PASSWORD: getEnvValue(process.env.APP_PASSWORD, fileEnv.APP_PASSWORD, ''),
     ADMIN_PASSWORD: adminPassword,
     EXAM_EXIT_PASSWORD: getEnvValue(process.env.EXAM_EXIT_PASSWORD, fileEnv.EXAM_EXIT_PASSWORD, adminPassword),

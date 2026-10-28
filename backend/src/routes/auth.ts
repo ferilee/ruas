@@ -17,14 +17,15 @@ const changePasswordSchema = z.object({
   message: 'Konfirmasi sandi tidak sama.',
 });
 
-export function authRoutes(validUsername: string, validPassword: string, pool?: Pool) {
+export function authRoutes(validUsername: string, validPassword: string, pool?: Pool, schoolName?: string) {
   const app = new Hono();
   const getDb = () => (pool ? createUserDb(pool) : null);
+  const trimmedSchoolName = schoolName?.trim() ? schoolName.trim() : null;
 
   app.get('/', async (c) => {
     const db = getDb();
     const demoUser = db ? await findDemoUser(db) : null;
-    return c.json({ auth_enabled: Boolean(validPassword) || Boolean(db && (await hasUsers(db))), demo_available: Boolean(demoUser?.subject_id) });
+    return c.json({ auth_enabled: Boolean(validPassword) || Boolean(db && (await hasUsers(db))), demo_available: Boolean(demoUser?.subject_id), school_name: trimmedSchoolName });
   });
 
   app.get('/demo', async (c) => {

@@ -34,4 +34,26 @@ describe('authRoutes', () => {
 
     expect(res.status).toBe(400);
   });
+
+  it('exposes school_name as null when SCHOOL_NAME is not configured', async () => {
+    const res = await app.request('http://localhost/');
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({ school_name: null });
+  });
+});
+
+describe('authRoutes school name', () => {
+  it('exposes the trimmed school_name when configured', async () => {
+    const appWithSchool = authRoutes('P130100230', 'secret', undefined, '  SMKN Pasirian  ');
+    const res = await appWithSchool.request('http://localhost/');
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({ school_name: 'SMKN Pasirian' });
+  });
+
+  it('treats a whitespace-only school name as unconfigured', async () => {
+    const appWithBlankSchool = authRoutes('P130100230', 'secret', undefined, '   ');
+    const res = await appWithBlankSchool.request('http://localhost/');
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({ school_name: null });
+  });
 });

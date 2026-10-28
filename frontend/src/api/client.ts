@@ -59,6 +59,14 @@ export async function fetchDemoAvailability(): Promise<boolean> {
   return Boolean(data.available);
 }
 
+export async function fetchSchoolName(): Promise<string | null> {
+  const res = await fetch(`${BASE}/auth`);
+  if (!res.ok) return null;
+  const data = await res.json() as { school_name?: string | null };
+  const name = data.school_name?.trim();
+  return name ? name : null;
+}
+
 export async function loginAsDemo(): Promise<{ token: string }> {
   const res = await fetch(`${BASE}/auth/demo`, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
   if (!res.ok) {
