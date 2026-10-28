@@ -560,13 +560,13 @@ onUnmounted(() => { dismissToast(); window.removeEventListener(ADMIN_REALTIME_EV
 .curriculum-form > label.checkbox-field { flex-direction: row; align-items: center; gap: 8px; padding: 9px 10px; border: 1px solid #dce8f4; border-radius: 9px; color: #496482; background: #f8fbff; }
 .checkbox-field input { width: 16px; height: 16px; flex: 0 0 16px; accent-color: #246bc5; }
 .checkbox-field span { line-height: 1.35; }
-.curriculum-form > label small { color: #8292a6; font-size: .66rem; font-weight: 400; }
+.curriculum-form > label small { color: #66788e; font-size: .66rem; font-weight: 400; }
 .topic-class-field { display: flex; min-width: 0; flex-direction: column; gap: 6px; color: #496482; font-size: .7rem; font-weight: 700; }
 .topic-class-picker { display: flex; max-height: 132px; flex-wrap: wrap; gap: 7px; overflow-y: auto; padding: 8px; border: 1px solid #d4dde6; border-radius: 8px; background: #fff; }
 .topic-class-option { display: inline-flex; min-height: 32px; align-items: center; gap: 7px; padding: 6px 8px; border: 1px solid #dce8f4; border-radius: 7px; color: #496482; background: #f8fbff; font-size: .72rem; font-weight: 600; cursor: pointer; }
 .topic-class-option input { width: 15px; height: 15px; flex: 0 0 15px; padding: 0; accent-color: #246bc5; }
 .topic-class-all { color: #1e5ec8; background: #edf5ff; }
-.topic-class-field > small { color: #8292a6; font-size: .66rem; font-weight: 400; line-height: 1.35; }
+.topic-class-field > small { color: #66788e; font-size: .66rem; font-weight: 400; line-height: 1.35; }
 .curriculum-modal .topic-class-field { grid-column: 1 / -1; }
 .curriculum-form input, .curriculum-form select { min-width: 0; width: 100%; padding: 9px 10px; border: 1px solid #d4dde6; border-radius: 8px; background: #fff; color: #334b68; font: inherit; font-size: .82rem; font-weight: 400; }
 .form-actions { display: flex; align-self: end; gap: 6px; }
@@ -590,7 +590,7 @@ onUnmounted(() => { dismissToast(); window.removeEventListener(ADMIN_REALTIME_EV
 .curriculum-import-modal .step-number { display: grid; width: 21px; height: 21px; flex: 0 0 auto; place-items: center; border-radius: 50%; color: #fff; background: #2c78d2; font-size: .68rem; font-weight: 800; }
 .curriculum-import-modal .import-step strong, .curriculum-import-modal .import-step small { display: block; }
 .curriculum-import-modal .import-step strong { font-size: .75rem; }
-.curriculum-import-modal .import-step small { margin-top: 2px; color: #8298b2; font-size: .68rem; font-weight: 400; line-height: 1.45; }
+.curriculum-import-modal .import-step small { margin-top: 2px; color: #66788e; font-size: .68rem; font-weight: 400; line-height: 1.45; }
 .curriculum-import-file-actions, .curriculum-import-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .curriculum-import-file-actions { margin: 14px 0 10px 30px; }
 .curriculum-import-textarea { width: 100%; min-height: 150px; padding: 10px 11px; border: 1px solid #d4dde6; border-radius: 9px; color: #334b68; background: #fff; font: .74rem/1.5 monospace; resize: vertical; }
@@ -600,7 +600,7 @@ onUnmounted(() => { dismissToast(); window.removeEventListener(ADMIN_REALTIME_EV
 .curriculum-import-summary .error-text { margin: 0; color: #b6404c; font-size: .7rem; line-height: 1.4; }
 .curriculum-import-preview { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; max-height: 190px; overflow-y: auto; margin-top: 3px; }
 .curriculum-import-preview div { display: flex; min-width: 0; flex-direction: column; gap: 2px; padding: 8px; border: 1px solid #dce8f4; border-radius: 8px; background: #fff; }
-.curriculum-import-preview span, .curriculum-import-preview small, .curriculum-import-more { color: #8292a6; font-size: .65rem; }
+.curriculum-import-preview span, .curriculum-import-preview small, .curriculum-import-more { color: #66788e; font-size: .65rem; }
 .curriculum-import-preview strong { overflow: hidden; color: #315987; font-size: .72rem; text-overflow: ellipsis; white-space: nowrap; }
 .curriculum-panel.workspace-only .curriculum-import-modal .import-step { color: #d5d1d8; }
 .curriculum-panel.workspace-only .curriculum-import-modal .import-step small { color: #9b97a2; }
@@ -635,14 +635,14 @@ onUnmounted(() => { dismissToast(); window.removeEventListener(ADMIN_REALTIME_EV
 .curriculum-item strong, .curriculum-item small { display: block; }
 .curriculum-item strong { color: #314c70; font-size: .84rem; }
 .curriculum-item > div { min-width: 0; }
-.curriculum-item small { margin-top: 2px; color: #8292a6; font-size: .7rem; line-height: 1.5; overflow-wrap: anywhere; }
+.curriculum-item small { margin-top: 2px; color: #66788e; font-size: .7rem; line-height: 1.5; overflow-wrap: anywhere; }
 .topic-list-toolbar { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(190px, .7fr); gap: 8px; margin-top: 13px; }
 .topic-search-field { display: block; min-width: 0; }
 .topic-search-field input { width: 100%; min-height: 42px; padding: 9px 11px; border: 1px solid #d4e0ee; border-radius: 10px; color: #294c7a; background: #fff; font: inherit; font-size: .78rem; outline: none; }
 .topic-search-field input:focus { border-color: #6ca7ea; box-shadow: 0 0 0 3px rgba(35, 139, 255, .12); }
-.topic-list-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; color: #8292a6; font-size: .68rem; }
+.topic-list-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; color: #66788e; font-size: .68rem; }
 .topic-list-meta button { padding: 0; border: 0; color: #246bc5; background: transparent; font: inherit; font-weight: 800; cursor: pointer; }
-.topic-pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 13px; padding-top: 12px; border-top: 1px solid #e1e8f0; color: #8292a6; font-size: .68rem; }
+.topic-pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 13px; padding-top: 12px; border-top: 1px solid #e1e8f0; color: #66788e; font-size: .68rem; }
 .topic-pagination-controls { display: flex; align-items: center; gap: 7px; }
 .topic-pagination-controls > button { display: grid; width: 28px; height: 28px; place-items: center; padding: 0; border: 1px solid #cbdbea; border-radius: 7px; color: #246bc5; background: #fff; font: inherit; font-size: 1rem; cursor: pointer; }
 .topic-pagination-controls > button:disabled { color: #aab8c7; background: #f1f5f9; cursor: default; }

@@ -254,9 +254,9 @@ const structureCountLabel = computed(() => `${props.classCount} kelas · ${props
 .teacher-workspace-card-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 9px; }
 .teacher-workspace-card-copy strong { color: #f8f3ed; font-size: 1rem; text-transform: uppercase; }
 .teacher-workspace-card-copy small { max-width: 330px; color: #aaa6b0; font-size: .83rem; line-height: 1.55; }
-.teacher-workspace-card-copy em { color: #77747f; font-size: .68rem; font-style: normal; }
+.teacher-workspace-card-copy em { color: #a49fae; font-size: .68rem; font-style: normal; }
 .teacher-workspace-arrow { display: grid; width: 28px; height: 28px; flex: 0 0 auto; place-items: center; border: 1px solid #4b4a52; color: #cbc8d0; font-size: 1rem; }
-.teacher-workspace-hint { max-width: 700px; margin-top: 28px; color: #77747f; font-size: .76rem; line-height: 1.55; }
+.teacher-workspace-hint { max-width: 700px; margin-top: 28px; color: #a49fae; font-size: .76rem; line-height: 1.55; }
 
 @media (max-width: 900px) {
   .workspace-action-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }

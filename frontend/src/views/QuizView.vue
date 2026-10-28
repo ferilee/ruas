@@ -42,11 +42,11 @@
           <p v-if="topicLabel">{{ topicLabel }} <span v-if="questionCount">· {{ questionCount }} soal</span></p>
         </div>
 
-        <div class="font-controls" aria-label="Ukuran font soal">
+        <div class="font-controls" role="group" aria-label="Ukuran font soal">
           <span>Ukuran font soal:</span>
-          <button type="button" :class="{ active: fontSize === 'small' }" @click="setFontSize('small')">A</button>
-          <button type="button" :class="{ active: fontSize === 'normal' }" @click="setFontSize('normal')">A</button>
-          <button type="button" :class="{ active: fontSize === 'large' }" @click="setFontSize('large')">A</button>
+          <button type="button" :class="{ active: fontSize === 'small' }" aria-label="Ukuran font kecil" :aria-pressed="fontSize === 'small'" @click="setFontSize('small')">A<span class="font-size-name">Kecil</span></button>
+          <button type="button" :class="{ active: fontSize === 'normal' }" aria-label="Ukuran font sedang" :aria-pressed="fontSize === 'normal'" @click="setFontSize('normal')">A<span class="font-size-name">Sedang</span></button>
+          <button type="button" :class="{ active: fontSize === 'large' }" aria-label="Ukuran font besar" :aria-pressed="fontSize === 'large'" @click="setFontSize('large')">A<span class="font-size-name">Besar</span></button>
         </div>
       </div>
 
@@ -540,8 +540,9 @@ onMounted(() => {
 .exam-back { padding: 0; border: 0; color: #587087; background: transparent; font: inherit; font-size: .86rem; cursor: pointer; }
 .exam-back:hover { color: #1266a5; }
 .exam-heading h1 { margin-top: 5px; color: #1a2d40; font-size: 1.7rem; }
-.exam-heading p { margin-top: 3px; color: #667d91; font-size: .95rem; }
-.font-controls { display: flex; align-items: center; gap: 8px; color: #71869a; font-size: .82rem; }
+.exam-heading p { margin-top: 3px; color: #587087; font-size: .95rem; }
+.font-controls { display: flex; align-items: center; gap: 8px; color: #587087; font-size: .82rem; }
+.font-size-name { margin-left: 4px; font-size: .68rem; font-weight: 700; }
 .font-controls button { min-width: 28px; border: 0; color: #49647b; background: transparent; cursor: pointer; }
 .font-controls button:nth-of-type(1) { font-size: .8rem; }
 .font-controls button:nth-of-type(2) { font-size: 1rem; }
@@ -552,7 +553,7 @@ onMounted(() => {
 .pane-heading { min-height: 76px; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; gap: 16px; border-bottom: 1px solid #e6edf3; }
 .pane-kicker, .state-kicker { color: #1571b5; font-size: .72rem; font-weight: 800; letter-spacing: .1em; }
 .pane-heading h2 { margin-top: 4px; color: #273d52; font-size: 1rem; }
-.question-type-label { color: #7890a4; font-size: .78rem; text-align: right; }
+.question-type-label { color: #5d748c; font-size: .78rem; text-align: right; }
 .pane-scroll { flex: 1; min-height: 0; overflow: auto; }
 .question-scroll { padding: 28px 30px; color: #24384b; font-size: 1.08em; line-height: 1.8; }
 .answer-scroll { padding: 22px 20px; }
@@ -621,7 +622,7 @@ onMounted(() => {
 .question-number.doubtful { border-color: #d29400; box-shadow: inset 0 -4px 0 #d29400; }
 .question-number.current.doubtful { color: #fff; border-color: #1477c4; box-shadow: inset 0 -4px 0 #ffd45a; }
 .question-number.answered.doubtful { border-color: #48a47a; box-shadow: inset 0 -4px 0 #ffd45a; }
-.question-status-legend { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 12px; color: #71869a; font-size: .78rem; }
+.question-status-legend { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 12px; color: #587087; font-size: .78rem; }
 .question-status-legend span { display: inline-flex; align-items: center; gap: 5px; }
 .legend-dot { width: 10px; height: 10px; display: inline-block; border: 1px solid #d4e0ea; border-radius: 50%; background: #f8fafc; }
 .legend-dot.current { border-color: #1477c4; background: #1477c4; }

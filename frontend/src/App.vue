@@ -105,6 +105,12 @@ const wrapperClasses = computed(() => {
   cursor: not-allowed;
 }
 
+/* RUAS-014: fokus keyboard selalu terlihat jelas. */
+:focus-visible {
+  outline: 2px solid #1477c4;
+  outline-offset: 2px;
+}
+
 html,
 #app {
   min-height: 100%;

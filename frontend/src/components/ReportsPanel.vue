@@ -494,10 +494,10 @@ onUnmounted(() => window.removeEventListener(ADMIN_REALTIME_EVENT, handleRealtim
 .simple-question-stat-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 10px 12px; border: 1px solid #e1e8f0; border-radius: 10px; background: #fff; text-align: left; }
 .simple-question-stat-copy { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .simple-question-stat-copy strong { color: #314c70; font-size: .8rem; overflow-wrap: anywhere; }
-.simple-question-stat-copy small { color: #8292a6; font-size: .68rem; }
+.simple-question-stat-copy small { color: #66788e; font-size: .68rem; }
 .simple-question-stat-value { text-align: right; }
 .simple-question-stat-value strong { display: block; color: #24558f; }
-.simple-question-stat-value small { color: #8292a6; font-size: .68rem; }
+.simple-question-stat-value small { color: #66788e; font-size: .68rem; }
 .question-stat-text { max-width: 380px; overflow-wrap: anywhere; }
 .simple-report-results { overflow: hidden; border: 1px solid #3d3c43; border-radius: 14px; background: #202023; }
 .simple-report-results-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px; border-bottom: 1px solid #3d3c43; }
