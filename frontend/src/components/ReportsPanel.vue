@@ -1,9 +1,9 @@
 <template>
-  <section :class="['reports-panel', { 'simple-reports-panel': props.simple }]">
+  <section :class="['reports-panel', { 'simple-reports-panel': props.simple, 'printing-questions': printMode === 'questions', 'printing-students': printMode === 'students' }]">
     <template v-if="props.simple">
       <div class="simple-report-header">
         <div><span class="eyebrow">HASIL ASESMEN</span><h2>Laporan sederhana</h2><p>Pilih topik dan kelas untuk melihat hasil siswa.</p></div>
-        <div class="toolbar-actions"><button class="secondary-btn" type="button" :disabled="loading" @click="loadReport">Muat ulang</button><button class="primary-btn" type="button" :disabled="loading || rows.length === 0" :title="rows.length === 0 ? 'Belum ada hasil untuk diunduh' : undefined" @click="exportPdf">Unduh PDF</button></div>
+        <div class="toolbar-actions"><button class="secondary-btn" type="button" :disabled="loading" @click="loadReport">Muat ulang</button><ReportExportMenu variant="dark" :disabled="loading || (questionStatistics.length === 0 && rows.length === 0)" :questions-disabled="loading || questionStatistics.length === 0" :students-disabled="loading || rows.length === 0" @select="exportPdf" /></div>
       </div>
 
       <section class="simple-report-filters">
@@ -52,7 +52,7 @@
       </div>
       <div class="toolbar-actions">
         <button class="secondary-btn" type="button" :disabled="loading" @click="loadReport">Muat ulang</button>
-        <button class="primary-btn" type="button" :disabled="loading || rows.length === 0" :title="rows.length === 0 ? 'Belum ada hasil untuk diunduh' : undefined" @click="exportPdf">Ekspor PDF</button>
+        <ReportExportMenu variant="light" :disabled="loading || (questionStatistics.length === 0 && rows.length === 0)" :questions-disabled="loading || questionStatistics.length === 0" :students-disabled="loading || rows.length === 0" @select="exportPdf" />
         <button v-if="props.canReset" class="danger-btn" type="button" :disabled="resetting || resetCount === 0" @click="openResetConfirmation">{{ resetting ? 'Mereset...' : `Reset hasil (${resetCount})` }}</button>
       </div>
     </div>
@@ -221,15 +221,86 @@
         </div>
       </section>
     </div>
+
+    <div v-if="printMode" class="report-print-documents" aria-hidden="true">
+      <section v-if="printMode === 'questions'" class="print-document">
+        <header class="print-doc-header">
+          <p class="print-doc-brand">{{ printBrandLine }}</p>
+          <h2>{{ printHeadingLabel }}</h2>
+          <p class="print-doc-meta">{{ printContextLabel }}</p>
+          <p class="print-doc-meta">Dicetak: {{ printDateLabel }} · Kebijakan nilai: {{ scorePolicyLabel }}</p>
+        </header>
+        <p class="print-doc-summary">{{ summary.completed_attempts }} hasil selesai · Rata-rata skor {{ summary.average_score }} · Rata-rata akurasi {{ summary.average_accuracy }}% · {{ questionStatistics.length }} soal dianalisis, soal paling sulit tampil lebih dulu.</p>
+        <table class="print-table question-print-table">
+          <colgroup>
+            <col style="width: 5%" />
+            <col style="width: 37%" />
+            <col style="width: 16%" />
+            <col style="width: 8%" />
+            <col style="width: 7%" />
+            <col style="width: 8%" />
+            <col style="width: 9%" />
+            <col style="width: 10%" />
+          </colgroup>
+          <thead><tr><th>No</th><th>Soal</th><th>Topik</th><th>Dijawab</th><th>Benar</th><th>% Benar</th><th>Waktu rata-rata</th><th>Kesimpulan</th></tr></thead>
+          <tbody>
+            <tr v-for="(stat, index) in questionStatistics" :key="stat.question_id">
+              <td>{{ index + 1 }}</td>
+              <td class="question-stat-text"><MathText :text="stat.question_text" /></td>
+              <td>{{ stat.topic_label }}</td>
+              <td>{{ stat.answered_count }}</td>
+              <td>{{ stat.correct_count }}</td>
+              <td>{{ stat.correct_percent }}%</td>
+              <td>{{ formatDuration(stat.average_time_seconds) }}</td>
+              <td>{{ stat.difficulty_label }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+      <section v-if="printMode === 'students'" class="print-document">
+        <header class="print-doc-header">
+          <p class="print-doc-brand">{{ printBrandLine }}</p>
+          <h2>{{ printHeadingLabel }}</h2>
+          <p class="print-doc-meta">{{ printContextLabel }}</p>
+          <p class="print-doc-meta">Dicetak: {{ printDateLabel }} · Kebijakan nilai: {{ scorePolicyLabel }}</p>
+        </header>
+        <p class="print-doc-summary">{{ reportGroups.length }} siswa/asesmen · {{ summary.completed_attempts }} hasil selesai · Rata-rata skor {{ summary.average_score }} · Rata-rata akurasi {{ summary.average_accuracy }}%.</p>
+        <table class="print-table student-print-table">
+          <colgroup>
+            <col style="width: 25%" />
+            <col style="width: 24%" />
+            <col style="width: 12%" />
+            <col style="width: 8%" />
+            <col style="width: 9%" />
+            <col style="width: 12%" />
+            <col style="width: 10%" />
+          </colgroup>
+          <thead><tr><th>Siswa</th><th>Asesmen</th><th>Kelas</th><th>Nilai</th><th>Akurasi</th><th>Anti-cheat</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr v-for="group in reportGroups" :key="group.key">
+              <td><strong>{{ group.official.participant_name }}</strong><small>{{ group.official.username }}</small></td>
+              <td><strong>{{ group.official.subject_label }}</strong><small>{{ group.official.topic_label || 'Semua topik' }}</small></td>
+              <td>{{ group.official.class_label || 'Tanpa kelas' }}</td>
+              <td>{{ group.official.final_score }}</td>
+              <td>{{ group.official.accuracy }}%</td>
+              <td>{{ group.official.violation_count }} aktivitas</td>
+              <td>{{ statusLabel(group.official.status) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
-import { fetchAdminCurriculum, fetchAdminReport, fetchAdminReportDetail, fetchAdminReportResetCount, fetchAdminTopics, resetAdminReportData } from '@/api/client';
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref } from 'vue';
+import { fetchAdminCurriculum, fetchAdminReport, fetchAdminReportDetail, fetchAdminReportResetCount, fetchAdminTopics, fetchSchoolName, resetAdminReportData } from '@/api/client';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import MathText from '@/components/MathText.vue';
+import ReportExportMenu from '@/components/ReportExportMenu.vue';
 import RuasSelect from '@/components/RuasSelect.vue';
+import { formatReportPrintDate, reportPrintBrand, reportPrintContext, reportPrintDocumentTitle, reportPrintHeading, type ReportPrintMode } from '@/lib/report-print';
 import type { AdminReportClassStatistic, AdminReportDetail, AdminReportFilters, AdminReportQuestionStatistic, AdminReportQuestionStatus, AdminReportRow, AdminReportSummary, AdminTopic, CurriculumData } from '@/types';
 import { ADMIN_REALTIME_EVENT, type AdminRealtimeEvent } from '@/lib/admin-realtime';
 
@@ -265,6 +336,17 @@ const scorePolicyOptions = [
   { value: 'average', label: 'Nilai rata-rata' },
 ];
 const scorePolicyLabel = computed(() => scorePolicyOptions.find((option) => option.value === filters.score_policy)?.label ?? 'Nilai terbaik');
+const schoolName = ref<string | null>(null);
+const printMode = ref<ReportPrintMode | null>(null);
+const printHeadingLabel = computed(() => (printMode.value ? reportPrintHeading(printMode.value) : ''));
+const printBrandLine = computed(() => reportPrintBrand(schoolName.value));
+const printDateLabel = computed(() => formatReportPrintDate(new Date()));
+const printContextLabel = computed(() => reportPrintContext({
+  topicLabel: filters.topic_id ? topics.value.find((topic) => topic.id === filters.topic_id)?.label ?? 'Semua topik' : 'Semua topik',
+  classLabel: filters.class_id ? curriculum.classes.find((item) => item.id === filters.class_id)?.label ?? 'Semua kelas' : 'Semua kelas',
+  completedAttempts: summary.value.completed_attempts,
+  totalAttempts: summary.value.total_attempts,
+}));
 type ReportSort = 'name_asc' | 'name_desc' | 'score_desc' | 'score_asc';
 const reportSort = ref<ReportSort>('name_asc');
 const reportSortOptions = [
@@ -430,8 +512,24 @@ function openReportGroup(group: (typeof reportGroups.value)[number]) {
   expandedGroups[group.key] = !expandedGroups[group.key];
 }
 
-function exportPdf() {
+async function exportPdf(mode: ReportPrintMode) {
+  if (mode === 'questions' && questionStatistics.value.length === 0) return;
+  if (mode === 'students' && rows.value.length === 0) return;
+  const originalTitle = document.title;
+  printMode.value = mode;
+  document.title = reportPrintDocumentTitle(mode, schoolName.value);
+  let restored = false;
+  const restore = () => {
+    if (restored) return;
+    restored = true;
+    window.removeEventListener('afterprint', restore);
+    document.title = originalTitle;
+    printMode.value = null;
+  };
+  window.addEventListener('afterprint', restore);
+  await nextTick();
   window.print();
+  window.setTimeout(restore, 1000);
 }
 
 function formatDuration(seconds: number) {
@@ -463,6 +561,7 @@ function handleRealtime(event: Event) {
 }
 
 onMounted(async () => {
+  void fetchSchoolName().then((name) => { schoolName.value = name; }).catch(() => { schoolName.value = null; });
   try {
     const [data, topicRows] = await Promise.all([fetchAdminCurriculum(), fetchAdminTopics()]);
     Object.assign(curriculum, data);
@@ -479,6 +578,7 @@ onUnmounted(() => window.removeEventListener(ADMIN_REALTIME_EVENT, handleRealtim
 
 <style scoped>
 .reports-panel { display: flex; flex-direction: column; gap: 18px; }
+.report-print-documents { display: none; }
 .simple-report-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 24px; border: 1px solid #3d3c43; border-radius: 16px; color: #f6f2eb; background: #202023; }
 .simple-report-header h2 { margin-top: 6px; color: #f7f2eb; font-size: 1.45rem; }
 .simple-report-header p { margin-top: 5px; color: #9e9aa5; font-size: .84rem; }
@@ -641,5 +741,19 @@ td strong, td small { display: block; }.report-row { cursor: pointer; }.report-r
   :global(.admin-layout) { display: block !important; }
   :global(.admin-content) { width: 100% !important; }
   .reports-panel { gap: 12px; }.report-toolbar { display: block; padding: 0 0 12px; color: #173e7f; background: #fff; box-shadow: none; }.report-toolbar h2 { color: #173e7f; }.report-toolbar p { color: #71849b; }.summary-grid { grid-template-columns: repeat(4, 1fr); }.panel { border-color: #d8e1eb; box-shadow: none; } .table-panel, .class-statistics-panel { overflow: visible; } table { min-width: 0; } th, td { padding: 8px; font-size: 9px; } .class-statistics-table { min-width: 0; } .class-statistics-table th, .class-statistics-table td { padding: 6px; font-size: 8px; } .report-row { cursor: default; }
+  .reports-panel.printing-questions > *:not(.report-print-documents), .reports-panel.printing-students > *:not(.report-print-documents) { display: none !important; }
+  .reports-panel.printing-questions .report-print-documents, .reports-panel.printing-students .report-print-documents { display: block; }
+  .print-doc-header { margin-bottom: 12px; padding-bottom: 10px; border-bottom: 2px solid #173e7f; }
+  .print-doc-brand { color: #71849b; font-size: 9px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+  .print-doc-header h2 { margin: 4px 0; color: #173e7f; font-size: 18px; }
+  .print-doc-meta { color: #47617f; font-size: 10px; line-height: 1.5; }
+  .print-doc-summary { margin-bottom: 12px; color: #47617f; font-size: 10px; }
+  .print-table { width: 100%; min-width: 0; table-layout: fixed; border-collapse: collapse; }
+  .print-table thead { display: table-header-group; }
+  .print-table tr { page-break-inside: avoid; }
+  .print-table th, .print-table td { padding: 6px; border-bottom: 1px solid #d8e1eb; color: #29425f; font-size: 9px; text-align: left; vertical-align: top; white-space: normal; }
+  .print-table th { color: #47617f; background: #f2f6fb; letter-spacing: .03em; text-transform: uppercase; }
+  .print-table .question-stat-text { overflow-wrap: anywhere; }
 }
+@page { margin: 12mm; }
 </style>
