@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { createReportDbMock, countReportAttemptsMock, resetAllReportDataMock, listReportAttemptsMock, summarizeReportMock, summarizeReportByClassMock } = vi.hoisted(() => ({
+const { createReportDbMock, countReportAttemptsMock, resetAllReportDataMock, listReportAttemptsMock, listQuestionStatisticsMock, summarizeReportMock, summarizeReportByClassMock } = vi.hoisted(() => ({
   createReportDbMock: vi.fn(),
   countReportAttemptsMock: vi.fn(),
   resetAllReportDataMock: vi.fn(),
   listReportAttemptsMock: vi.fn(),
+  listQuestionStatisticsMock: vi.fn(),
   summarizeReportMock: vi.fn(),
   summarizeReportByClassMock: vi.fn(),
 }));
@@ -20,6 +21,7 @@ vi.mock('@/services/report-service', () => ({
   resetAllReportData: resetAllReportDataMock,
   getReportDetail: vi.fn(),
   listReportAttempts: listReportAttemptsMock,
+  listQuestionStatistics: listQuestionStatisticsMock,
   summarizeReport: summarizeReportMock,
   summarizeReportByClass: summarizeReportByClassMock,
 }));
@@ -30,6 +32,7 @@ describe('adminReportRoutes reset', () => {
     countReportAttemptsMock.mockReset();
     resetAllReportDataMock.mockReset();
     listReportAttemptsMock.mockReset().mockResolvedValue([]);
+    listQuestionStatisticsMock.mockReset().mockResolvedValue([]);
     summarizeReportMock.mockReset().mockReturnValue({});
     summarizeReportByClassMock.mockReset().mockReturnValue([]);
   });

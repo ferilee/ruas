@@ -69,3 +69,25 @@ describe('summarizeReportByClass', () => {
     ]);
   });
 });
+
+describe('summarizeQuestionStatistics (RUAS-009)', () => {
+  it('aggregates correct percentage per question across students, hardest first', async () => {
+    const { summarizeQuestionStatistics } = await import('@/services/report-service');
+    const stats = summarizeQuestionStatistics([
+      { question_id: 1, question_text: 'Soal mudah', topic_label: 'Aljabar', is_correct: true, elapsed_seconds: 30 },
+      { question_id: 1, question_text: 'Soal mudah', topic_label: 'Aljabar', is_correct: true, elapsed_seconds: 50 },
+      { question_id: 2, question_text: 'Soal sulit', topic_label: 'Aljabar', is_correct: false, elapsed_seconds: 90 },
+      { question_id: 2, question_text: 'Soal sulit', topic_label: 'Aljabar', is_correct: true, elapsed_seconds: 70 },
+      { question_id: 2, question_text: 'Soal sulit', topic_label: 'Aljabar', is_correct: false, elapsed_seconds: 80 },
+      { question_id: 2, question_text: 'Soal sulit', topic_label: 'Aljabar', is_correct: false, elapsed_seconds: 60 },
+    ]);
+    expect(stats.map((item) => item.question_id)).toEqual([2, 1]);
+    expect(stats[0]).toMatchObject({ answered_count: 4, correct_count: 1, correct_percent: 25, difficulty_label: 'Perlu diulang', average_time_seconds: 75 });
+    expect(stats[1]).toMatchObject({ answered_count: 2, correct_count: 2, correct_percent: 100, difficulty_label: 'Terkuasai' });
+  });
+
+  it('returns an empty list when nobody answered', async () => {
+    const { summarizeQuestionStatistics } = await import('@/services/report-service');
+    expect(summarizeQuestionStatistics([])).toEqual([]);
+  });
+});

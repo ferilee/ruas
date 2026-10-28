@@ -14,8 +14,16 @@
 
       <section class="simple-report-summary">
         <article title="Jumlah siswa yang sudah menyelesaikan asesmen"><span>Selesai</span><strong>{{ summary.completed_attempts }}</strong><small>dari {{ summary.total_attempts }} hasil</small></article>
-        <article title="Nilai terbaik rata-rata"><span>Nilai</span><strong>{{ summary.average_score }}</strong><small>rata-rata</small></article>
+        <article title="Nilai rata-rata dari hasil yang selesai"><span>Nilai</span><strong>{{ summary.average_score }}</strong><small>rata-rata</small></article>
         <article title="Rata-rata jawaban benar"><span>Benar</span><strong>{{ summary.average_accuracy }}%</strong><small>akurasi</small></article>
+      </section>
+
+      <section v-if="questionStatistics.length" class="simple-question-stats">
+        <div class="simple-report-results-heading"><div><strong>Analisis per soal</strong><span>Persentase siswa yang menjawab benar, dari yang paling sulit.</span></div></div>
+        <article v-for="stat in questionStatistics.slice(0, 10)" :key="stat.question_id" class="simple-question-stat-row">
+          <span class="simple-question-stat-copy"><strong><MathText :text="stat.question_text" /></strong><small>{{ stat.topic_label }} · dijawab {{ stat.answered_count }} siswa</small></span>
+          <span class="simple-question-stat-value"><strong>{{ stat.correct_percent }}%</strong><small>{{ stat.difficulty_label }}</small></span>
+        </article>
       </section>
 
       <section class="simple-report-results">
@@ -109,6 +117,28 @@
       </div>
     </section>
 
+    <section v-if="questionStatistics.length" class="panel question-statistics-panel report-print-area">
+      <div class="panel-heading">
+        <div><h3>Analisis per soal (semua siswa)</h3><p>Persentase jawaban benar per soal pada hasil selesai sesuai filter — soal paling sulit tampil lebih dulu.</p></div>
+      </div>
+      <div class="class-statistics-wrap">
+        <table class="class-statistics-table">
+          <thead><tr><th>Soal</th><th>Topik</th><th>Dijawab</th><th>Benar</th><th>% Benar</th><th>Waktu rata-rata</th><th>Kesimpulan</th></tr></thead>
+          <tbody>
+            <tr v-for="stat in questionStatistics" :key="stat.question_id">
+              <td class="question-stat-text"><MathText :text="stat.question_text" /></td>
+              <td>{{ stat.topic_label }}</td>
+              <td>{{ stat.answered_count }}</td>
+              <td>{{ stat.correct_count }}</td>
+              <td class="score-cell">{{ stat.correct_percent }}%</td>
+              <td>{{ formatDuration(stat.average_time_seconds) }}</td>
+              <td><span :class="['violation-badge', { clean: stat.difficulty_label === 'Terkuasai' }]">{{ stat.difficulty_label }}</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
     <section class="panel table-panel report-print-area">
       <div class="panel-heading table-heading">
         <div><h3>Hasil siswa</h3><p>{{ reportGroups.length }} siswa/asesmen · {{ rows.length }} attempts sesuai filter</p></div>
@@ -191,7 +221,7 @@ import { fetchAdminCurriculum, fetchAdminReport, fetchAdminReportDetail, fetchAd
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import MathText from '@/components/MathText.vue';
 import RuasSelect from '@/components/RuasSelect.vue';
-import type { AdminReportClassStatistic, AdminReportDetail, AdminReportFilters, AdminReportQuestionStatus, AdminReportRow, AdminReportSummary, AdminTopic, CurriculumData } from '@/types';
+import type { AdminReportClassStatistic, AdminReportDetail, AdminReportFilters, AdminReportQuestionStatistic, AdminReportQuestionStatus, AdminReportRow, AdminReportSummary, AdminTopic, CurriculumData } from '@/types';
 import { ADMIN_REALTIME_EVENT, type AdminRealtimeEvent } from '@/lib/admin-realtime';
 
 const props = withDefaults(defineProps<{ canReset?: boolean; simple?: boolean }>(), { canReset: true, simple: false });
@@ -203,6 +233,7 @@ const filters = reactive<AdminReportFilters>({ status: 'completed', score_policy
 const rows = ref<AdminReportRow[]>([]);
 const summary = ref<AdminReportSummary>({ ...emptySummary });
 const classStatistics = ref<AdminReportClassStatistic[]>([]);
+const questionStatistics = ref<AdminReportQuestionStatistic[]>([]);
 const detail = ref<AdminReportDetail | null>(null);
 const analysisFilter = ref<'all' | AdminReportQuestionStatus>('all');
 const loading = ref(false);
@@ -308,6 +339,7 @@ async function loadReport() {
     rows.value = data.rows;
     summary.value = data.summary;
     classStatistics.value = data.class_statistics;
+    questionStatistics.value = data.question_statistics ?? [];
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Gagal memuat laporan.';
   } finally {
@@ -458,6 +490,15 @@ onUnmounted(() => window.removeEventListener(ADMIN_REALTIME_EVENT, handleRealtim
 .simple-report-summary article:nth-child(3) { border-top: 3px solid #dc9cff; }
 .simple-report-summary span, .simple-report-summary small { color: #9b97a2; font-size: .72rem; }
 .simple-report-summary strong { color: #f7f2eb; font-size: 1.45rem; }
+.simple-question-stats { display: flex; flex-direction: column; gap: 8px; }
+.simple-question-stat-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 10px 12px; border: 1px solid #e1e8f0; border-radius: 10px; background: #fff; text-align: left; }
+.simple-question-stat-copy { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.simple-question-stat-copy strong { color: #314c70; font-size: .8rem; overflow-wrap: anywhere; }
+.simple-question-stat-copy small { color: #8292a6; font-size: .68rem; }
+.simple-question-stat-value { text-align: right; }
+.simple-question-stat-value strong { display: block; color: #24558f; }
+.simple-question-stat-value small { color: #8292a6; font-size: .68rem; }
+.question-stat-text { max-width: 380px; overflow-wrap: anywhere; }
 .simple-report-results { overflow: hidden; border: 1px solid #3d3c43; border-radius: 14px; background: #202023; }
 .simple-report-results-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px; border-bottom: 1px solid #3d3c43; }
 .simple-report-results-heading > div { display: flex; flex-direction: column; gap: 5px; }

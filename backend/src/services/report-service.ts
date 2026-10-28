@@ -288,6 +288,80 @@ export async function getReportDetail(db: ReportDb, attemptId: number) {
 
 type ReportRow = Awaited<ReturnType<typeof listReportAttempts>>[number];
 
+export interface QuestionStatisticAnswer {
+  question_id: number;
+  question_text: string;
+  topic_label: string;
+  is_correct: boolean;
+  elapsed_seconds: number;
+}
+
+export interface QuestionStatistic {
+  question_id: number;
+  question_text: string;
+  topic_label: string;
+  answered_count: number;
+  correct_count: number;
+  correct_percent: number;
+  average_time_seconds: number;
+  difficulty_label: 'Terkuasai' | 'Cukup' | 'Perlu diulang';
+}
+
+/** Agregat analisis per soal lintas siswa (RUAS-009): % benar = tingkat kesukaran empiris. */
+export function summarizeQuestionStatistics(answers: QuestionStatisticAnswer[]): QuestionStatistic[] {
+  const byQuestion = new Map<number, QuestionStatisticAnswer[]>();
+  for (const answer of answers) {
+    const list = byQuestion.get(answer.question_id) ?? [];
+    list.push(answer);
+    byQuestion.set(answer.question_id, list);
+  }
+  return [...byQuestion.values()]
+    .map((list) => {
+      const correct = list.filter((answer) => answer.is_correct).length;
+      const percent = list.length ? Math.round((correct / list.length) * 100) : 0;
+      return {
+        question_id: list[0].question_id,
+        question_text: list[0].question_text,
+        topic_label: list[0].topic_label,
+        answered_count: list.length,
+        correct_count: correct,
+        correct_percent: percent,
+        average_time_seconds: Math.round(list.reduce((total, answer) => total + answer.elapsed_seconds, 0) / list.length),
+        difficulty_label: (percent >= 75 ? 'Terkuasai' : percent >= 50 ? 'Cukup' : 'Perlu diulang') as QuestionStatistic['difficulty_label'],
+      };
+    })
+    .sort((a, b) => a.correct_percent - b.correct_percent || b.answered_count - a.answered_count);
+}
+
+export async function listQuestionStatistics(db: ReportDb, rows: ReportRow[]): Promise<QuestionStatistic[]> {
+  const attemptIds = rows.filter((row) => row.status === 'completed').map((row) => row.attempt_id);
+  if (attemptIds.length === 0) return [];
+  const answers = await db
+    .select({
+      id: examAnswers.id,
+      attempt_id: examAnswers.attempt_id,
+      question_id: examAnswers.question_id,
+      question_text: questions.question_text,
+      topic_label: topics.label,
+      is_correct: examAnswers.is_correct,
+      elapsed_seconds: examAnswers.elapsed_seconds,
+    })
+    .from(examAnswers)
+    .innerJoin(questions, eq(examAnswers.question_id, questions.id))
+    .leftJoin(topics, eq(questions.topic_id, topics.id))
+    .where(inArray(examAnswers.attempt_id, attemptIds))
+    .orderBy(asc(examAnswers.id));
+  const latestByAttemptQuestion = new Map<string, (typeof answers)[number]>();
+  for (const answer of answers) latestByAttemptQuestion.set(`${answer.attempt_id}:${answer.question_id}`, answer);
+  return summarizeQuestionStatistics([...latestByAttemptQuestion.values()].map((answer) => ({
+    question_id: answer.question_id,
+    question_text: answer.question_text,
+    topic_label: answer.topic_label ?? 'Topik',
+    is_correct: Boolean(answer.is_correct),
+    elapsed_seconds: answer.elapsed_seconds,
+  })));
+}
+
 function average(values: number[]) {
   return values.length ? Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 10) / 10 : 0;
 }

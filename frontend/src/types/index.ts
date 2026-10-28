@@ -493,9 +493,21 @@ export interface AdminReportDetail extends AdminReportRow {
   unanswered_question_numbers: number[];
 }
 
+export interface AdminReportQuestionStatistic {
+  question_id: number;
+  question_text: string;
+  topic_label: string;
+  answered_count: number;
+  correct_count: number;
+  correct_percent: number;
+  average_time_seconds: number;
+  difficulty_label: 'Terkuasai' | 'Cukup' | 'Perlu diulang';
+}
+
 export interface AdminReportData {
   filters: AdminReportFilters;
   summary: AdminReportSummary;
   class_statistics: AdminReportClassStatistic[];
+  question_statistics: AdminReportQuestionStatistic[];
   rows: AdminReportRow[];
 }
