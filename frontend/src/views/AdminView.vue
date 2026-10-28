@@ -484,8 +484,9 @@
               </label>
             </div>
 
-            <label>External ID
-              <input v-model="draft.external_id" placeholder="Contoh: q_aljabar_003" />
+            <label>External ID <span class="label-optional">(opsional)</span>
+              <span class="external-id-row"><input v-model="draft.external_id" placeholder="Contoh: q_aljabar_003" /><button class="secondary-btn" type="button" :disabled="draft.topic_id <= 0" @click="generateExternalId">Buat otomatis</button></span>
+              <small class="field-hint">Kode unik soal untuk import/ekspor. Klik "Buat otomatis" untuk mengisi dari topik — tidak wajib diisi manual.</small>
               <small v-if="formFieldErrors.external_id" class="field-error" role="alert">{{ formFieldErrors.external_id }}</small>
             </label>
 
@@ -645,6 +646,7 @@ import type { AdminQuestionInput, AdminQuestionListItem, AdminTopic, AdminUser, 
 import type { AdminSession } from '@/types';
 import { connectAdminRealtime, dispatchAdminRealtimeEvent, type AdminRealtimeEvent, type AdminRealtimeStatus } from '@/lib/admin-realtime';
 import { extractFieldErrors } from '@/lib/field-errors';
+import { suggestExternalId } from '@/lib/slug';
 
 const router = useRouter();
 type AdminSection = 'overview' | 'curriculum' | 'questions' | 'schedule' | 'reports' | 'users' | 'teacher-requests' | 'feedback';
@@ -1407,6 +1409,12 @@ function toggleQuestionArchive() {
   );
 }
 
+function generateExternalId() {
+  const topic = topics.value.find((item) => item.id === draft.topic_id);
+  if (!topic) return;
+  draft.external_id = suggestExternalId(topic.slug, (topic.question_count ?? 0) + 1);
+}
+
 function syncOptionsForType() {
   draft.options = createDefaultOptions(draft.type);
 }
@@ -1786,6 +1794,8 @@ legend { padding: 0 6px; color: #445566; font-weight: 600; }
 .import-textarea { width: 100%; padding: 12px; border: 2px solid #d4dde6; border-radius: 8px; font: 0.9rem monospace; }
 .import-actions { justify-content: flex-start; }
 .import-summary { background: #f0f4ff; padding: 12px; border-radius: 8px; }
+.external-id-row { display: flex; gap: 8px; align-items: center; }
+.external-id-row input { flex: 1; }
 .field-error { display: block; margin-top: 5px; color: #e0655f; font-size: .72rem; font-weight: 600; line-height: 1.4; }
 .error-text { color: #c53030; }
 .success-text { color: #2f855a; }
