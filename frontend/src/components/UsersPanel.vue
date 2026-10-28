@@ -12,11 +12,11 @@
           <div class="user-form-actions"><button v-if="editingId !== null" class="text-button" type="button" @click="resetForm">Batal</button><button class="panel-collapse-button" type="button" @click="closeUserForm">Sembunyikan</button><button class="mobile-close-button" type="button" aria-label="Tutup form pengguna" @click="closeUserForm">×</button></div>
         </div>
         <form class="user-form" @submit.prevent="saveUser">
-          <label>Username<input v-model.trim="form.username" required autocomplete="off" placeholder="Contoh: P130100230" /></label>
-          <label>Nama tampilan<input v-model.trim="form.display_name" required placeholder="Nama peserta" /></label>
+          <label>Username<input v-model.trim="form.username" required autocomplete="off" placeholder="Contoh: P130100230" /><small v-if="formFieldErrors.username" class="field-error" role="alert">{{ formFieldErrors.username }}</small></label>
+          <label>Nama tampilan<input v-model.trim="form.display_name" required placeholder="Nama peserta" /><small v-if="formFieldErrors.display_name" class="field-error" role="alert">{{ formFieldErrors.display_name }}</small></label>
           <label>Kelas peserta<RuasSelect v-model="form.class_id" :options="classOptions" aria-label="Kelas peserta" /></label>
           <label>Mata pelajaran peserta<RuasSelect v-model="form.subject_id" :options="subjectOptions" aria-label="Mata pelajaran peserta" /></label>
-          <label>Password {{ editingId === null ? '' : '(kosongkan jika tidak diubah)' }}<input v-model="form.password" :required="editingId === null" type="password" autocomplete="new-password" placeholder="Password akun" /></label>
+          <label>Password {{ editingId === null ? '' : '(kosongkan jika tidak diubah)' }}<input v-model="form.password" :required="editingId === null" type="password" autocomplete="new-password" placeholder="Password akun" /><small v-if="formFieldErrors.password" class="field-error" role="alert">{{ formFieldErrors.password }}</small></label>
           <label v-if="isEditor" class="active-field"><span>Status</span><span class="check-line"><input v-model="form.active" type="checkbox" /> Aktif</span></label>
           <div v-if="!isEditor" class="user-fields-row">
             <label>Peran<RuasSelect v-model="form.role" :options="roleOptions" aria-label="Peran pengguna" /></label>
@@ -71,6 +71,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { assignAdminUsersClass, assignAdminUsersSubject, createAdminUser, deleteAdminUser, deleteAllAdminParticipants, fetchAdminCurriculum, fetchAdminParticipantCount, fetchAdminUsers, importAdminUsers, resetAdminUserPassword, updateAdminUser } from '@/api/client';
+import { extractFieldErrors } from '@/lib/field-errors';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import RuasSelect from '@/components/RuasSelect.vue';
 import type { AdminSession, AdminUser, AdminUserInput, CurriculumClass, Subject, UserImportSummary, UserRole } from '@/types';
@@ -90,6 +91,7 @@ const saving = ref(false);
 const importing = ref(false);
 const errorMessage = ref('');
 const formMessage = ref('');
+const formFieldErrors = ref<Record<string, string>>({});
 const formMessageType = ref<'success' | 'error'>('success');
 const editingId = ref<number | null>(null);
 const userFormOpen = ref(false);
@@ -140,7 +142,7 @@ async function runConfirmation() { const action = pendingConfirmation.value; clo
 async function loadUsers() { loading.value = true; errorMessage.value = ''; try { users.value = await fetchAdminUsers(search.value); selectedUserIds.value = []; } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Gagal memuat pengguna.'; } finally { loading.value = false; } }
 watch(search, () => { if (searchTimer) clearTimeout(searchTimer); searchTimer = setTimeout(() => { void loadUsers(); }, 350); });
 async function loadParticipantCount() { try { participantCount.value = await fetchAdminParticipantCount(); } catch { participantCount.value = 0; } }
-async function saveUser() { saving.value = true; formMessage.value = ''; const currentId = editingId.value; try { const input = { ...form }; if (currentId === null) await createAdminUser(input); else await updateAdminUser(currentId, input); formMessageType.value = 'success'; resetForm(); formMessage.value = currentId === null ? 'Pengguna berhasil ditambahkan.' : 'Pengguna berhasil diperbarui.'; await Promise.all([loadUsers(), loadParticipantCount()]); } catch (error) { formMessageType.value = 'error'; formMessage.value = error instanceof Error ? error.message : 'Gagal menyimpan pengguna.'; } finally { saving.value = false; } }
+async function saveUser() { saving.value = true; formMessage.value = ''; formFieldErrors.value = {}; const currentId = editingId.value; try { const input = { ...form }; if (currentId === null) await createAdminUser(input); else await updateAdminUser(currentId, input); formMessageType.value = 'success'; resetForm(); formMessage.value = currentId === null ? 'Pengguna berhasil ditambahkan.' : 'Pengguna berhasil diperbarui.'; await Promise.all([loadUsers(), loadParticipantCount()]); } catch (error) { formMessageType.value = 'error'; formMessage.value = error instanceof Error ? error.message : 'Gagal menyimpan pengguna.'; formFieldErrors.value = extractFieldErrors(error); } finally { saving.value = false; } }
 function resetPassword(user: AdminUser) { askConfirmation('Reset sandi pengguna?', `Sandi ${user.username} akan diganti dengan sandi sementara. Sesi login lama akan dibatalkan.`, async () => { try { const result = await resetAdminUserPassword(user.id); bulkMessageType.value = 'success'; bulkMessage.value = `Sandi sementara ${user.username}: ${result.temporary_password}. Berikan sandi ini kepada pengguna dan minta pengguna menggantinya setelah login.`; await loadUsers(); } catch (error) { bulkMessageType.value = 'error'; bulkMessage.value = error instanceof Error ? error.message : 'Gagal mereset sandi pengguna.'; } }, 'Reset sandi'); }
 function removeUser(user: AdminUser) { askConfirmation('Hapus pengguna?', `Akun ${user.username} akan dihapus. Tindakan ini tidak dapat dibatalkan.`, async () => { try { await deleteAdminUser(user.id); await Promise.all([loadUsers(), loadParticipantCount()]); } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Gagal menghapus pengguna.'; } }, 'Hapus'); }
 function removeAllParticipants() { askConfirmation('Hapus semua peserta?', `Sebanyak ${participantCount.value} akun peserta akan dihapus permanen. Riwayat asesmen tetap tersimpan, tetapi akun peserta tidak dapat dipulihkan.`, async () => { deletingAll.value = true; errorMessage.value = ''; try { const deleted = await deleteAllAdminParticipants('HAPUS SEMUA PESERTA'); bulkMessageType.value = 'success'; bulkMessage.value = `${deleted} akun peserta berhasil dihapus.`; await Promise.all([loadUsers(), loadParticipantCount()]); } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Gagal menghapus semua peserta.'; } finally { deletingAll.value = false; } }, 'Hapus semua', 'HAPUS SEMUA PESERTA'); }

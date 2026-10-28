@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { duplicateFieldResponse, invalidBodyResponse } from '@/lib/validation-error';
 import { z } from 'zod';
 import { eq, inArray } from 'drizzle-orm';
 import type { Context } from 'hono';
@@ -65,7 +66,7 @@ export function adminTopicsRoutes(pool: Pool) {
 
   app.post('/', async (c) => {
     const parsed = topicSchema.safeParse(await c.req.json());
-    if (!parsed.success) return c.json({ error: 'invalid_body', message: 'Data topik tidak valid.' }, 400);
+    if (!parsed.success) return invalidBodyResponse(c, 'Data topik tidak valid.', parsed.error);
     if (!(await inputIsAllowed(c, parsed.data))) {
       return c.json({ error: 'admin_forbidden', message: 'Topik harus berada pada mata pelajaran dan kelas yang ditetapkan untuk akun ini.' }, 403);
     }
@@ -74,11 +75,11 @@ export function adminTopicsRoutes(pool: Pool) {
       const id = session?.role === 'editor'
         ? await createAdminTopic(db, parsed.data, session.username)
         : await createAdminTopic(db, parsed.data);
-      if (id === 'invalid_subject') return c.json({ error: 'invalid_reference', message: 'Mata pelajaran tidak ditemukan.' }, 400);
+      if (id === 'invalid_subject') return c.json({ error: 'invalid_reference', message: 'Mata pelajaran tidak ditemukan.', fields: { subject_id: 'Mata pelajaran tidak ditemukan. Pilih mata pelajaran yang tersedia.' } }, 400);
       if (id === 'invalid_class') return c.json({ error: 'invalid_reference', message: 'Salah satu kelas topik tidak ditemukan.' }, 400);
       return c.json({ id }, 201);
     } catch (error) {
-      if (isDuplicateKeyError(error)) return c.json({ error: 'duplicate_slug', message: 'Slug topik sudah digunakan.' }, 409);
+      if (isDuplicateKeyError(error)) return duplicateFieldResponse(c, 'slug', 'Slug topik sudah digunakan. Ganti slug topik dengan yang lain.');
       throw error;
     }
   });
@@ -86,7 +87,8 @@ export function adminTopicsRoutes(pool: Pool) {
   app.put('/:id', async (c) => {
     const id = parseId(c.req.param('id'));
     const parsed = topicSchema.safeParse(await c.req.json());
-    if (!id || !parsed.success) return c.json({ error: 'invalid_body', message: 'Data topik tidak valid.' }, 400);
+    if (!parsed.success) return invalidBodyResponse(c, 'Data topik tidak valid.', parsed.error);
+    if (!id) return c.json({ error: 'invalid_param', message: 'ID tidak valid.' }, 400);
     const session = c.get('adminSession');
     const existing = session?.role === 'editor' ? (await listAdminTopics(db)).find((topic) => topic.id === id) : null;
     if (session?.role === 'editor' && (!existing || !topicMatchesAdminScope(session, existing) || !canManageTopic(c, existing) || !(await inputIsAllowed(c, parsed.data)))) {
@@ -95,11 +97,11 @@ export function adminTopicsRoutes(pool: Pool) {
     try {
       const result = await updateAdminTopic(db, id, parsed.data);
       if (result === 'not_found') return c.json({ error: 'not_found', message: 'Topik tidak ditemukan.' }, 404);
-      if (result === 'invalid_subject') return c.json({ error: 'invalid_reference', message: 'Mata pelajaran tidak ditemukan.' }, 400);
+      if (result === 'invalid_subject') return c.json({ error: 'invalid_reference', message: 'Mata pelajaran tidak ditemukan.', fields: { subject_id: 'Mata pelajaran tidak ditemukan. Pilih mata pelajaran yang tersedia.' } }, 400);
       if (result === 'invalid_class') return c.json({ error: 'invalid_reference', message: 'Salah satu kelas topik tidak ditemukan.' }, 400);
       return c.json({ updated: true });
     } catch (error) {
-      if (isDuplicateKeyError(error)) return c.json({ error: 'duplicate_slug', message: 'Slug topik sudah digunakan.' }, 409);
+      if (isDuplicateKeyError(error)) return duplicateFieldResponse(c, 'slug', 'Slug topik sudah digunakan. Ganti slug topik dengan yang lain.');
       throw error;
     }
   });
@@ -123,7 +125,8 @@ export function adminTopicsRoutes(pool: Pool) {
   app.patch('/:id/access', async (c) => {
     const id = parseId(c.req.param('id'));
     const parsed = topicAccessSchema.safeParse(await c.req.json());
-    if (!id || !parsed.success) return c.json({ error: 'invalid_body', message: 'Pengaturan token topik tidak valid.' }, 400);
+    if (!parsed.success) return invalidBodyResponse(c, 'Pengaturan token topik tidak valid.', parsed.error);
+    if (!id) return c.json({ error: 'invalid_param', message: 'ID tidak valid.' }, 400);
     const session = c.get('adminSession');
     if (session?.role === 'editor') {
       const existing = (await listAdminTopics(db)).find((topic) => topic.id === id);

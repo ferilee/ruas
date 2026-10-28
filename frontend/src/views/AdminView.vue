@@ -202,7 +202,7 @@
                     </div>
                   </div>
                   <p class="field-hint schedule-hint">Kosongkan waktu mulai lalu simpan untuk membuka topik segera.</p>
-                  <p v-if="scheduleMessage" :class="scheduleMessageType === 'error' ? 'error-text' : 'success-text'">{{ scheduleMessage }}</p>
+                  <p v-if="scheduleMessage" :class="scheduleMessageType === 'error' ? 'error-text' : 'success-text'">{{ scheduleMessage }}</p><p v-for="(message, field) in scheduleFieldErrors" :key="field" class="field-error" role="alert">{{ message }}</p>
                 </section>
               </section>
             </div>
@@ -348,7 +348,7 @@
               </div>
             </div>
             <p class="field-hint schedule-hint">Kosongkan waktu mulai lalu simpan untuk membuka topik segera. Matikan “Jadwal aktif” untuk menutup sementara.</p>
-            <p v-if="scheduleMessage" :class="scheduleMessageType === 'error' ? 'error-text' : 'success-text'">{{ scheduleMessage }}</p>
+            <p v-if="scheduleMessage" :class="scheduleMessageType === 'error' ? 'error-text' : 'success-text'">{{ scheduleMessage }}</p><p v-for="(message, field) in scheduleFieldErrors" :key="field" class="field-error" role="alert">{{ message }}</p>
           </section>
 
           <template v-else>
@@ -461,10 +461,12 @@
 
             <label>External ID
               <input v-model="draft.external_id" placeholder="Contoh: q_aljabar_003" />
+              <small v-if="formFieldErrors.external_id" class="field-error" role="alert">{{ formFieldErrors.external_id }}</small>
             </label>
 
             <label>Pertanyaan
               <textarea v-model="draft.question_text" rows="5" required placeholder="Tulis pertanyaan..."></textarea>
+              <small v-if="formFieldErrors.question_text" class="field-error" role="alert">{{ formFieldErrors.question_text }}</small>
               <small class="field-hint">Rumus: \( ... \) untuk inline atau \[ ... \] untuk blok. Format lama seperti c^2 dan akar(100) juga didukung.</small>
             </label>
             <div v-if="draft.question_text.trim()" class="math-preview">
@@ -509,6 +511,7 @@
 
             <label>Pembahasan
               <textarea v-model="draft.explanation_text" rows="5" required placeholder="Tulis pembahasan..."></textarea>
+              <small v-if="formFieldErrors.explanation_text" class="field-error" role="alert">{{ formFieldErrors.explanation_text }}</small>
               <small class="field-hint">Gunakan sintaks LaTeX dengan delimiter agar rumus panjang tampil sebagai satu persamaan.</small>
             </label>
             <div v-if="draft.explanation_text.trim()" class="math-preview">
@@ -614,6 +617,7 @@ import {
 import type { AdminQuestionInput, AdminQuestionListItem, AdminTopic, AdminUser, AssessmentSchedule, CurriculumData, ImportSummary, QuestionMedia } from '@/types';
 import type { AdminSession } from '@/types';
 import { connectAdminRealtime, dispatchAdminRealtimeEvent, type AdminRealtimeEvent, type AdminRealtimeStatus } from '@/lib/admin-realtime';
+import { extractFieldErrors } from '@/lib/field-errors';
 
 const router = useRouter();
 type AdminSection = 'overview' | 'curriculum' | 'questions' | 'schedule' | 'reports' | 'users' | 'teacher-requests' | 'feedback';
@@ -662,6 +666,8 @@ let realtimeCleanup: (() => void) | null = null;
 const errorMessage = ref('');
 const formMessage = ref('');
 const formMessageType = ref<'success' | 'error'>('success');
+const formFieldErrors = ref<Record<string, string>>({});
+const scheduleFieldErrors = ref<Record<string, string>>({});
 const questions = ref<AdminQuestionListItem[]>([]);
 const topics = ref<AdminTopic[]>([]);
 const curriculum = ref<CurriculumData>({ classes: [], assessment_types: [], subjects: [] });
@@ -1286,6 +1292,7 @@ async function saveSchedule() {
 
   scheduleSaving.value = true;
   scheduleMessage.value = '';
+  scheduleFieldErrors.value = {};
   try {
     await updateAdminSchedule(scheduleTopicId.value, { start_at: startAt, end_at: endAt, enabled: scheduleEnabled.value, access_mode: scheduleAccessMode.value, participant_ids: scheduleParticipantIds.value, notes: scheduleNotes.value || null });
     scheduleRows.value = await fetchAdminSchedule();
@@ -1295,6 +1302,7 @@ async function saveSchedule() {
   } catch (error) {
     scheduleMessageType.value = 'error';
     scheduleMessage.value = error instanceof Error ? error.message : 'Gagal menyimpan jadwal.';
+    scheduleFieldErrors.value = extractFieldErrors(error);
   } finally {
     scheduleSaving.value = false;
   }
@@ -1410,6 +1418,7 @@ function removeQuestionMedia(mediaId: number) {
 async function saveQuestion() {
   saving.value = true;
   formMessage.value = '';
+  formFieldErrors.value = {};
   try {
     if (draft.topic_id > 0 && !draft.topic_ids.includes(draft.topic_id)) draft.topic_ids.unshift(draft.topic_id);
     if (editingId.value === null) {
@@ -1427,6 +1436,7 @@ async function saveQuestion() {
   } catch (error) {
     formMessageType.value = 'error';
     formMessage.value = error instanceof Error ? error.message : 'Gagal menyimpan soal.';
+    formFieldErrors.value = extractFieldErrors(error);
   } finally {
     saving.value = false;
   }
@@ -1725,6 +1735,7 @@ legend { padding: 0 6px; color: #445566; font-weight: 600; }
 .import-textarea { width: 100%; padding: 12px; border: 2px solid #d4dde6; border-radius: 8px; font: 0.9rem monospace; }
 .import-actions { justify-content: flex-start; }
 .import-summary { background: #f0f4ff; padding: 12px; border-radius: 8px; }
+.field-error { display: block; margin-top: 5px; color: #e0655f; font-size: .72rem; font-weight: 600; line-height: 1.4; }
 .error-text { color: #c53030; }
 .success-text { color: #2f855a; }
 code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }

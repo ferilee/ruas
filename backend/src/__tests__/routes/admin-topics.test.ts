@@ -79,3 +79,39 @@ describe('adminTopicsRoutes CRUD', () => {
     });
   });
 });
+
+describe('adminTopicsRoutes field errors (RUAS-002)', () => {
+  it('returns per-field errors when the topic body is invalid', async () => {
+    const { adminTopicsRoutes } = await import('@/routes/admin-topics');
+    const app = adminTopicsRoutes({} as never);
+
+    const response = await app.request('http://localhost/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subject_id: 2, slug: 'Tidak Valid!', label: '', display_order: 1 }),
+    });
+
+    expect(response.status).toBe(400);
+    const body = await response.json() as { error: string; fields: Record<string, string> };
+    expect(body.error).toBe('invalid_body');
+    expect(body.fields.slug).toBeTruthy();
+    expect(body.fields.label).toBeTruthy();
+  });
+
+  it('pins duplicate slug errors to the slug field', async () => {
+    createAdminTopicMock.mockRejectedValue(Object.assign(new Error('Duplicate entry'), { code: 'ER_DUP_ENTRY' }));
+    const { adminTopicsRoutes } = await import('@/routes/admin-topics');
+    const app = adminTopicsRoutes({} as never);
+
+    const response = await app.request('http://localhost/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subject_id: 2, slug: 'barisan-dan-deret', label: 'Barisan dan Deret', display_order: 1 }),
+    });
+
+    expect(response.status).toBe(409);
+    const body = await response.json() as { error: string; fields: Record<string, string> };
+    expect(body.error).toBe('duplicate_slug');
+    expect(body.fields.slug).toContain('sudah digunakan');
+  });
+});

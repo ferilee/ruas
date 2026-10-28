@@ -96,9 +96,10 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
     if (res.status === 403 && body.error === 'password_change_required') {
       window.location.href = '/change-password';
     }
-    const error = new Error(body.message || `HTTP ${res.status}`) as Error & { code?: string; details?: Record<string, unknown> };
+    const error = new Error(body.message || `HTTP ${res.status}`) as Error & { code?: string; details?: Record<string, unknown>; fields?: Record<string, string> };
     error.code = body.error;
     error.details = body;
+    if (body.fields && typeof body.fields === 'object') error.fields = body.fields as Record<string, string>;
     throw error;
   }
   return res.json();
@@ -120,7 +121,10 @@ async function adminRequest<T>(url: string, options?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ message: 'Gagal memproses permintaan admin.' }));
-    throw new Error(body.message || `HTTP ${res.status}`);
+    const error = new Error(body.message || `HTTP ${res.status}`) as Error & { code?: string; fields?: Record<string, string> };
+    error.code = body.error;
+    if (body.fields && typeof body.fields === 'object') error.fields = body.fields as Record<string, string>;
+    throw error;
   }
   return res.json();
 }

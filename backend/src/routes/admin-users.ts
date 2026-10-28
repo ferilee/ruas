@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { duplicateFieldResponse, invalidBodyResponse } from '@/lib/validation-error';
 import type { Context } from 'hono';
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
@@ -227,14 +228,14 @@ export function adminUserRoutes(pool: Pool) {
 
   app.post('/', async (c) => {
     const parsed = createUserSchema.safeParse(await c.req.json());
-    if (!parsed.success) return c.json({ error: 'invalid_body', message: 'Data pengguna tidak valid.' }, 400);
+    if (!parsed.success) return invalidBodyResponse(c, 'Data pengguna tidak valid.', parsed.error);
     const scoped = await scopeInput(c, parsed.data);
     if (!scoped.input) return c.json({ error: 'admin_forbidden', message: scoped.message }, 403);
     if (scoped.input.class_id && !(await classExists(db, scoped.input.class_id))) return c.json({ error: 'invalid_reference', message: 'Kelas tidak ditemukan.' }, 400);
     if (scoped.input.subject_id && !(await subjectExists(db, scoped.input.subject_id))) return c.json({ error: 'invalid_reference', message: 'Mata pelajaran tidak ditemukan.' }, 400);
     const [duplicate] = await db.select({ id: users.id }).from(users).where(eq(users.username, scoped.input.username)).limit(1);
     if (duplicate) {
-      return c.json({ error: 'duplicate_username', message: 'Username sudah digunakan.' }, 409);
+      return duplicateFieldResponse(c, 'username', 'Username sudah digunakan. Ganti username dengan yang lain.', 'duplicate_username');
     }
     const user = await createUser(db, scoped.input, session(c)?.role === 'editor' ? session(c)?.username ?? null : null);
     return c.json({ user: user ? toPublicUser(user) : null }, 201);
@@ -348,7 +349,8 @@ export function adminUserRoutes(pool: Pool) {
   app.put('/:id', async (c) => {
     const id = parseId(c.req.param('id'));
     const parsed = updateUserSchema.safeParse(await c.req.json());
-    if (!id || !parsed.success) return c.json({ error: 'invalid_body', message: 'Data pengguna tidak valid.' }, 400);
+    if (!parsed.success) return invalidBodyResponse(c, 'Data pengguna tidak valid.', parsed.error);
+    if (!id) return c.json({ error: 'invalid_param', message: 'ID tidak valid.' }, 400);
     const scopedExisting = await findScopedUser(c, id);
     if (scopedExisting.response) return scopedExisting.response;
     const existing = scopedExisting.existing;
@@ -358,7 +360,7 @@ export function adminUserRoutes(pool: Pool) {
     if (scoped.input.class_id && !(await classExists(db, scoped.input.class_id))) return c.json({ error: 'invalid_reference', message: 'Kelas tidak ditemukan.' }, 400);
     if (scoped.input.subject_id && !(await subjectExists(db, scoped.input.subject_id))) return c.json({ error: 'invalid_reference', message: 'Mata pelajaran tidak ditemukan.' }, 400);
     const duplicate = await db.select({ id: users.id }).from(users).where(eq(users.username, scoped.input.username)).limit(1);
-    if (duplicate[0] && duplicate[0].id !== id) return c.json({ error: 'duplicate_username', message: 'Username sudah digunakan.' }, 409);
+    if (duplicate[0] && duplicate[0].id !== id) return duplicateFieldResponse(c, 'username', 'Username sudah digunakan. Ganti username dengan yang lain.', 'duplicate_username');
     const user = await updateUser(db, id, scoped.input);
     return c.json({ user: user ? toPublicUser(user) : null });
   });

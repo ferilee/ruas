@@ -16,8 +16,8 @@
           <button type="button" class="modal-close-btn" aria-label="Tutup form" @click="closeMobileForm">×</button>
         </div>
         <form v-if="!topicOnly && formModal === 'class'" class="curriculum-form class-form modal-form" @submit.prevent="saveClass">
-          <label><span>Kode kelas</span><input v-model.trim="classForm.slug" placeholder="Contoh: 11-tkj-a" required /></label>
-          <label><span>Nama kelas</span><input v-model.trim="classForm.label" placeholder="Contoh: Kelas 11 TKJ A" required /></label>
+          <label><span>Kode kelas</span><input v-model.trim="classForm.slug" placeholder="Contoh: 11-tkj-a" required /><small v-if="formFieldErrors.slug" class="field-error" role="alert">{{ formFieldErrors.slug }}</small></label>
+          <label><span>Nama kelas</span><input v-model.trim="classForm.label" placeholder="Contoh: Kelas 11 TKJ A" required /><small v-if="formFieldErrors.label" class="field-error" role="alert">{{ formFieldErrors.label }}</small></label>
           <label><span>Tingkat</span><input v-model.number="classForm.grade" type="number" min="1" max="12" placeholder="11" required /></label>
           <label><span>Program keahlian</span><input v-model.trim="classForm.program" placeholder="Contoh: TKJ" required /></label>
           <label><span>Rombel</span><input v-model.trim="classForm.section" placeholder="Contoh: A (opsional)" /></label>
@@ -26,27 +26,27 @@
           <div class="form-actions"><button class="primary-btn" type="submit">{{ editingClassId ? 'Perbarui' : 'Tambah' }}</button><button class="secondary-btn" type="button" @click="closeMobileForm">Batal</button></div>
         </form>
         <form v-else-if="!topicOnly && formModal === 'type'" class="curriculum-form type-form modal-form" @submit.prevent="saveAssessmentType">
-          <label><span>Slug</span><input v-model.trim="typeForm.slug" placeholder="Contoh: asesmen-ruas" required /></label>
-          <label><span>Nama jenis asesmen</span><input v-model.trim="typeForm.label" placeholder="Contoh: Asesmen RUAS" required /></label>
+          <label><span>Slug</span><input v-model.trim="typeForm.slug" placeholder="Contoh: asesmen-ruas" required /><small v-if="formFieldErrors.slug" class="field-error" role="alert">{{ formFieldErrors.slug }}</small></label>
+          <label><span>Nama jenis asesmen</span><input v-model.trim="typeForm.label" placeholder="Contoh: Asesmen RUAS" required /><small v-if="formFieldErrors.label" class="field-error" role="alert">{{ formFieldErrors.label }}</small></label>
           <label><span>Urutan tampil</span><input v-model.number="typeForm.display_order" type="number" min="1" placeholder="1" required /></label>
           <div class="form-actions"><button class="primary-btn" type="submit">{{ editingTypeId ? 'Perbarui' : 'Tambah' }}</button><button class="secondary-btn" type="button" @click="closeMobileForm">Batal</button></div>
         </form>
         <form v-else-if="!topicOnly && formModal === 'subject'" class="curriculum-form subject-form modal-form" @submit.prevent="saveSubject">
-          <label><span>Slug</span><input v-model.trim="subjectForm.slug" placeholder="Contoh: matematika" required /></label>
-          <label><span>Nama mata pelajaran</span><input v-model.trim="subjectForm.label" placeholder="Contoh: Penalaran Matematika" required /></label>
+          <label><span>Slug</span><input v-model.trim="subjectForm.slug" placeholder="Contoh: matematika" required /><small v-if="formFieldErrors.slug" class="field-error" role="alert">{{ formFieldErrors.slug }}</small></label>
+          <label><span>Nama mata pelajaran</span><input v-model.trim="subjectForm.label" placeholder="Contoh: Penalaran Matematika" required /><small v-if="formFieldErrors.label" class="field-error" role="alert">{{ formFieldErrors.label }}</small></label>
           <label><span>Urutan tampil</span><input v-model.number="subjectForm.display_order" type="number" min="1" placeholder="1" required /></label>
           <label><span>Jumlah attempts</span><input v-model.number="subjectForm.max_attempts" type="number" min="0" max="100" placeholder="1" title="Jumlah percobaan siswa. Isi 0 untuk tak terbatas." required /><small>0 = tanpa batas</small></label>
           <label><span>Durasi ujian (menit)</span><input v-model.number="subjectForm.duration_minutes" type="number" min="0" max="1440" placeholder="0" title="Batas waktu pengerjaan. Isi 0 untuk tanpa batas." required /><small>0 = tanpa batas</small></label>
-          <label><span>Minimum waktu pengerjaan (menit)</span><input v-model.number="subjectForm.minimum_duration_minutes" type="number" min="0" :max="subjectForm.duration_minutes || 1440" placeholder="0" title="Siswa baru dapat mengumpulkan setelah waktu ini." required /><small>Berlaku untuk seluruh sesi · 0 = boleh kumpul kapan saja</small></label>
+          <label><span>Minimum waktu pengerjaan (menit)</span><input v-model.number="subjectForm.minimum_duration_minutes" type="number" min="0" :max="subjectForm.duration_minutes || 1440" placeholder="0" title="Siswa baru dapat mengumpulkan setelah waktu ini." required /><small>Berlaku untuk seluruh sesi · 0 = boleh kumpul kapan saja</small><small v-if="formFieldErrors.minimum_duration_minutes" class="field-error" role="alert">{{ formFieldErrors.minimum_duration_minutes }}</small></label>
           <label><span>Pembahasan siswa</span><RuasSelect v-model="subjectForm.explanation_mode" :options="explanationModeOptions" aria-label="Waktu tampil pembahasan" /></label>
           <label class="checkbox-field"><input v-model="subjectForm.show_correct_answer_on_wrong" type="checkbox" /><span>Tampilkan jawaban benar saat siswa salah</span></label>
           <label><span>Jenis asesmen</span><RuasSelect v-model="subjectForm.assessment_type_id" :options="assessmentTypeOptions" aria-label="Jenis asesmen mata pelajaran" /></label>
           <div class="form-actions"><button class="primary-btn" type="submit">{{ editingSubjectId ? 'Perbarui' : 'Tambah' }}</button><button class="secondary-btn" type="button" @click="closeMobileForm">Batal</button></div>
         </form>
         <form v-else class="curriculum-form topic-form modal-form" @submit.prevent="saveTopic">
-          <label><span>Mata pelajaran</span><RuasSelect v-model="topicForm.subject_id" :options="subjectOptions" placeholder="Pilih mata pelajaran" aria-label="Mata pelajaran topik" /></label>
-          <label><span>Nama topik</span><input v-model.trim="topicForm.label" placeholder="Contoh: Barisan dan Deret" required /></label>
-          <label><span>Slug import</span><input v-model.trim="topicForm.slug" placeholder="Contoh: barisan-dan-deret" required /><small>Gunakan slug ini pada field topic_slug JSON.</small></label>
+          <label><span>Mata pelajaran</span><RuasSelect v-model="topicForm.subject_id" :options="subjectOptions" placeholder="Pilih mata pelajaran" aria-label="Mata pelajaran topik" /><small v-if="formFieldErrors.subject_id" class="field-error" role="alert">{{ formFieldErrors.subject_id }}</small></label>
+          <label><span>Nama topik</span><input v-model.trim="topicForm.label" placeholder="Contoh: Barisan dan Deret" required /><small v-if="formFieldErrors.label" class="field-error" role="alert">{{ formFieldErrors.label }}</small></label>
+          <label><span>Slug import</span><input v-model.trim="topicForm.slug" placeholder="Contoh: barisan-dan-deret" required /><small>Gunakan slug ini pada field topic_slug JSON.</small><small v-if="formFieldErrors.slug" class="field-error" role="alert">{{ formFieldErrors.slug }}</small></label>
           <div class="topic-class-field">
             <span>Kelas tujuan</span>
             <div class="topic-class-picker">
@@ -192,6 +192,7 @@ import {
   type CurriculumClassInput, type CurriculumItemInput, type CurriculumSubjectInput,
 } from '@/api/client';
 import type { AdminSession, AdminTopic, AdminTopicInput, AssessmentType, CurriculumClass, CurriculumData, CurriculumImportSummary, Subject } from '@/types';
+import { extractFieldErrors } from '@/lib/field-errors';
 import { ADMIN_REALTIME_EVENT, type AdminRealtimeEvent } from '@/lib/admin-realtime';
 
 const props = withDefaults(defineProps<{ topicOnly?: boolean; workspaceOnly?: boolean; readonly?: boolean; adminSession?: AdminSession | null; initialForm?: CurriculumFormModal | null }>(), { topicOnly: false, workspaceOnly: false, readonly: false, adminSession: null, initialForm: null });
@@ -203,6 +204,7 @@ const toastMessage = ref('');
 const toastId = ref(0);
 let toastTimer: ReturnType<typeof setTimeout> | null = null;
 const editingClassId = ref<number | null>(null);
+const formFieldErrors = ref<Record<string, string>>({});
 const editingTypeId = ref<number | null>(null);
 const editingSubjectId = ref<number | null>(null);
 const editingTopicId = ref<number | null>(null);
@@ -328,7 +330,7 @@ function resetTopicFilters() {
   topicOwnerFilter.value = 'all';
 }
 
-function showError(error: unknown) { errorMessage.value = error instanceof Error ? error.message : 'Gagal memproses kurikulum.'; successMessage.value = ''; }
+function showError(error: unknown) { errorMessage.value = error instanceof Error ? error.message : 'Gagal memproses kurikulum.'; successMessage.value = ''; formFieldErrors.value = extractFieldErrors(error); }
 function showSuccess(message: string) { successMessage.value = message; errorMessage.value = ''; }
 function dismissToast() {
   toastMessage.value = '';
@@ -344,10 +346,10 @@ function showToast(message: string) {
   toastTimer = setTimeout(dismissToast, 4000);
 }
 function clearForm(form: CurriculumItemInput) { form.slug = ''; form.label = ''; form.display_order = 1; }
-function resetClass() { editingClassId.value = null; classForm.slug = ''; classForm.label = ''; classForm.academic_year = '2026/2027'; classForm.grade = 10; classForm.program = ''; classForm.section = null; classForm.display_order = 1; mobileFormOpen.value = false; }
-function resetType() { editingTypeId.value = null; clearForm(typeForm); mobileFormOpen.value = false; }
-function resetSubject() { editingSubjectId.value = null; subjectForm.slug = ''; subjectForm.label = ''; subjectForm.display_order = 1; subjectForm.max_attempts = 1; subjectForm.duration_minutes = 0; subjectForm.minimum_duration_minutes = 0; subjectForm.explanation_mode = 'hidden'; subjectForm.show_correct_answer_on_wrong = false; subjectForm.class_id = null; subjectForm.assessment_type_id = null; mobileFormOpen.value = false; }
-function resetTopic() { editingTopicId.value = null; topicForm.subject_id = 0; topicForm.slug = ''; topicForm.label = ''; topicForm.display_order = 1; topicForm.class_ids = []; mobileFormOpen.value = false; }
+function resetClass() { formFieldErrors.value = {}; editingClassId.value = null; classForm.slug = ''; classForm.label = ''; classForm.academic_year = '2026/2027'; classForm.grade = 10; classForm.program = ''; classForm.section = null; classForm.display_order = 1; mobileFormOpen.value = false; }
+function resetType() { formFieldErrors.value = {}; editingTypeId.value = null; clearForm(typeForm); mobileFormOpen.value = false; }
+function resetSubject() { formFieldErrors.value = {}; editingSubjectId.value = null; subjectForm.slug = ''; subjectForm.label = ''; subjectForm.display_order = 1; subjectForm.max_attempts = 1; subjectForm.duration_minutes = 0; subjectForm.minimum_duration_minutes = 0; subjectForm.explanation_mode = 'hidden'; subjectForm.show_correct_answer_on_wrong = false; subjectForm.class_id = null; subjectForm.assessment_type_id = null; mobileFormOpen.value = false; }
+function resetTopic() { formFieldErrors.value = {}; editingTopicId.value = null; topicForm.subject_id = 0; topicForm.slug = ''; topicForm.label = ''; topicForm.display_order = 1; topicForm.class_ids = []; mobileFormOpen.value = false; }
 function openClassForm() { resetClass(); mobileTab.value = 'classes'; formModal.value = 'class'; mobileFormOpen.value = true; }
 function openTypeForm() { resetType(); mobileTab.value = 'types'; formModal.value = 'type'; mobileFormOpen.value = true; }
 function openSubjectForm() { resetSubject(); mobileTab.value = 'subjects'; formModal.value = 'subject'; mobileFormOpen.value = true; }
@@ -507,6 +509,7 @@ onUnmounted(() => { dismissToast(); window.removeEventListener(ADMIN_REALTIME_EV
 .secondary-btn { color: #1e40af; background: #e8edf5; }
 .primary-btn:disabled, .secondary-btn:disabled { opacity: .6; cursor: default; }
 .error-text { color: #c53030; }
+.field-error { color: #c53030 !important; font-size: .7rem; font-weight: 600; line-height: 1.4; }
 .success-text { color: #2f855a; }
 .curriculum-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .curriculum-heading-actions { display: flex; flex-wrap: wrap; gap: 8px; }

@@ -21,6 +21,7 @@ import {
   listCurriculum,
 } from '@/services/curriculum-service';
 import { parseCurriculumCsv, type ParsedCurriculumImportRow } from '@/services/curriculum-import-service';
+import { duplicateFieldResponse, invalidBodyResponse } from '@/lib/validation-error';
 
 const itemSchema = z.object({
   slug: z.string().trim().min(1).max(50).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Slug hanya boleh berisi huruf kecil, angka, dan tanda hubung.'),
@@ -337,7 +338,7 @@ export function adminCurriculumRoutes(pool: Pool) {
 
   app.post('/import', async (c) => {
     const parsedRequest = curriculumImportSchema.safeParse(await c.req.json());
-    if (!parsedRequest.success) return c.json({ error: 'invalid_body', message: 'Data impor struktur asesmen tidak valid.' }, 400);
+    if (!parsedRequest.success) return invalidBodyResponse(c, 'Data impor struktur asesmen tidak valid.', parsedRequest.error);
     const parsedCsv = parseCurriculumCsv(parsedRequest.data.csv);
     const entities = buildImportEntities(parsedCsv.rows, parsedCsv.errors);
     const state = await loadImportState(db);
@@ -350,26 +351,37 @@ export function adminCurriculumRoutes(pool: Pool) {
       await applyImportPlan(db, c, plan);
       return c.json({ summary: plan.summary });
     } catch (error) {
-      if (isDuplicateKeyError(error)) return c.json({ error: 'duplicate_slug', message: 'Ada slug yang sudah digunakan oleh data lain.', summary: plan.summary }, 409);
+      if (isDuplicateKeyError(error)) return c.json({ error: 'duplicate_slug', message: 'Ada slug yang sudah digunakan oleh data lain.', fields: { slug: 'Ada slug yang sudah digunakan oleh data lain.' }, summary: plan.summary }, 409);
       throw error;
     }
   });
 
   app.post('/classes', async (c) => {
     const parsed = classSchema.safeParse(await c.req.json());
-    if (!parsed.success) return c.json({ error: 'invalid_body', message: 'Data kelas tidak valid.' }, 400);
-    const [result] = await db.insert(educationClasses).values({ ...parsed.data, created_by: ownerForCreate(c) });
-    return c.json({ id: Number(result.insertId) }, 201);
+    if (!parsed.success) return invalidBodyResponse(c, 'Data kelas tidak valid.', parsed.error);
+    try {
+      const [result] = await db.insert(educationClasses).values({ ...parsed.data, created_by: ownerForCreate(c) });
+      return c.json({ id: Number(result.insertId) }, 201);
+    } catch (error) {
+      if (isDuplicateKeyError(error)) return duplicateFieldResponse(c, 'slug', 'Kode kelas sudah digunakan. Ganti kode kelas dengan yang lain.');
+      throw error;
+    }
   });
 
   app.put('/classes/:id', async (c) => {
     const id = parseId(c.req.param('id'));
     const parsed = classSchema.safeParse(await c.req.json());
-    if (!id || !parsed.success) return c.json({ error: 'invalid_body', message: 'Data kelas tidak valid.' }, 400);
+    if (!parsed.success) return invalidBodyResponse(c, 'Data kelas tidak valid.', parsed.error);
+    if (!id) return c.json({ error: 'invalid_param', message: 'ID tidak valid.' }, 400);
     const existing = await findClass(db, id);
     if (!existing) return c.json({ error: 'not_found', message: 'Kelas tidak ditemukan.' }, 404);
     if (!canManageResource(c, existing)) return c.json({ error: 'admin_forbidden', message: 'Kelas bersama hanya dapat diubah Admin.' }, 403);
-    await db.update(educationClasses).set(parsed.data).where(eq(educationClasses.id, id));
+    try {
+      await db.update(educationClasses).set(parsed.data).where(eq(educationClasses.id, id));
+    } catch (error) {
+      if (isDuplicateKeyError(error)) return duplicateFieldResponse(c, 'slug', 'Kode kelas sudah digunakan. Ganti kode kelas dengan yang lain.');
+      throw error;
+    }
     return c.json({ updated: true });
   });
 
@@ -386,19 +398,30 @@ export function adminCurriculumRoutes(pool: Pool) {
 
   app.post('/assessment-types', async (c) => {
     const parsed = itemSchema.safeParse(await c.req.json());
-    if (!parsed.success) return c.json({ error: 'invalid_body', message: 'Jenis asesmen tidak valid.' }, 400);
-    const [result] = await db.insert(assessmentTypes).values({ ...parsed.data, created_by: ownerForCreate(c) });
-    return c.json({ id: Number(result.insertId) }, 201);
+    if (!parsed.success) return invalidBodyResponse(c, 'Jenis asesmen tidak valid.', parsed.error);
+    try {
+      const [result] = await db.insert(assessmentTypes).values({ ...parsed.data, created_by: ownerForCreate(c) });
+      return c.json({ id: Number(result.insertId) }, 201);
+    } catch (error) {
+      if (isDuplicateKeyError(error)) return duplicateFieldResponse(c, 'slug', 'Slug jenis asesmen sudah digunakan. Ganti slug dengan yang lain.');
+      throw error;
+    }
   });
 
   app.put('/assessment-types/:id', async (c) => {
     const id = parseId(c.req.param('id'));
     const parsed = itemSchema.safeParse(await c.req.json());
-    if (!id || !parsed.success) return c.json({ error: 'invalid_body', message: 'Jenis asesmen tidak valid.' }, 400);
+    if (!parsed.success) return invalidBodyResponse(c, 'Jenis asesmen tidak valid.', parsed.error);
+    if (!id) return c.json({ error: 'invalid_param', message: 'ID tidak valid.' }, 400);
     const existing = await findAssessmentType(db, id);
     if (!existing) return c.json({ error: 'not_found', message: 'Jenis asesmen tidak ditemukan.' }, 404);
     if (!canManageResource(c, existing)) return c.json({ error: 'admin_forbidden', message: 'Jenis asesmen bersama hanya dapat diubah Admin.' }, 403);
-    await db.update(assessmentTypes).set(parsed.data).where(eq(assessmentTypes.id, id));
+    try {
+      await db.update(assessmentTypes).set(parsed.data).where(eq(assessmentTypes.id, id));
+    } catch (error) {
+      if (isDuplicateKeyError(error)) return duplicateFieldResponse(c, 'slug', 'Slug jenis asesmen sudah digunakan. Ganti slug dengan yang lain.');
+      throw error;
+    }
     return c.json({ updated: true });
   });
 
@@ -415,7 +438,7 @@ export function adminCurriculumRoutes(pool: Pool) {
 
   app.post('/subjects', async (c) => {
     const parsed = subjectSchema.safeParse(await c.req.json());
-    if (!parsed.success) return c.json({ error: 'invalid_body', message: 'Mata pelajaran tidak valid.' }, 400);
+    if (!parsed.success) return invalidBodyResponse(c, 'Mata pelajaran tidak valid.', parsed.error);
     const classResource = parsed.data.class_id ? await findClass(db, parsed.data.class_id) : null;
     const typeResource = parsed.data.assessment_type_id ? await findAssessmentType(db, parsed.data.assessment_type_id) : null;
     if (parsed.data.class_id && !classResource) return c.json({ error: 'invalid_reference', message: 'Kelas tidak ditemukan.' }, 400);
@@ -425,7 +448,7 @@ export function adminCurriculumRoutes(pool: Pool) {
       const [result] = await db.insert(subjects).values({ ...parsed.data, class_id: null, created_by: ownerForCreate(c) });
       return c.json({ id: Number(result.insertId) }, 201);
     } catch (error) {
-      if (isDuplicateKeyError(error)) return c.json({ error: 'duplicate_slug', message: 'Slug mata pelajaran sudah digunakan.' }, 409);
+      if (isDuplicateKeyError(error)) return duplicateFieldResponse(c, 'slug', 'Slug mata pelajaran sudah digunakan. Ganti slug dengan yang lain.');
       throw error;
     }
   });
@@ -433,7 +456,8 @@ export function adminCurriculumRoutes(pool: Pool) {
   app.put('/subjects/:id', async (c) => {
     const id = parseId(c.req.param('id'));
     const parsed = subjectSchema.safeParse(await c.req.json());
-    if (!id || !parsed.success) return c.json({ error: 'invalid_body', message: 'Mata pelajaran tidak valid.' }, 400);
+    if (!parsed.success) return invalidBodyResponse(c, 'Mata pelajaran tidak valid.', parsed.error);
+    if (!id) return c.json({ error: 'invalid_param', message: 'ID tidak valid.' }, 400);
     const existing = await findSubject(db, id);
     if (!existing) return c.json({ error: 'not_found', message: 'Mata pelajaran tidak ditemukan.' }, 404);
     if (!canManageResource(c, existing)) return c.json({ error: 'admin_forbidden', message: 'Mata pelajaran bersama hanya dapat diubah Admin.' }, 403);
@@ -446,7 +470,7 @@ export function adminCurriculumRoutes(pool: Pool) {
       await db.update(subjects).set({ ...parsed.data, class_id: null }).where(eq(subjects.id, id));
       return c.json({ updated: true });
     } catch (error) {
-      if (isDuplicateKeyError(error)) return c.json({ error: 'duplicate_slug', message: 'Slug mata pelajaran sudah digunakan.' }, 409);
+      if (isDuplicateKeyError(error)) return duplicateFieldResponse(c, 'slug', 'Slug mata pelajaran sudah digunakan. Ganti slug dengan yang lain.');
       throw error;
     }
   });

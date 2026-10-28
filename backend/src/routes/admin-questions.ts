@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { zodFieldErrors } from '@/lib/validation-error';
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import type { Context } from 'hono';
@@ -195,7 +196,7 @@ export function adminQuestionRoutes(pool: Pool, mediaStorage: MediaStorage | nul
 
   app.post('/', async (c) => {
     const parsed = adminQuestionSchema.safeParse(await readJson(c));
-    if (!parsed.success) return c.json({ error: 'invalid_body', message: parsed.error.issues[0]?.message ?? 'Data soal tidak valid.' }, 400);
+    if (!parsed.success) return c.json({ error: 'invalid_body', message: parsed.error.issues[0]?.message ?? 'Data soal tidak valid.', fields: zodFieldErrors(parsed.error) }, 400);
     if (!(await inputIsAllowed(c, parsed.data))) return c.json({ error: 'admin_forbidden', message: 'Soal harus berada pada mata pelajaran dan kelas yang ditetapkan untuk akun ini.' }, 403);
 
     const id = await createAdminQuestion(db, parsed.data, c.get('adminSession')?.username ?? null);
@@ -208,7 +209,7 @@ export function adminQuestionRoutes(pool: Pool, mediaStorage: MediaStorage | nul
     if (id === null) return c.json({ error: 'invalid_param', message: 'ID soal tidak valid.' }, 400);
 
     const parsed = adminQuestionSchema.safeParse(await readJson(c));
-    if (!parsed.success) return c.json({ error: 'invalid_body', message: parsed.error.issues[0]?.message ?? 'Data soal tidak valid.' }, 400);
+    if (!parsed.success) return c.json({ error: 'invalid_body', message: parsed.error.issues[0]?.message ?? 'Data soal tidak valid.', fields: zodFieldErrors(parsed.error) }, 400);
     if (!(await questionIsOwnedByEditor(c, id)) || !(await inputIsAllowed(c, parsed.data))) return c.json({ error: 'admin_forbidden', message: 'Editor hanya dapat mengubah soal yang dibuat sendiri dan berada dalam penetapannya.' }, 403);
 
     const visibleTopicIds = await allowedTopicIds(c);

@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { invalidBodyResponse } from '@/lib/validation-error';
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import { assessmentSchedule } from '@/db/schema/assessment-schedule';
@@ -55,7 +56,8 @@ export function adminScheduleRoutes(pool: Pool) {
   app.put('/:topicId', async (c) => {
     const topicId = parseId(c.req.param('topicId'));
     const parsed = updateScheduleSchema.safeParse(await c.req.json());
-    if (!topicId || !parsed.success) return c.json({ error: 'invalid_body', message: 'Data jadwal asesmen tidak valid.' }, 400);
+    if (!parsed.success) return invalidBodyResponse(c, 'Data jadwal asesmen tidak valid.', parsed.error);
+    if (!topicId) return c.json({ error: 'invalid_param', message: 'Topik tidak valid.' }, 400);
     const [topic] = await db.select({ id: topics.id }).from(topics).where(eq(topics.id, topicId)).limit(1);
     if (!topic) return c.json({ error: 'not_found', message: 'Topik tidak ditemukan.' }, 404);
     const session = c.get('adminSession');
