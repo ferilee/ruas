@@ -29,7 +29,18 @@ export interface ReportFilters {
   search?: string;
   scope_subject_id?: number;
   scope_class_id?: number | null;
+  scope_class_ids?: number[];
   scope_owner_username?: string;
+}
+
+// Baris laporan berada dalam scope kelas guru bila kelasnya termasuk salah
+// satu kelas petaan guru. scope_class_ids (multi-kelas) didahulukan;
+// scope_class_id tunggal lama tetap didukung untuk kompatibilitas.
+function reportRowInClassScope(filters: ReportFilters, classId: number | null) {
+  if (filters.scope_class_ids !== undefined) {
+    return filters.scope_class_ids.length === 0 || classId === null || filters.scope_class_ids.includes(classId);
+  }
+  return !filters.scope_class_id || classId === null || classId === filters.scope_class_id;
 }
 
 type ReportDb = ReturnType<typeof drizzle>;
@@ -177,13 +188,13 @@ export async function listReportAttempts(db: ReportDb, filters: ReportFilters) {
     .filter((row) => !filters.subject_id || row.subject_id === filters.subject_id)
     .filter((row) => {
       if (!filters.scope_owner_username) return (!filters.scope_subject_id || row.subject_id === filters.scope_subject_id)
-        && (!filters.scope_class_id || row.class_id === null || row.class_id === filters.scope_class_id);
+        && reportRowInClassScope(filters, row.class_id);
       const owned = row.subject_created_by === filters.scope_owner_username
         || row.class_created_by === filters.scope_owner_username
         || row.topic_created_by === filters.scope_owner_username
         || row.participant_created_by === filters.scope_owner_username;
       const assigned = (!filters.scope_subject_id || row.subject_id === filters.scope_subject_id)
-        && (!filters.scope_class_id || row.class_id === null || row.class_id === filters.scope_class_id);
+        && reportRowInClassScope(filters, row.class_id);
       return owned || assigned;
     })
     .filter((row) => !filters.topic_id || row.topic_id === filters.topic_id)

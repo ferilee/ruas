@@ -230,6 +230,14 @@ export interface AdminSession {
   role: AdminRole;
   subject_id: number | null;
   class_id: number | null;
+  class_ids?: number[];
+}
+
+export interface UserClassMapping {
+  class_id: number;
+  source: 'admin' | 'self';
+  created_by: string | null;
+  created_at: string | null;
 }
 
 export interface AdminUser {
@@ -238,6 +246,8 @@ export interface AdminUser {
   display_name: string;
   class_id: number | null;
   class_label: string | null;
+  class_ids?: number[];
+  class_mappings?: UserClassMapping[];
   subject_id: number | null;
   role: UserRole;
   active: boolean;
@@ -253,6 +263,7 @@ export interface AdminUserInput {
   password?: string;
   display_name: string;
   class_id: number | null;
+  class_ids?: number[];
   subject_id: number | null;
   role: UserRole;
   active: boolean;

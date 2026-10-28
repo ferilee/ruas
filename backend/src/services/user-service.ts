@@ -3,6 +3,7 @@ import { drizzle } from 'drizzle-orm/mysql2';
 import { randomBytes } from 'node:crypto';
 import { educationClasses } from '@/db/schema/education-classes';
 import { users } from '@/db/schema/users';
+import { userClasses } from '@/db/schema/user-classes';
 import { subjects } from '@/db/schema/subjects';
 import type { Pool } from '@/db/connection';
 import { hashPassword, verifyPassword } from '@/lib/password';
@@ -13,8 +14,17 @@ export type UserRole = 'admin' | 'editor' | 'participant';
 
 export interface ParticipantScope {
   subject_id: number;
-  class_id: number | null;
+  class_ids: number[];
   owner_username?: string;
+}
+
+export type UserClassSource = 'admin' | 'self';
+
+export interface UserClassMapping {
+  class_id: number;
+  source: UserClassSource;
+  created_by: string | null;
+  created_at: Date | string | null;
 }
 
 export interface UserInput {
@@ -22,6 +32,7 @@ export interface UserInput {
   password?: string;
   display_name: string;
   class_id: number | null;
+  class_ids?: number[];
   subject_id: number | null;
   role: UserRole;
   active: boolean;
@@ -29,16 +40,25 @@ export interface UserInput {
 }
 
 export function createUserDb(pool: Pool) {
-  return drizzle(pool, { schema: { educationClasses, subjects, users }, mode: 'default' });
+  return drizzle(pool, { schema: { educationClasses, subjects, users, userClasses }, mode: 'default' });
 }
 
-export function toPublicUser(user: typeof users.$inferSelect, classLabel?: string | null) {
+export function toPublicUser(user: typeof users.$inferSelect, classLabel?: string | null, classMappings?: UserClassMapping[]) {
+  // Untuk guru/admin, class_ids berasal dari relasi user_classes. Bila relasi
+  // kosong (akun lama sebelum migrasi data), class_id tunggal lama menjadi
+  // petaan tunggal agar perilaku lama tetap berjalan.
+  const fallbackMappings: UserClassMapping[] = classMappings === undefined && user.role !== 'participant' && user.class_id
+    ? [{ class_id: user.class_id, source: 'admin', created_by: null, created_at: null }]
+    : [];
+  const mappings = classMappings ?? fallbackMappings;
   return {
     id: user.id,
     username: user.username,
     display_name: user.display_name,
     class_id: user.class_id,
     class_label: classLabel ?? null,
+    class_ids: mappings.map((mapping) => mapping.class_id),
+    class_mappings: mappings,
     subject_id: user.subject_id,
     role: user.role,
     active: Boolean(user.active),
@@ -69,7 +89,7 @@ function userWhere(search?: string, scope?: ParticipantScope) {
   const assignedScope = scope
     ? and(
         eq(users.subject_id, scope.subject_id),
-        scope.class_id !== null && scope.class_id !== undefined ? eq(users.class_id, scope.class_id) : undefined,
+        scope.class_ids.length > 0 ? inArray(users.class_id, scope.class_ids) : undefined,
       )
     : undefined;
   const conditions = [
@@ -234,7 +254,86 @@ export async function assignClassToUsers(db: UserDb, userIds: number[], classId:
 }
 
 export async function deleteUser(db: UserDb, id: number) {
+  await db.delete(userClasses).where(eq(userClasses.user_id, id));
   await db.delete(users).where(eq(users.id, id));
+}
+
+export async function listUserClassIds(db: UserDb, userId: number): Promise<number[]> {
+  const rows = await db.select({ class_id: userClasses.class_id }).from(userClasses).where(eq(userClasses.user_id, userId));
+  return rows.map((row) => row.class_id);
+}
+
+// Kelas efektif guru: relasi user_classes bila ada, jika tidak class_id
+// tunggal lama (akun yang belum tersentuh migrasi data 0033).
+export async function listEffectiveUserClassIds(db: UserDb, user: typeof users.$inferSelect): Promise<number[]> {
+  const mapped = await listUserClassIds(db, user.id);
+  if (mapped.length > 0) return mapped;
+  return user.class_id ? [user.class_id] : [];
+}
+
+export async function listUserClassMappings(db: UserDb, userIds: number[]): Promise<Map<number, UserClassMapping[]>> {
+  const result = new Map<number, UserClassMapping[]>();
+  if (userIds.length === 0) return result;
+  const rows = await db
+    .select({ user_id: userClasses.user_id, class_id: userClasses.class_id, source: userClasses.source, created_by: userClasses.created_by, created_at: userClasses.created_at })
+    .from(userClasses)
+    .where(inArray(userClasses.user_id, userIds));
+  for (const row of rows) {
+    const mapping: UserClassMapping = { class_id: row.class_id, source: row.source, created_by: row.created_by, created_at: row.created_at };
+    const existing = result.get(row.user_id);
+    if (existing) existing.push(mapping);
+    else result.set(row.user_id, [mapping]);
+  }
+  return result;
+}
+
+// Lengkapi daftar pengguna hasil listUsers dengan petaan kelas sebenarnya.
+// Pengguna guru tanpa baris relasi mempertahankan fallback class_id tunggal
+// yang sudah disintesis toPublicUser.
+export async function attachUserClassMappings<T extends ReturnType<typeof toPublicUser>>(db: UserDb, publicUsers: T[]): Promise<T[]> {
+  const teacherIds = publicUsers.filter((user) => user.role !== 'participant').map((user) => user.id);
+  if (teacherIds.length === 0) return publicUsers;
+  const mappings = await listUserClassMappings(db, teacherIds);
+  return publicUsers.map((user) => {
+    const rows = mappings.get(user.id);
+    if (!rows) return user;
+    return { ...user, class_ids: rows.map((row) => row.class_id), class_mappings: rows };
+  });
+}
+
+export async function replaceUserClasses(
+  db: UserDb,
+  userId: number,
+  classIds: number[],
+  options: { source: UserClassSource; createdBy: string | null },
+) {
+  const uniqueIds = [...new Set(classIds)];
+  await db.delete(userClasses).where(eq(userClasses.user_id, userId));
+  if (uniqueIds.length > 0) {
+    await db.insert(userClasses).values(uniqueIds.map((classId) => ({
+      user_id: userId,
+      class_id: classId,
+      source: options.source,
+      created_by: options.createdBy,
+    })));
+  }
+  return uniqueIds;
+}
+
+export async function addUserClass(
+  db: UserDb,
+  userId: number,
+  classId: number,
+  options: { source: UserClassSource; createdBy: string | null },
+) {
+  const existing = await listUserClassIds(db, userId);
+  if (existing.includes(classId)) return false;
+  await db.insert(userClasses).values({ user_id: userId, class_id: classId, source: options.source, created_by: options.createdBy });
+  return true;
+}
+
+export async function removeUserClass(db: UserDb, userId: number, classId: number) {
+  await db.delete(userClasses).where(and(eq(userClasses.user_id, userId), eq(userClasses.class_id, classId)));
 }
 
 export async function countParticipantUsers(db: UserDb, scope?: ParticipantScope) {

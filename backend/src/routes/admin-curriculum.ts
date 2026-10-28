@@ -11,6 +11,7 @@ import type { Pool } from '@/db/connection';
 import {
   countSubjectsForAssessmentType,
   countTopicMappingsForClass,
+  countUserMappingsForClass,
   countAttemptsForSubject,
   countProfilesForSubject,
   createCurriculumDb,
@@ -22,6 +23,7 @@ import {
 } from '@/services/curriculum-service';
 import { parseCurriculumCsv, type ParsedCurriculumImportRow } from '@/services/curriculum-import-service';
 import { duplicateFieldResponse, invalidBodyResponse } from '@/lib/validation-error';
+import { sessionClassIds } from '@/lib/admin-scope';
 
 const itemSchema = z.object({
   slug: z.string().trim().min(1).max(50).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Slug hanya boleh berisi huruf kecil, angka, dan tanda hubung.'),
@@ -329,8 +331,9 @@ export function adminCurriculumRoutes(pool: Pool) {
     const classesInScope = owned(data.classes);
     const typesInScope = owned(data.assessment_types);
     const subjectsInScope = owned(data.subjects);
+    const classIds = sessionClassIds(session);
     return c.json({
-      classes: session.class_id === null ? classesInScope : classesInScope.filter((item) => item.id === session.class_id || item.created_by === session.username),
+      classes: classIds.length === 0 ? classesInScope : classesInScope.filter((item) => classIds.includes(item.id) || item.created_by === session.username),
       assessment_types: typesInScope,
       subjects: subjectsInScope,
     });
@@ -357,6 +360,12 @@ export function adminCurriculumRoutes(pool: Pool) {
   });
 
   app.post('/classes', async (c) => {
+    // Kelas master adalah satu sumber kebenaran milik Admin; guru tidak lagi
+    // membuat kelas master baru (kelas lama buatan guru tetap berfungsi dan
+    // tetap dapat diubah pemiliknya lewat PUT /classes/:id).
+    if (c.get('adminSession')?.role === 'editor') {
+      return c.json({ error: 'admin_forbidden', message: 'Kelas master hanya dapat dibuat Admin. Pilih kelas yang sudah tersedia atau usulkan kelas baru kepada Admin.' }, 403);
+    }
     const parsed = classSchema.safeParse(await c.req.json());
     if (!parsed.success) return invalidBodyResponse(c, 'Data kelas tidak valid.', parsed.error);
     try {
@@ -392,6 +401,7 @@ export function adminCurriculumRoutes(pool: Pool) {
     if (!existing) return c.json({ error: 'not_found', message: 'Kelas tidak ditemukan.' }, 404);
     if (!canManageResource(c, existing)) return c.json({ error: 'admin_forbidden', message: 'Kelas bersama hanya dapat dihapus Admin.' }, 403);
     if ((await countTopicMappingsForClass(db, id)) > 0) return c.json({ error: 'in_use', message: 'Kelas masih digunakan oleh pemetaan topik.' }, 409);
+    if ((await countUserMappingsForClass(db, id)) > 0) return c.json({ error: 'in_use', message: 'Kelas masih digunakan oleh pemetaan guru.' }, 409);
     await db.delete(educationClasses).where(eq(educationClasses.id, id));
     return c.json({ deleted: true });
   });

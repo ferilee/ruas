@@ -7,6 +7,9 @@ export interface AdminSession {
   role: AdminRole;
   subject_id: number | null;
   class_id: number | null;
+  // Daftar kelas tempat guru terpetakan (relasi user_classes). class_id
+  // dipertahankan untuk kompatibilitas sebagai kelas pertama/utama.
+  class_ids: number[];
 }
 
 const tokens = new Map<string, { expiresAt: number; session: AdminSession }>();
@@ -29,6 +32,7 @@ export function createAdminToken(session?: Partial<AdminSession>): string {
       role: session?.role ?? 'admin',
       subject_id: session?.subject_id ?? null,
       class_id: session?.class_id ?? null,
+      class_ids: session?.class_ids ?? (session?.class_id ? [session.class_id] : []),
     },
   });
   return token;

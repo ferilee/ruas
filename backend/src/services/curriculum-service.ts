@@ -9,13 +9,14 @@ import { questions } from '@/db/schema/questions';
 import { subjects } from '@/db/schema/subjects';
 import { topics } from '@/db/schema/topics';
 import { topicClasses } from '@/db/schema/topic-classes';
+import { userClasses } from '@/db/schema/user-classes';
 import type { Pool } from '@/db/connection';
 
 type CurriculumDb = ReturnType<typeof drizzle>;
 
 export function createCurriculumDb(pool: Pool) {
   return drizzle(pool, {
-    schema: { assessmentTypes, educationClasses, examAttempts, participantProfiles, questionOptions, questions, subjects, topics, topicClasses },
+    schema: { assessmentTypes, educationClasses, examAttempts, participantProfiles, questionOptions, questions, subjects, topics, topicClasses, userClasses },
     mode: 'default',
   });
 }
@@ -47,6 +48,11 @@ export async function findSubject(db: CurriculumDb, id: number) {
 
 export async function countTopicMappingsForClass(db: CurriculumDb, id: number) {
   const [row] = await db.select({ total: count() }).from(topicClasses).where(eq(topicClasses.class_id, id));
+  return Number(row?.total ?? 0);
+}
+
+export async function countUserMappingsForClass(db: CurriculumDb, id: number) {
+  const [row] = await db.select({ total: count() }).from(userClasses).where(eq(userClasses.class_id, id));
   return Number(row?.total ?? 0);
 }
 

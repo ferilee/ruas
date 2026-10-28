@@ -120,8 +120,10 @@ const emit = defineEmits<{
   logout: [];
 }>();
 
+// Kelas master hanya dibuat Admin (satu sumber kebenaran), jadi aksi
+// "Tambah Kelas" tidak lagi ditawarkan di ruang kerja guru. Guru memilih
+// kelas tambahan dari daftar master lewat panel "Kelas saya".
 const actions: Array<{ id: WorkspaceAction; label: string; icon: string; tone: CardTone }> = [
-  { id: 'class', label: 'Tambah Kelas', icon: '▦', tone: 'blue' },
   { id: 'assessment-type', label: 'Tambah Jenis Asesmen', icon: '◷', tone: 'violet' },
   { id: 'subject', label: 'Tambah Mata Pelajaran', icon: '∑', tone: 'green' },
   { id: 'topic', label: 'Tambah Topik', icon: '◈', tone: 'amber' },

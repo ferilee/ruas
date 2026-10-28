@@ -70,7 +70,7 @@ export function adminScheduleRoutes(pool: Pool) {
     const endAt = parsed.data.end_at ? new Date(parsed.data.end_at) : null;
 
     const participantScope = session?.role === 'editor'
-      ? { ...(participantScopeForAdmin(session) ?? { subject_id: -1, class_id: null }), owner_username: session.username }
+      ? { ...(participantScopeForAdmin(session) ?? { subject_id: -1, class_ids: [] as number[] }), owner_username: session.username }
       : undefined;
     const allowedParticipants = (await listUsers(adminDb, undefined, participantScope)).filter((user) => user.role === 'participant');
     const allowedParticipantIds = new Set(allowedParticipants.map((user) => user.id));

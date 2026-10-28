@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { createAdminToken, getAdminSession } from '../lib/admin-auth-store';
-import { authenticateUser, createUserDb, findUserByUsername, hasAdminUsers } from '@/services/user-service';
+import { createAdminToken, getAdminSession, type AdminRole } from '../lib/admin-auth-store';
+import { authenticateUser, createUserDb, findUserByUsername, hasAdminUsers, listEffectiveUserClassIds } from '@/services/user-service';
 import { getTokenUsername } from '../lib/auth-store';
 import type { Pool } from '@/db/connection';
 
@@ -17,6 +17,22 @@ export function adminAuthRoutes(validPassword: string, pool: Pool) {
     return db;
   };
   const app = new Hono();
+
+  // Sesi editor membawa seluruh kelas tempat guru terpetakan (relasi
+  // user_classes, fallback class_id tunggal lama). class_id dipertahankan
+  // sebagai kelas pertama untuk kompatibilitas tampilan lama.
+  async function sessionForUser(user: NonNullable<Awaited<ReturnType<typeof findUserByUsername>>>) {
+    const classIds = await listEffectiveUserClassIds(getDb(), user);
+    return {
+      username: user.username,
+      display_name: user.display_name,
+      // Pemanggil sudah memastikan peran admin/editor sebelum membangun sesi.
+      role: user.role as AdminRole,
+      subject_id: user.subject_id,
+      class_id: user.class_id,
+      class_ids: classIds,
+    };
+  }
 
   app.get('/', async (c) => c.json({
     admin_auth_enabled: Boolean(validPassword) || await hasAdminUsers(getDb()),
@@ -41,13 +57,7 @@ export function adminAuthRoutes(validPassword: string, pool: Pool) {
     if (!user.active) {
       return c.json({ error: 'unauthorized', message: 'Akun ini sedang nonaktif.' }, 403);
     }
-    const session = {
-      username: user.username,
-      display_name: user.display_name,
-      role: user.role,
-      subject_id: user.subject_id,
-      class_id: user.class_id,
-    };
+    const session = await sessionForUser(user);
     return c.json({ token: createAdminToken(session), session });
   });
 
@@ -65,19 +75,8 @@ export function adminAuthRoutes(validPassword: string, pool: Pool) {
       if (user.must_change_password && !user.is_demo) {
         return c.json({ error: 'password_change_required', message: 'Ganti sandi awal terlebih dahulu melalui halaman login utama (/auth), lalu masuk kembali sebagai Admin/Guru.' }, 403);
       }
-      return c.json({ token: createAdminToken({
-        username: user.username,
-        display_name: user.display_name,
-        role: user.role,
-        subject_id: user.subject_id,
-        class_id: user.class_id,
-      }), session: {
-        username: user.username,
-        display_name: user.display_name,
-        role: user.role,
-        subject_id: user.subject_id,
-        class_id: user.class_id,
-      } });
+      const session = await sessionForUser(user);
+      return c.json({ token: createAdminToken(session), session });
     }
 
     if (!validPassword) {
@@ -88,7 +87,7 @@ export function adminAuthRoutes(validPassword: string, pool: Pool) {
     }
 
     return c.json({ token: createAdminToken(), session: {
-      username: 'env-admin', display_name: 'Admin RUAS', role: 'admin', subject_id: null, class_id: null,
+      username: 'env-admin', display_name: 'Admin RUAS', role: 'admin', subject_id: null, class_id: null, class_ids: [],
     } });
   });
 

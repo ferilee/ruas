@@ -10,6 +10,7 @@ vi.mock('@/services/user-service', () => ({
   createUserDb: () => ({}),
   findUserByUsername: findUserByUsernameMock,
   hasAdminUsers: vi.fn().mockResolvedValue(true),
+  listEffectiveUserClassIds: vi.fn().mockResolvedValue([2, 5]),
 }));
 
 vi.mock('../../lib/auth-store', () => ({
@@ -32,9 +33,10 @@ describe('admin session bridge (RUAS-004)', () => {
 
     const res = await app.request('http://localhost/session', { method: 'POST', headers: { 'x-auth-token': 'main-token' } });
     expect(res.status).toBe(200);
-    const body = await res.json() as { token: string; session: { username: string; role: string } };
+    const body = await res.json() as { token: string; session: { username: string; role: string; class_ids: number[] } };
     expect(body.token).toBeTruthy();
     expect(body.session).toMatchObject({ username: 'guru1', role: 'editor' });
+    expect(body.session.class_ids).toEqual([2, 5]);
   });
 
   it('rejects requests without a main-site session', async () => {

@@ -8,14 +8,17 @@ import { users } from '@/db/schema/users';
 import { subjects } from '@/db/schema/subjects';
 import type { Pool } from '@/db/connection';
 import {
+  attachUserClassMappings,
   createUser,
   createUserDb,
   deleteUser,
   deleteAllParticipants,
   countParticipantUsers,
   findUserById,
+  listUserClassMappings,
   listUsers,
   listUserIds,
+  replaceUserClasses,
   resetUserPassword,
   toPublicUser,
   updateUser,
@@ -25,7 +28,7 @@ import {
   type UserInput,
 } from '@/services/user-service';
 import { revokeTokensForUsername } from '@/lib/auth-store';
-import { participantScopeForAdmin, userMatchesAdminScope } from '@/lib/admin-scope';
+import { participantScopeForAdmin, sessionClassIds, userMatchesAdminScope } from '@/lib/admin-scope';
 
 const roleSchema = z.enum(['admin', 'editor', 'participant']);
 const userFieldsSchema = z.object({
@@ -33,6 +36,7 @@ const userFieldsSchema = z.object({
   password: z.string().min(1).max(200),
   display_name: z.string().trim().min(1).max(150),
   class_id: z.preprocess((value) => (value === '' || value === undefined ? null : value), z.coerce.number().int().positive().nullable()).default(null),
+  class_ids: z.array(z.coerce.number().int().positive()).max(100).default([]).transform((ids) => [...new Set(ids)]),
   subject_id: z.preprocess((value) => (value === '' || value === undefined ? null : value), z.coerce.number().int().positive().nullable()).default(null),
   role: roleSchema,
   active: z.boolean().default(true),
@@ -166,7 +170,7 @@ export function adminUserRoutes(pool: Pool) {
 
   function editorScope(c: Context): ParticipantScope | null {
     const current = session(c);
-    return current?.role === 'editor' ? { ...(participantScopeForAdmin(current) ?? { subject_id: -1, class_id: null }), owner_username: current.username } : null;
+    return current?.role === 'editor' ? { ...(participantScopeForAdmin(current) ?? { subject_id: -1, class_ids: [] as number[] }), owner_username: current.username } : null;
   }
 
   function editorMessage(c: Context) {
@@ -183,7 +187,7 @@ export function adminUserRoutes(pool: Pool) {
     const [subject] = await db.select({ id: subjects.id, created_by: subjects.created_by }).from(subjects).where(eq(subjects.id, input.subject_id)).limit(1);
     const [educationClass] = await db.select({ id: educationClasses.id, created_by: educationClasses.created_by }).from(educationClasses).where(eq(educationClasses.id, input.class_id)).limit(1);
     const subjectAllowed = subject && (subject.created_by === null || subject.created_by === 'env-admin' || subject.created_by === current.username || subject.id === current.subject_id);
-    const classAllowed = educationClass && (educationClass.created_by === null || educationClass.created_by === 'env-admin' || educationClass.created_by === current.username || educationClass.id === current.class_id);
+    const classAllowed = educationClass && (educationClass.created_by === null || educationClass.created_by === 'env-admin' || educationClass.created_by === current.username || sessionClassIds(current).includes(educationClass.id));
     if (!subjectAllowed || !classAllowed) return { message: editorMessage(c) };
     return { input: { ...input, role: 'participant' as const, is_demo: false, subject_id: input.subject_id, class_id: input.class_id } };
   }
@@ -197,10 +201,38 @@ export function adminUserRoutes(pool: Pool) {
     return { existing };
   }
 
+  // Untuk akun guru, class_ids adalah sumber kebenaran petaan kelas.
+  // class_id tunggal lama disinkronkan ke kelas pertama demi kompatibilitas
+  // (sesi lama, penetapan peserta, dan tampilan yang belum memakai relasi).
+  async function applyEditorClassMapping(c: Context, input: UserInput): Promise<{ input?: UserInput; response?: Response }> {
+    if (input.role !== 'editor') return { input };
+    const classIds = input.class_ids ?? [];
+    for (const classId of classIds) {
+      if (!(await classExists(db, classId))) {
+        return { response: c.json({ error: 'invalid_reference', message: 'Salah satu kelas petaan tidak ditemukan.', fields: { class_ids: 'Ada kelas yang tidak ditemukan. Muat ulang daftar kelas lalu coba lagi.' } }, 400) };
+      }
+    }
+    return { input: { ...input, class_id: classIds[0] ?? null } };
+  }
+
+  async function saveEditorClassMapping(c: Context, userId: number, input: UserInput, previousRole?: string) {
+    if (input.role === 'editor') {
+      await replaceUserClasses(db, userId, input.class_ids ?? [], { source: 'admin', createdBy: session(c)?.username ?? null });
+    } else if (previousRole === 'editor') {
+      await replaceUserClasses(db, userId, [], { source: 'admin', createdBy: session(c)?.username ?? null });
+    }
+  }
+
+  async function publicUserWithMappings(user: NonNullable<Awaited<ReturnType<typeof findUserById>>>) {
+    const mappings = await listUserClassMappings(db, [user.id]);
+    return toPublicUser(user, null, mappings.get(user.id) ?? []);
+  }
+
   app.get('/', async (c) => {
     const current = session(c);
     if (current?.role === 'editor' && !editorScope(c)) return c.json({ users: [] });
-    return c.json({ users: await listUsers(db, c.req.query('search'), editorScope(c) ?? undefined) });
+    const publicUsers = await listUsers(db, c.req.query('search'), editorScope(c) ?? undefined);
+    return c.json({ users: await attachUserClassMappings(db, publicUsers) });
   });
 
   app.get('/participants/count', async (c) => {
@@ -231,14 +263,18 @@ export function adminUserRoutes(pool: Pool) {
     if (!parsed.success) return invalidBodyResponse(c, 'Data pengguna tidak valid.', parsed.error);
     const scoped = await scopeInput(c, parsed.data);
     if (!scoped.input) return c.json({ error: 'admin_forbidden', message: scoped.message }, 403);
-    if (scoped.input.class_id && !(await classExists(db, scoped.input.class_id))) return c.json({ error: 'invalid_reference', message: 'Kelas tidak ditemukan.' }, 400);
-    if (scoped.input.subject_id && !(await subjectExists(db, scoped.input.subject_id))) return c.json({ error: 'invalid_reference', message: 'Mata pelajaran tidak ditemukan.' }, 400);
-    const [duplicate] = await db.select({ id: users.id }).from(users).where(eq(users.username, scoped.input.username)).limit(1);
+    const mapped = await applyEditorClassMapping(c, scoped.input);
+    if (mapped.response) return mapped.response;
+    const input = mapped.input as UserInput;
+    if (input.class_id && !(await classExists(db, input.class_id))) return c.json({ error: 'invalid_reference', message: 'Kelas tidak ditemukan.' }, 400);
+    if (input.subject_id && !(await subjectExists(db, input.subject_id))) return c.json({ error: 'invalid_reference', message: 'Mata pelajaran tidak ditemukan.' }, 400);
+    const [duplicate] = await db.select({ id: users.id }).from(users).where(eq(users.username, input.username)).limit(1);
     if (duplicate) {
       return duplicateFieldResponse(c, 'username', 'Username sudah digunakan. Ganti username dengan yang lain.', 'duplicate_username');
     }
-    const user = await createUser(db, scoped.input, session(c)?.role === 'editor' ? session(c)?.username ?? null : null);
-    return c.json({ user: user ? toPublicUser(user) : null }, 201);
+    const user = await createUser(db, input, session(c)?.role === 'editor' ? session(c)?.username ?? null : null);
+    if (user) await saveEditorClassMapping(c, user.id, input);
+    return c.json({ user: user ? await publicUserWithMappings(user) : null }, 201);
   });
 
   app.post('/import', async (c) => {
@@ -357,12 +393,16 @@ export function adminUserRoutes(pool: Pool) {
     if (!existing) return c.json({ error: 'not_found', message: 'Pengguna tidak ditemukan.' }, 404);
     const scoped = await scopeInput(c, parsed.data);
     if (!scoped.input) return c.json({ error: 'admin_forbidden', message: scoped.message }, 403);
-    if (scoped.input.class_id && !(await classExists(db, scoped.input.class_id))) return c.json({ error: 'invalid_reference', message: 'Kelas tidak ditemukan.' }, 400);
-    if (scoped.input.subject_id && !(await subjectExists(db, scoped.input.subject_id))) return c.json({ error: 'invalid_reference', message: 'Mata pelajaran tidak ditemukan.' }, 400);
-    const duplicate = await db.select({ id: users.id }).from(users).where(eq(users.username, scoped.input.username)).limit(1);
+    const mapped = await applyEditorClassMapping(c, scoped.input);
+    if (mapped.response) return mapped.response;
+    const input = mapped.input as UserInput;
+    if (input.class_id && !(await classExists(db, input.class_id))) return c.json({ error: 'invalid_reference', message: 'Kelas tidak ditemukan.' }, 400);
+    if (input.subject_id && !(await subjectExists(db, input.subject_id))) return c.json({ error: 'invalid_reference', message: 'Mata pelajaran tidak ditemukan.' }, 400);
+    const duplicate = await db.select({ id: users.id }).from(users).where(eq(users.username, input.username)).limit(1);
     if (duplicate[0] && duplicate[0].id !== id) return duplicateFieldResponse(c, 'username', 'Username sudah digunakan. Ganti username dengan yang lain.', 'duplicate_username');
-    const user = await updateUser(db, id, scoped.input);
-    return c.json({ user: user ? toPublicUser(user) : null });
+    const user = await updateUser(db, id, input);
+    if (user) await saveEditorClassMapping(c, id, input, existing.role);
+    return c.json({ user: user ? await publicUserWithMappings(user) : null });
   });
 
   app.delete('/:id', async (c) => {

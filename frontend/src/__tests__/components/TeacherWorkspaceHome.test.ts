@@ -12,7 +12,9 @@ describe('TeacherWorkspaceHome', () => {
     });
 
     expect(wrapper.findAll('.teacher-workspace-card')).toHaveLength(8);
-    expect(wrapper.findAll('.workspace-action-button')).toHaveLength(5);
+    expect(wrapper.findAll('.workspace-action-button')).toHaveLength(4);
+    // Kelas master hanya dibuat Admin; guru tidak lagi ditawari Tambah Kelas.
+    expect(wrapper.text()).not.toContain('Tambah Kelas');
     expect(wrapper.text()).toContain('3 kelas');
     expect(wrapper.text()).toContain('18 soal tersedia');
     expect(wrapper.text()).toContain('2 topik memiliki jadwal');
@@ -51,7 +53,7 @@ describe('TeacherWorkspaceHome', () => {
       global: { stubs: { RouterLink: routerLinkStub } },
     });
 
-    await wrapper.findAll('.workspace-action-button')[4].trigger('click');
+    await wrapper.findAll('.workspace-action-button')[3].trigger('click');
     await wrapper.find('.workspace-mini-link').trigger('click');
     const headerButtons = wrapper.findAll('.teacher-workspace-logout');
     expect(headerButtons.map((button) => button.text())).toEqual(['Kembali ke beranda', 'Keluar (logout)']);

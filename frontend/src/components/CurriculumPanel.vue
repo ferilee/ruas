@@ -116,7 +116,7 @@
 
       <div class="curriculum-grid">
       <section v-if="!topicOnly" :class="['curriculum-group', 'class-group', { 'mobile-active': mobileTab === 'classes', 'mobile-form-open': mobileFormOpen && mobileTab === 'classes' }]">
-        <div class="curriculum-group-heading"><h3>Kelas</h3><button v-if="!readonly" class="curriculum-add-btn" type="button" @click="openClassForm">＋ Tambah</button></div>
+        <div class="curriculum-group-heading"><h3>Kelas</h3><button v-if="!readonly && props.adminSession?.role !== 'editor'" class="curriculum-add-btn" type="button" @click="openClassForm">＋ Tambah</button></div>
         <div class="curriculum-items">
           <div v-for="item in visibleClasses" :key="item.id" class="curriculum-item">
             <div><strong>{{ item.label }}</strong><small>{{ item.slug }} · Tingkat {{ item.grade }} · {{ item.program }}{{ item.section ? ` ${item.section}` : '' }} · {{ item.academic_year }} · {{ ownerLabel(item) }}</small></div>

@@ -14,7 +14,20 @@
         <form class="user-form" @submit.prevent="saveUser">
           <label>Username<input v-model.trim="form.username" required autocomplete="off" placeholder="Contoh: P130100230" /><small v-if="formFieldErrors.username" class="field-error" role="alert">{{ formFieldErrors.username }}</small></label>
           <label>Nama tampilan<input v-model.trim="form.display_name" required placeholder="Nama peserta" /><small v-if="formFieldErrors.display_name" class="field-error" role="alert">{{ formFieldErrors.display_name }}</small></label>
-          <label>Kelas peserta<RuasSelect v-model="form.class_id" :options="classOptions" aria-label="Kelas peserta" /></label>
+          <div v-if="!isEditor && form.role === 'editor'" class="teacher-classes-field">
+            <span class="teacher-classes-label">Kelas yang diajar (boleh lebih dari satu)</span>
+            <div class="teacher-classes-list">
+              <label v-for="item in classes" :key="item.id" class="teacher-class-option">
+                <input type="checkbox" :checked="(form.class_ids ?? []).includes(item.id)" @change="toggleFormClass(item.id)" />
+                <span>{{ item.label }} · {{ item.academic_year }}</span>
+                <span v-if="editingMappingSource(item.id) === 'self'" class="self-badge">dipilih sendiri</span>
+              </label>
+              <p v-if="classes.length === 0" class="teacher-classes-empty">Belum ada kelas master. Buat kelas terlebih dahulu lewat Struktur Asesmen.</p>
+            </div>
+            <small>Kelas master dibuat Admin. Guru juga dapat memilih kelas tambahan sendiri dari daftar ini dan Admin dapat mencabutnya di sini.</small>
+            <small v-if="formFieldErrors.class_ids" class="field-error" role="alert">{{ formFieldErrors.class_ids }}</small>
+          </div>
+          <label v-else>Kelas peserta<RuasSelect v-model="form.class_id" :options="classOptions" aria-label="Kelas peserta" /></label>
           <label>Mata pelajaran peserta<RuasSelect v-model="form.subject_id" :options="subjectOptions" aria-label="Mata pelajaran peserta" /></label>
           <label>Password {{ editingId === null ? '' : '(kosongkan jika tidak diubah)' }}<input v-model="form.password" :required="editingId === null" type="password" autocomplete="new-password" placeholder="Password akun" /><small v-if="formFieldErrors.password" class="field-error" role="alert">{{ formFieldErrors.password }}</small></label>
           <label v-if="isEditor" class="active-field"><span>Status</span><span class="check-line"><input v-model="form.active" type="checkbox" /> Aktif</span></label>
@@ -63,7 +76,7 @@
       <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
       <div v-if="loading" class="panel-empty">Memuat pengguna...</div>
       <div v-else-if="users.length === 0" class="panel-empty">Belum ada pengguna.</div>
-      <div v-else class="user-table-wrap"><table class="user-table"><thead><tr><th v-if="!isEditor" class="selection-column"><input type="checkbox" :checked="allUsersSelected" aria-label="Pilih semua pengguna" @change="toggleAllUsers" /></th><th>Pengguna</th><th>Peran / penetapan</th><th>Status</th><th>Aksi</th></tr></thead><tbody><tr v-for="user in users" :key="user.id"><td v-if="!isEditor" class="selection-column"><input type="checkbox" :checked="isUserSelected(user.id)" :aria-label="`Pilih ${user.display_name}`" @change="toggleUser(user.id)" /></td><td class="user-identity"><strong>{{ user.display_name }}</strong><small>{{ user.username }}</small></td><td class="user-assignment"><span class="role-badge">{{ roleLabel(user.role) }}</span><span v-if="user.is_demo" class="demo-badge">Demo publik</span><small>Kelas: {{ user.class_label || 'Belum ditetapkan' }}</small><small>Mapel: {{ subjectLabel(user.subject_id) }}</small></td><td class="user-status"><span :class="['status-badge', { inactive: !user.active }]">{{ user.active ? 'Aktif' : 'Nonaktif' }}</span><span v-if="user.must_change_password" class="password-status-badge">Wajib ubah sandi</span></td><td class="user-actions"><button class="text-button" type="button" @click="editUser(user)">Edit</button><button v-if="!user.is_demo" class="text-button" type="button" @click="resetPassword(user)">Reset sandi</button><button v-if="!isEditor || user.created_by === props.adminSession?.username" class="danger-link" type="button" @click="removeUser(user)">Hapus</button></td></tr></tbody></table></div>
+      <div v-else class="user-table-wrap"><table class="user-table"><thead><tr><th v-if="!isEditor" class="selection-column"><input type="checkbox" :checked="allUsersSelected" aria-label="Pilih semua pengguna" @change="toggleAllUsers" /></th><th>Pengguna</th><th>Peran / penetapan</th><th>Status</th><th>Aksi</th></tr></thead><tbody><tr v-for="user in users" :key="user.id"><td v-if="!isEditor" class="selection-column"><input type="checkbox" :checked="isUserSelected(user.id)" :aria-label="`Pilih ${user.display_name}`" @change="toggleUser(user.id)" /></td><td class="user-identity"><strong>{{ user.display_name }}</strong><small>{{ user.username }}</small></td><td class="user-assignment"><span class="role-badge">{{ roleLabel(user.role) }}</span><span v-if="user.is_demo" class="demo-badge">Demo publik</span><small v-if="user.role === 'editor'">Kelas: {{ teacherClassesLabel(user) }}</small><small v-else>Kelas: {{ user.class_label || 'Belum ditetapkan' }}</small><small v-if="user.role === 'editor' && user.class_mappings?.some((mapping) => mapping.source === 'self')">Ada kelas yang dipilih sendiri oleh guru</small><small>Mapel: {{ subjectLabel(user.subject_id) }}</small></td><td class="user-status"><span :class="['status-badge', { inactive: !user.active }]">{{ user.active ? 'Aktif' : 'Nonaktif' }}</span><span v-if="user.must_change_password" class="password-status-badge">Wajib ubah sandi</span></td><td class="user-actions"><button class="text-button" type="button" @click="editUser(user)">Edit</button><button v-if="!user.is_demo" class="text-button" type="button" @click="resetPassword(user)">Reset sandi</button><button v-if="!isEditor || user.created_by === props.adminSession?.username" class="danger-link" type="button" @click="removeUser(user)">Hapus</button></td></tr></tbody></table></div>
     </div>
   </section>
 </template>
@@ -74,13 +87,15 @@ import { assignAdminUsersClass, assignAdminUsersSubject, createAdminUser, delete
 import { extractFieldErrors } from '@/lib/field-errors';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import RuasSelect from '@/components/RuasSelect.vue';
-import type { AdminSession, AdminUser, AdminUserInput, CurriculumClass, Subject, UserImportSummary, UserRole } from '@/types';
+import type { AdminSession, AdminUser, AdminUserInput, CurriculumClass, Subject, UserClassMapping, UserImportSummary, UserRole } from '@/types';
 import { ADMIN_REALTIME_EVENT, type AdminRealtimeEvent } from '@/lib/admin-realtime';
 
 const props = defineProps<{ adminSession: AdminSession | null }>();
 const isEditor = computed(() => props.adminSession?.role === 'editor');
 const editorClassId = computed(() => props.adminSession?.class_id ?? null);
+const editorClassIds = computed(() => (props.adminSession?.class_ids?.length ? props.adminSession.class_ids : editorClassId.value ? [editorClassId.value] : []));
 const editorSubjectId = computed(() => props.adminSession?.subject_id ?? null);
+const editingMappings = ref<UserClassMapping[]>([]);
 
 const users = ref<AdminUser[]>([]);
 const participantCount = ref(0);
@@ -116,8 +131,8 @@ const confirmMessage = ref('Apakah kamu yakin ingin melanjutkan?');
 const confirmLabel = ref('OK');
 const confirmPhrase = ref<string | undefined>(undefined);
 const pendingConfirmation = ref<(() => Promise<void>) | null>(null);
-const form = reactive<AdminUserInput>({ username: '', password: '', display_name: '', class_id: editorClassId.value, subject_id: editorSubjectId.value, role: 'participant', active: true, is_demo: false });
-const classOptions = computed(() => [{ value: null, label: 'Belum ditetapkan' }, ...classes.value.filter((item) => !isEditor.value || item.created_by === props.adminSession?.username || item.created_by === null || item.created_by === 'env-admin' || item.id === editorClassId.value).map((item) => ({ value: item.id, label: `${item.label} · ${item.academic_year}` }))]);
+const form = reactive<AdminUserInput>({ username: '', password: '', display_name: '', class_id: editorClassId.value, class_ids: [], subject_id: editorSubjectId.value, role: 'participant', active: true, is_demo: false });
+const classOptions = computed(() => [{ value: null, label: 'Belum ditetapkan' }, ...classes.value.filter((item) => !isEditor.value || item.created_by === props.adminSession?.username || item.created_by === null || item.created_by === 'env-admin' || editorClassIds.value.includes(item.id)).map((item) => ({ value: item.id, label: `${item.label} · ${item.academic_year}` }))]);
 const subjectOptions = computed(() => [{ value: null, label: 'Belum ditetapkan' }, ...subjects.value.filter((subject) => !isEditor.value || subject.created_by === props.adminSession?.username || subject.created_by === null || subject.created_by === 'env-admin' || subject.id === editorSubjectId.value).map((subject) => ({ value: subject.id, label: subject.label }))]);
 const roleOptions = [
   { value: 'participant', label: 'Peserta' },
@@ -131,11 +146,14 @@ const importModeOptions = [
 const allUsersSelected = computed(() => users.value.length > 0 && users.value.every((user) => selectedUserIds.value.includes(user.id)));
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
-function resetForm() { Object.assign(form, { username: '', password: '', display_name: '', class_id: editorClassId.value, subject_id: editorSubjectId.value, role: 'participant', active: true, is_demo: false }); editingId.value = null; formMessage.value = ''; userFormOpen.value = false; }
+function resetForm() { Object.assign(form, { username: '', password: '', display_name: '', class_id: editorClassId.value, class_ids: [], subject_id: editorSubjectId.value, role: 'participant', active: true, is_demo: false }); editingId.value = null; editingMappings.value = []; formMessage.value = ''; userFormOpen.value = false; }
 function openNewUser() { resetForm(); userFormOpen.value = true; }
 function closeUserForm() { userFormOpen.value = false; }
 function openFilePicker() { fileInput.value?.click(); }
-function editUser(user: AdminUser) { Object.assign(form, { username: user.username, password: '', display_name: user.display_name, class_id: user.class_id, subject_id: user.subject_id, role: isEditor.value ? 'participant' : user.role, active: user.active, is_demo: isEditor.value ? false : user.is_demo }); editingId.value = user.id; formMessage.value = ''; userFormOpen.value = true; window.scrollTo({ top: 0, behavior: 'smooth' }); }
+function editUser(user: AdminUser) { Object.assign(form, { username: user.username, password: '', display_name: user.display_name, class_id: user.class_id, class_ids: [...(user.class_ids ?? (user.class_id ? [user.class_id] : []))], subject_id: user.subject_id, role: isEditor.value ? 'participant' : user.role, active: user.active, is_demo: isEditor.value ? false : user.is_demo }); editingId.value = user.id; editingMappings.value = user.class_mappings ?? []; formMessage.value = ''; userFormOpen.value = true; window.scrollTo({ top: 0, behavior: 'smooth' }); }
+function toggleFormClass(classId: number) { const current = form.class_ids ?? []; form.class_ids = current.includes(classId) ? current.filter((id) => id !== classId) : [...current, classId]; }
+function editingMappingSource(classId: number) { return editingMappings.value.find((mapping) => mapping.class_id === classId)?.source ?? null; }
+function teacherClassesLabel(user: AdminUser) { const ids = user.class_ids ?? []; if (ids.length === 0) return user.class_label ?? 'Belum ditetapkan'; const labels = ids.map((id) => classes.value.find((item) => item.id === id)?.label ?? (id === user.class_id ? user.class_label : null) ?? `Kelas #${id}`); return `${ids.length} kelas — ${labels.join(', ')}`; }
 function askConfirmation(title: string, message: string, action: () => Promise<void>, label = 'OK', phrase?: string) { confirmTitle.value = title; confirmMessage.value = message; confirmLabel.value = label; confirmPhrase.value = phrase; pendingConfirmation.value = action; confirmOpen.value = true; }
 function closeConfirmation() { confirmOpen.value = false; confirmPhrase.value = undefined; pendingConfirmation.value = null; }
 async function runConfirmation() { const action = pendingConfirmation.value; closeConfirmation(); if (action) await action(); }
@@ -231,6 +249,13 @@ onUnmounted(() => window.removeEventListener(ADMIN_REALTIME_EVENT, handleRealtim
 .active-field { justify-content: end; }
 .check-line { display: flex; align-items: center; gap: 8px; min-height: 42px; color: #43648d; font-weight: 500; }
 .demo-field small { color: #7890ac; font-size: .68rem; font-weight: 400; line-height: 1.4; }
+.teacher-classes-field { display: flex; flex-direction: column; gap: 7px; color: #42628c; font-size: .78rem; font-weight: 700; }
+.teacher-classes-field small { color: #7890ac; font-size: .68rem; font-weight: 400; line-height: 1.4; }
+.teacher-classes-list { display: flex; max-height: 190px; flex-direction: column; gap: 6px; overflow-y: auto; padding: 10px 12px; border: 1px solid #d9e5f2; border-radius: 9px; background: #f8fbff; }
+.teacher-class-option { display: flex; align-items: center; gap: 8px; min-height: 32px; color: #43648d; font-size: .78rem; font-weight: 500; cursor: pointer; }
+.teacher-class-option input { width: auto; accent-color: #246bc5; }
+.teacher-classes-empty { margin: 0; color: #7890ac; font-size: .72rem; font-weight: 400; }
+.self-badge { display: inline-block; border-radius: 999px; padding: 3px 8px; color: #765214; background: #fff2c9; font-size: .65rem; font-weight: 700; }
 .scope-note { margin: 0; padding: 10px 12px; border: 1px solid #d9e5f2; border-radius: 9px; color: #42628c; background: #f8fbff; font-size: .78rem; font-weight: 700; }
 .check-line input { width: auto; }
 .text-button { border: 0; padding: 6px 0; color: #1d69c5; background: transparent; font: inherit; font-weight: 700; cursor: pointer; }
