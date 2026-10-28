@@ -457,6 +457,7 @@
           </div>
 
           <form @submit.prevent="saveQuestion">
+            <p class="question-policy-note">Ketentuan soal: semua soal berbobot sama — nilai dihitung dari jumlah jawaban benar dibagi total soal. Soal tidak memiliki status draf; soal tersimpan langsung masuk topiknya, dan keterlihatan ke siswa diatur lewat Jadwal Asesmen serta token topik. Arsipkan soal yang belum siap dipakai.</p>
             <p v-if="questionReadOnly" class="question-readonly-note">Soal ini dibuat oleh Admin dan hanya dapat dilihat oleh Editor.</p>
             <fieldset :disabled="questionReadOnly" class="question-readonly-fieldset">
             <label>Topik
@@ -1975,6 +1976,7 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 }
 .question-owner-badge.editor-owner { color: #6d28d9; background: #f3e8ff; }
 .question-owner-badge.admin-owner { color: #2364ad; background: #eaf3ff; }
+.question-policy-note { margin-bottom: 12px; padding: 10px 12px; border: 1px solid #d9e5f2; border-radius: 9px; color: #58708c; background: #f5f9ff; font-size: .74rem; line-height: 1.55; }
 .question-readonly-note { margin: 20px 20px 0; padding: 10px 12px; border: 1px solid #eadcff; border-radius: 9px; color: #6d28d9; background: #faf5ff; font-size: .78rem; line-height: 1.45; }
 .question-topic-empty { color: #7b91aa; font-size: .76rem; font-weight: 400; line-height: 1.4; }
 .question-topic-empty button { padding: 0; border: 0; color: #6d28d9; background: transparent; font: inherit; font-weight: 800; cursor: pointer; }
