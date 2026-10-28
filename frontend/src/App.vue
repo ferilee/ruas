@@ -1,6 +1,6 @@
 <template>
   <div :class="wrapperClasses">
-    <header v-if="!isExamRoute && !isAuthRoute && !isProfileRoute && !isAdminRoute" :class="['app-header', { 'home-header': isHomeRoute || isTopicRoute, 'landing-header': isLandingRoute || isSupportRoute }]">
+    <header v-if="!isExamRoute && !isAuthRoute && !isProfileRoute && !isAdminRoute" ref="headerRef" :class="['app-header', { 'home-header': isHomeRoute || isTopicRoute, 'landing-header': isLandingRoute || isSupportRoute }]">
       <router-link to="/" class="app-logo">
         <span v-if="isHomeRoute || isTopicRoute || isLandingRoute || isSupportRoute" class="brand-mark" aria-hidden="true">
           <svg viewBox="0 0 48 48">
@@ -17,9 +17,12 @@
         <span v-else>Ruang Asesmen</span>
       </router-link>
       <div class="header-actions">
-        <router-link to="/tentang" class="landing-link">Tentang &amp; Layanan</router-link>
-        <router-link to="/dukung" class="support-link">Dukung RUAS</router-link>
-        <router-link to="/admin" class="admin-link">Editor</router-link>
+        <button type="button" class="header-menu-button" aria-controls="app-header-links" :aria-expanded="menuOpen" @click="toggleMenu">Menu</button>
+        <nav id="app-header-links" class="header-links" :class="{ 'is-open': menuOpen }" aria-label="Navigasi utama">
+          <router-link to="/tentang" class="landing-link" @click="closeMenu">Tentang &amp; Layanan</router-link>
+          <router-link to="/dukung" class="support-link" @click="closeMenu">Dukung RUAS</router-link>
+          <router-link to="/admin" class="admin-link" @click="closeMenu">Editor</router-link>
+        </nav>
         <span v-if="profileName" class="header-identity">{{ profileName }}<span v-if="profileRoleLabel"> · {{ profileRoleLabel }}</span></span>
         <button v-if="isLoggedIn" type="button" class="header-logout" @click="logout">Keluar</button>
       </div>
@@ -31,7 +34,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { fetchParticipantProfile } from '@/api/client';
 import { participantRoleLabel } from '@/lib/participant-profile';
@@ -41,6 +44,25 @@ const router = useRouter();
 const isLoggedIn = ref(Boolean(sessionStorage.getItem('auth_token')));
 const profileName = ref('');
 const profileRoleLabel = ref('');
+const menuOpen = ref(false);
+const headerRef = ref<HTMLElement | null>(null);
+
+function toggleMenu() {
+  menuOpen.value = !menuOpen.value;
+}
+
+function closeMenu() {
+  menuOpen.value = false;
+}
+
+function onDocumentClick(event: MouseEvent) {
+  if (!menuOpen.value) return;
+  if (headerRef.value && event.target instanceof Node && !headerRef.value.contains(event.target)) closeMenu();
+}
+
+function onDocumentKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') closeMenu();
+}
 
 async function refreshIdentity() {
   isLoggedIn.value = Boolean(sessionStorage.getItem('auth_token'));
@@ -68,8 +90,16 @@ function logout() {
   void router.push('/auth');
 }
 
-watch(() => route.fullPath, () => { void refreshIdentity(); });
-onMounted(() => { void refreshIdentity(); });
+watch(() => route.fullPath, () => { closeMenu(); void refreshIdentity(); });
+onMounted(() => {
+  void refreshIdentity();
+  document.addEventListener('click', onDocumentClick);
+  document.addEventListener('keydown', onDocumentKeydown);
+});
+onUnmounted(() => {
+  document.removeEventListener('click', onDocumentClick);
+  document.removeEventListener('keydown', onDocumentKeydown);
+});
 const isExamRoute = computed(() => route.name === 'quiz');
 const isHomeRoute = computed(() => route.name === 'home');
 const isAuthRoute = computed(() => route.name === 'auth');
@@ -293,6 +323,16 @@ body {
   gap: 10px;
 }
 
+/* Di desktop nav ini melebur ke .header-actions (display: contents) agar
+   tampilan header tidak berubah; panelnya hanya dipakai di mobile. */
+.header-links {
+  display: contents;
+}
+
+.header-menu-button {
+  display: none;
+}
+
 .landing-link,
 .support-link,
 .admin-link {
@@ -354,5 +394,91 @@ body {
 
 .exam-wrapper .app-main {
   padding-bottom: 0;
+}
+
+/* Header publik di layar sempit: dua tingkat agar logo, identitas, dan
+   tautan tidak lagi bertumpuk di tengah. Tingkat atas hanya logo (kiri)
+   dan Keluar (kanan); identitas menjadi chip terpotong rapi di tingkat
+   bawah, dan tautan navigasi dilipat ke tombol Menu. */
+@media (max-width: 640px) {
+  .app-header {
+    flex-wrap: wrap;
+    row-gap: 10px;
+    padding: 14px 16px;
+    margin-bottom: 24px;
+  }
+
+  .home-header {
+    justify-content: space-between;
+    min-height: 0;
+  }
+
+  .app-header .app-logo {
+    order: 1;
+  }
+
+  .header-actions {
+    position: static;
+    display: contents;
+  }
+
+  .header-logout {
+    order: 2;
+    margin-left: auto;
+    min-height: 44px;
+  }
+
+  .header-identity {
+    order: 3;
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    padding: 6px 10px;
+    border: 1px solid rgba(77, 126, 201, 0.22);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.42);
+    font-size: 0.75rem;
+  }
+
+  .header-menu-button {
+    order: 4;
+    display: inline-flex;
+    align-items: center;
+    margin-left: auto;
+    min-height: 44px;
+    padding: 7px 13px;
+    border: 1px solid rgba(77, 126, 201, 0.35);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.42);
+    color: #59709d;
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .header-links {
+    display: none;
+  }
+
+  .header-links.is-open {
+    order: 5;
+    display: flex;
+    flex-basis: 100%;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .header-links.is-open .landing-link,
+  .header-links.is-open .support-link {
+    display: block;
+  }
+
+  .header-links.is-open a {
+    padding: 10px 12px;
+  }
 }
 </style>
