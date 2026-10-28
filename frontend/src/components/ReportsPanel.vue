@@ -122,16 +122,25 @@
         <div><h3>Analisis per soal (semua siswa)</h3><p>Persentase jawaban benar per soal pada hasil selesai sesuai filter — soal paling sulit tampil lebih dulu.</p></div>
       </div>
       <div class="class-statistics-wrap">
-        <table class="class-statistics-table">
+        <table class="question-statistics-table">
+          <colgroup>
+            <col style="width: 40%" />
+            <col style="width: 17%" />
+            <col style="width: 7%" />
+            <col style="width: 7%" />
+            <col style="width: 8%" />
+            <col style="width: 10%" />
+            <col style="width: 11%" />
+          </colgroup>
           <thead><tr><th>Soal</th><th>Topik</th><th>Dijawab</th><th>Benar</th><th>% Benar</th><th>Waktu rata-rata</th><th>Kesimpulan</th></tr></thead>
           <tbody>
             <tr v-for="stat in questionStatistics" :key="stat.question_id">
               <td class="question-stat-text"><MathText :text="stat.question_text" /></td>
               <td>{{ stat.topic_label }}</td>
-              <td>{{ stat.answered_count }}</td>
-              <td>{{ stat.correct_count }}</td>
-              <td class="score-cell">{{ stat.correct_percent }}%</td>
-              <td>{{ formatDuration(stat.average_time_seconds) }}</td>
+              <td class="nowrap-cell">{{ stat.answered_count }}</td>
+              <td class="nowrap-cell">{{ stat.correct_count }}</td>
+              <td class="score-cell nowrap-cell">{{ stat.correct_percent }}%</td>
+              <td class="nowrap-cell">{{ formatDuration(stat.average_time_seconds) }}</td>
               <td><span :class="['violation-badge', { clean: stat.difficulty_label === 'Terkuasai' }]">{{ stat.difficulty_label }}</span></td>
             </tr>
           </tbody>
@@ -498,7 +507,7 @@ onUnmounted(() => window.removeEventListener(ADMIN_REALTIME_EVENT, handleRealtim
 .simple-question-stat-value { text-align: right; }
 .simple-question-stat-value strong { display: block; color: #24558f; }
 .simple-question-stat-value small { color: #66788e; font-size: .68rem; }
-.question-stat-text { max-width: 380px; overflow-wrap: anywhere; }
+.question-stat-text { overflow-wrap: anywhere; }
 .simple-report-results { overflow: hidden; border: 1px solid #3d3c43; border-radius: 14px; background: #202023; }
 .simple-report-results-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px; border-bottom: 1px solid #3d3c43; }
 .simple-report-results-heading > div { display: flex; flex-direction: column; gap: 5px; }
@@ -551,6 +560,12 @@ input, select { min-width: 0; width: 100%; padding: 10px 11px; border: 1px solid
 .class-statistics-table th { color: #7890aa; background: #f8fbff; font-size: .68rem; letter-spacing: .04em; text-transform: uppercase; }
 .class-statistics-table td strong { color: #234d87; }
 .class-statistics-table tbody tr:last-child td { border-bottom: 0; }
+.question-statistics-table { width: 100%; min-width: 640px; table-layout: fixed; border-collapse: collapse; }
+.question-statistics-table th, .question-statistics-table td { padding: 11px 13px; border-bottom: 1px solid #edf2f7; color: #47617f; font-size: .76rem; text-align: left; vertical-align: top; white-space: normal; }
+.question-statistics-table th { color: #7890aa; background: #f8fbff; font-size: .68rem; letter-spacing: .04em; text-transform: uppercase; }
+.question-statistics-table td strong { color: #234d87; }
+.question-statistics-table tbody tr:last-child td { border-bottom: 0; }
+.question-statistics-table .nowrap-cell { white-space: nowrap; }
 .table-heading { padding: 20px; border-bottom: 1px solid #e4ebf3; }.report-table-actions { display: flex; align-items: flex-end; gap: 12px; }.report-table-actions label { min-width: 145px; color: #607693; font-size: .68rem; }.report-table-actions :deep(.ruas-select) { margin-top: 5px; }
 .print-note { color: #8495a9; font-size: .73rem; }
 .table-wrap { overflow-x: auto; }
