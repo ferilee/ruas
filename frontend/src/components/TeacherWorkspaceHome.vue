@@ -7,6 +7,7 @@
         <p>Mulai dari satu langkah untuk menyiapkan asesmen kelas Anda.</p>
       </div>
       <div class="teacher-workspace-heading-actions">
+        <span v-if="identityLabel" class="teacher-workspace-identity" :title="`Masuk sebagai ${props.displayName}`">{{ identityLabel }}</span>
         <span class="teacher-workspace-badge">RUAS · GURU</span>
         <button class="teacher-workspace-logout" type="button" @click="emit('back')">Kembali ke beranda</button>
         <button class="teacher-workspace-logout" type="button" @click="emit('logout')">Keluar (logout)</button>
@@ -100,6 +101,8 @@ type CardTone = 'blue' | 'violet' | 'green' | 'amber' | 'pink';
 type FeedbackKind = 'suggestion' | 'testimonial';
 
 const props = defineProps<{
+  displayName?: string;
+  sessionRole?: 'admin' | 'editor';
   classCount: number;
   assessmentTypeCount: number;
   subjectCount: number;
@@ -126,6 +129,13 @@ const actions: Array<{ id: WorkspaceAction; label: string; icon: string; tone: C
 ];
 
 const structureCountLabel = computed(() => `${props.classCount} kelas · ${props.subjectCount} mapel · ${props.assessmentTypeCount} jenis · ${props.topicCount} topik`);
+
+// RUAS-004: header ruang kerja wajib memperlihatkan siapa yang masuk dan
+// perannya — header AdminView yang memuat identitas tersembunyi di tampilan ini.
+const identityLabel = computed(() => {
+  if (!props.displayName) return '';
+  return `${props.displayName} · ${props.sessionRole === 'admin' ? 'Admin' : 'Guru'}`;
+});
 </script>
 
 <style scoped>
@@ -144,6 +154,7 @@ const structureCountLabel = computed(() => `${props.classCount} kelas · ${props
 .teacher-workspace-heading h2 { max-width: 760px; margin-top: 15px; color: #f7f2eb; font-size: clamp(2rem, 4vw, 3.55rem); font-weight: 800; letter-spacing: -.045em; line-height: 1.02; }
 .teacher-workspace-heading p { margin-top: 18px; color: #9e9aa5; font-size: .95rem; }
 .teacher-workspace-badge { padding: 8px 11px; border: 1px solid #3e3d48; border-radius: 999px; color: #aab8ff; font-size: .65rem; font-weight: 800; letter-spacing: .08em; white-space: nowrap; }
+.teacher-workspace-identity { padding: 7px 11px; border: 1px solid #dce7f4; border-radius: 999px; color: #365678; background: #f2f7fd; font-size: .72rem; font-weight: 700; white-space: nowrap; }
 .teacher-workspace-logout { padding: 8px 11px; border: 1px solid #4b4a52; border-radius: 8px; color: #d5d1d8; background: #25252a; font: inherit; font-size: .68rem; font-weight: 700; white-space: nowrap; cursor: pointer; }
 .teacher-workspace-logout:hover { border-color: #9b8fd0; color: #fff; background: #393542; }
 .teacher-workspace-divider { height: 1px; margin: 42px 0 27px; background: #3b3a41; }

@@ -30,7 +30,7 @@ export async function findParticipantProfile(db: ParticipantDb, identityKey: str
       .where(eq(participantProfiles.identity_key, identityKey))
       .limit(1),
     db
-      .select({ username: users.username, display_name: users.display_name, class_id: users.class_id, class_label: educationClasses.label, subject_id: users.subject_id, is_demo: users.is_demo })
+      .select({ username: users.username, display_name: users.display_name, role: users.role, class_id: users.class_id, class_label: educationClasses.label, subject_id: users.subject_id, is_demo: users.is_demo })
       .from(users)
       .leftJoin(educationClasses, eq(users.class_id, educationClasses.id))
       .where(eq(users.username, identityKey))
@@ -65,6 +65,9 @@ export async function findParticipantProfile(db: ParticipantDb, identityKey: str
     class_label: account?.class_label ?? subjectContext?.class_label ?? '',
     assessment_type_label: subjectContext?.assessment_type_label ?? '',
     is_demo: Boolean(account?.is_demo || profile?.is_demo),
+    // RUAS-004: peran akun database (sumber yang sama dengan jembatan sesi
+    // editor) agar label peran di beranda mencerminkan akses guru/admin.
+    account_role: account?.role ?? null,
     is_complete: Boolean(profile),
   };
 }

@@ -22,6 +22,29 @@ describe('TeacherWorkspaceHome', () => {
     expect(wrapper.find('.workspace-simak-card').attributes('target')).toBe('_blank');
   });
 
+  it('shows the signed-in name and role in the workspace header (RUAS-004)', () => {
+    const wrapper = mount(TeacherWorkspaceHome, {
+      props: { displayName: 'Feri Lee', sessionRole: 'editor', classCount: 0, assessmentTypeCount: 0, subjectCount: 0, topicCount: 0, questionCount: 0, scheduleCount: 0, participantCount: 0 },
+      global: { stubs: { RouterLink: routerLinkStub } },
+    });
+
+    expect(wrapper.find('.teacher-workspace-identity').text()).toBe('Feri Lee · Guru');
+  });
+
+  it('labels admin sessions as Admin and hides identity without a name (RUAS-004)', () => {
+    const adminWrapper = mount(TeacherWorkspaceHome, {
+      props: { displayName: 'Admin RUAS', sessionRole: 'admin', classCount: 0, assessmentTypeCount: 0, subjectCount: 0, topicCount: 0, questionCount: 0, scheduleCount: 0, participantCount: 0 },
+      global: { stubs: { RouterLink: routerLinkStub } },
+    });
+    expect(adminWrapper.find('.teacher-workspace-identity').text()).toBe('Admin RUAS · Admin');
+
+    const anonymousWrapper = mount(TeacherWorkspaceHome, {
+      props: { classCount: 0, assessmentTypeCount: 0, subjectCount: 0, topicCount: 0, questionCount: 0, scheduleCount: 0, participantCount: 0 },
+      global: { stubs: { RouterLink: routerLinkStub } },
+    });
+    expect(anonymousWrapper.find('.teacher-workspace-identity').exists()).toBe(false);
+  });
+
   it('emits create and navigate actions from the dashboard', async () => {
     const wrapper = mount(TeacherWorkspaceHome, {
       props: { classCount: 0, assessmentTypeCount: 0, subjectCount: 0, topicCount: 0, questionCount: 0, scheduleCount: 0, participantCount: 0 },

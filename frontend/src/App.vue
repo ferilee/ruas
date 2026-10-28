@@ -34,6 +34,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { fetchParticipantProfile } from '@/api/client';
+import { participantRoleLabel } from '@/lib/participant-profile';
 
 const route = useRoute();
 const router = useRouter();
@@ -51,7 +52,7 @@ async function refreshIdentity() {
   try {
     const profile = await fetchParticipantProfile();
     profileName.value = profile?.name ?? '';
-    profileRoleLabel.value = profile?.is_demo ? 'Demo' : 'Peserta';
+    profileRoleLabel.value = profile ? participantRoleLabel(profile) : '';
   } catch {
     profileName.value = '';
     profileRoleLabel.value = '';

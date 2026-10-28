@@ -91,6 +91,7 @@ export interface ParticipantProfile {
   class_label: string;
   assessment_type_label: string;
   is_demo: boolean;
+  account_role?: UserRole | null;
   is_complete: boolean;
 }
 

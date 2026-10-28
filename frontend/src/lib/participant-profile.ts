@@ -25,3 +25,12 @@ export function getLegacyParticipantProfile(): ParticipantProfile | null {
 export function clearLegacyParticipantProfile(): void {
   localStorage.removeItem(LEGACY_PROFILE_KEY);
 }
+
+// RUAS-004: label peran di beranda mengikuti peran akun database — akun
+// admin/editor tampil sebagai Admin/Guru, bukan selalu "Peserta".
+export function participantRoleLabel(profile: Pick<ParticipantProfile, 'is_demo' | 'account_role'> | null | undefined): string {
+  if (profile?.is_demo) return 'Demo';
+  if (profile?.account_role === 'admin') return 'Admin';
+  if (profile?.account_role === 'editor') return 'Guru';
+  return 'Peserta';
+}

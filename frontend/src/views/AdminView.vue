@@ -112,6 +112,8 @@
               @navigate="handleWizardNavigation"
             />
             <TeacherWorkspaceHome
+              :display-name="adminSession?.display_name ?? ''"
+              :session-role="adminSession?.role ?? 'editor'"
               :class-count="curriculum.classes.length"
               :assessment-type-count="curriculum.assessment_types.length"
               :subject-count="curriculum.subjects.length"
