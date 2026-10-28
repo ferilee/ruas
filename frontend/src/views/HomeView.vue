@@ -26,9 +26,17 @@
             <span class="assignment-kicker">Penugasan Anda</span>
             <span class="assignment-status"><span aria-hidden="true">✓</span> Diatur admin</span>
           </div>
-          <div class="assignment-row"><span><span class="field-icon">◆</span> Kelas</span><strong>{{ participantProfile?.class_label || 'Belum ditetapkan' }}</strong></div>
-          <div class="assignment-row"><span><span class="field-icon">▣</span> Jenis asesmen</span><strong>{{ participantProfile?.assessment_type_label || 'Belum ditetapkan' }}</strong></div>
-          <div class="assignment-row"><span><span class="field-icon">▤</span> Mata pelajaran</span><strong>{{ participantProfile?.subject_label || 'Belum ditetapkan' }}</strong></div>
+          <template v-if="curriculumLoading && !participantProfile">
+            <div class="assignment-row skeleton-row" aria-hidden="true"><span><span class="field-icon">◆</span> Kelas</span><span class="skeleton-bar"></span></div>
+            <div class="assignment-row skeleton-row" aria-hidden="true"><span><span class="field-icon">▣</span> Jenis asesmen</span><span class="skeleton-bar"></span></div>
+            <div class="assignment-row skeleton-row" aria-hidden="true"><span><span class="field-icon">▤</span> Mata pelajaran</span><span class="skeleton-bar"></span></div>
+            <p class="assignment-loading-note" role="status">Memuat penugasan Anda…</p>
+          </template>
+          <template v-else>
+            <div class="assignment-row"><span><span class="field-icon">◆</span> Kelas</span><strong>{{ participantProfile?.class_label || 'Belum ditetapkan' }}</strong></div>
+            <div class="assignment-row"><span><span class="field-icon">▣</span> Jenis asesmen</span><strong>{{ participantProfile?.assessment_type_label || 'Belum ditetapkan' }}</strong></div>
+            <div class="assignment-row"><span><span class="field-icon">▤</span> Mata pelajaran</span><strong>{{ participantProfile?.subject_label || 'Belum ditetapkan' }}</strong></div>
+          </template>
         </div>
 
         <template v-else>
@@ -596,6 +604,9 @@ onUnmounted(() => {
   font-weight: 800;
 }
 
+.skeleton-bar { display: inline-block; width: 130px; height: 14px; border-radius: 6px; background: linear-gradient(90deg, #e3ebf5, #f2f7fc, #e3ebf5); background-size: 200% 100%; animation: skeleton-pulse 1.2s ease-in-out infinite; }
+.assignment-loading-note { color: #7186a8; font-size: .76rem; }
+@keyframes skeleton-pulse { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
 .assignment-row {
   display: flex;
   align-items: center;

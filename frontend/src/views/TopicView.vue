@@ -19,10 +19,15 @@
     </div>
     <router-link to="/" class="topic-back">&larr; Kembali</router-link>
 
-    <h1 class="topic-title">{{ subjectLabel || 'Pilih Topik' }}</h1>
+    <h1 class="topic-title">{{ loading ? 'Memuat topik…' : subjectLabel || 'Pilih Topik' }}</h1>
     <p class="topic-subtitle">Pilih topik yang ingin kamu kerjakan.</p>
 
-    <div v-if="loading || scheduleLoading" class="topic-loading">Memuat...</div>
+    <div v-if="loading || scheduleLoading" class="topic-loading" role="status" aria-label="Memuat topik">
+      <span class="topic-skeleton" aria-hidden="true"></span>
+      <span class="topic-skeleton" aria-hidden="true"></span>
+      <span class="topic-skeleton" aria-hidden="true"></span>
+      <span class="sr-only">Memuat...</span>
+    </div>
 
     <div v-else-if="error" class="topic-state">
       <p class="topic-error">{{ error }}</p>
@@ -431,6 +436,8 @@ onUnmounted(() => {
 .topic-subtitle,
 .topic-list,
 .topic-state,
+.topic-skeleton { display: block; height: 64px; margin-bottom: 10px; border-radius: 12px; background: linear-gradient(90deg, #e3ebf5, #f2f7fc, #e3ebf5); background-size: 200% 100%; animation: skeleton-pulse 1.2s ease-in-out infinite; }
+@keyframes skeleton-pulse { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
 .topic-loading {
   position: relative;
   z-index: 1;
