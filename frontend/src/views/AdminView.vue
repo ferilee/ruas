@@ -1,5 +1,5 @@
 <template>
-  <div :class="['admin-view', { 'editor-view': isEditorSession, 'teacher-workspace-view': isEditorSession && (activeSection === 'overview' || curriculumFocus !== null || teacherQuestionFlow), 'teacher-question-workspace': isEditorSession && teacherQuestionFlow }]" :data-theme="adminTheme">
+  <div :class="['admin-view', { 'editor-view': isEditorSession, 'teacher-workspace-view': isEditorSession }]" :data-theme="adminTheme">
     <ConfirmDialog :open="confirmOpen" :title="confirmTitle" :message="confirmMessage" :confirm-label="confirmLabel" @confirm="runConfirmation" @cancel="closeConfirmation" />
     <button v-if="showWorkspaceThemeToggle" class="workspace-theme-toggle workspace-theme-toggle-floating" type="button" :aria-pressed="adminTheme === 'light'" :aria-label="adminTheme === 'dark' ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'" :title="adminTheme === 'dark' ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'" @click="toggleAdminTheme">
       <span aria-hidden="true">{{ adminTheme === 'dark' ? '☼' : '☾' }}</span>
@@ -56,8 +56,25 @@
           </div>
         </section>
       </div>
-      <div class="admin-layout">
-        <aside class="admin-sidebar">
+      <div v-if="teacherWorkspaceModal === 'feedback'" class="teacher-workspace-modal-backdrop" role="presentation" @click.self="closeTeacherWorkspaceModal">
+        <section class="teacher-workspace-modal teacher-feedback-modal" role="dialog" aria-modal="true" aria-labelledby="teacher-feedback-modal-title">
+          <div class="teacher-workspace-modal-heading">
+            <div><span class="modal-eyebrow">RUANG KERJA GURU</span><h2 id="teacher-feedback-modal-title">Saran &amp; Testimoni</h2><p>Bantu kami memperbaiki pengalaman menggunakan RUAS.</p></div>
+            <button class="teacher-workspace-modal-close" type="button" aria-label="Tutup saran dan testimoni" @click="closeTeacherWorkspaceModal">×</button>
+          </div>
+          <FeedbackPanel :session="adminSession" :initial-kind="feedbackKind" mode="submit" />
+        </section>
+      </div>
+      <component
+        :is="isEditorSession ? TeacherWizardShell : 'div'"
+        class="admin-layout"
+        v-bind="wizardShellProps"
+        @select-step="selectTeacherStep"
+        @back="goHome"
+        @logout="logout"
+        @feedback="openFeedbackModal('suggestion')"
+      >
+        <aside v-if="!isEditorSession" class="admin-sidebar">
           <div class="sidebar-brand">
             <span class="sidebar-mark">R</span>
             <div>
@@ -85,7 +102,7 @@
         </aside>
 
         <main class="admin-content">
-          <div class="admin-header dashboard-header">
+          <div v-if="!isEditorSession" class="admin-header dashboard-header">
             <div>
               <router-link to="/" class="back-link">&larr; Kembali ke latihan</router-link>
               <h1 class="page-title">{{ currentSectionTitle }}</h1>
@@ -111,23 +128,8 @@
               :scheduled-topic-count="scheduleRows.length"
               @navigate="handleWizardNavigation"
             />
-            <TeacherWorkspaceHome
-              :display-name="adminSession?.display_name ?? ''"
-              :session-role="adminSession?.role ?? 'editor'"
-              :class-count="curriculum.classes.length"
-              :assessment-type-count="curriculum.assessment_types.length"
-              :subject-count="curriculum.subjects.length"
-              :topic-count="topics.length"
-              :question-count="questionTotal"
-              :schedule-count="scheduleRows.length"
-              :participant-count="participantCount"
-              @create="handleTeacherWorkspaceAction"
-              @navigate="handleTeacherWorkspaceNavigation"
-              @feedback="openFeedbackModal"
-              @back="goHome"
-              @logout="logout"
-            />
             <TeacherClassesPanel />
+            <UsersPanel :admin-session="adminSession" />
             <div v-if="supportPromptOpen" class="teacher-workspace-modal-backdrop support-prompt-backdrop" role="presentation" @click.self="closeSupportPrompt">
               <section class="support-prompt-modal" role="dialog" aria-modal="true" aria-labelledby="support-prompt-title">
                 <button class="teacher-workspace-modal-close support-prompt-close" type="button" aria-label="Tutup informasi dukungan" @click="closeSupportPrompt">×</button>
@@ -144,116 +146,6 @@
                   <router-link class="support-prompt-secondary" to="/dukung" @click="closeSupportPrompt">Lihat selengkapnya <span aria-hidden="true">→</span></router-link>
                 </div>
                 <p class="support-prompt-note">Dukungan bersifat sukarela. RUAS tetap dapat digunakan secara gratis.</p>
-              </section>
-            </div>
-            <CurriculumPanel
-              v-if="curriculumFocus"
-              :workspace-only="true"
-              :admin-session="adminSession"
-              :initial-form="curriculumFocus"
-              @topics-updated="loadData"
-            />
-            <div v-if="teacherWorkspaceModal === 'users'" class="teacher-workspace-modal-backdrop" role="presentation" @click.self="closeTeacherWorkspaceModal">
-              <section class="teacher-workspace-modal" role="dialog" aria-modal="true" aria-labelledby="teacher-users-modal-title">
-                <div class="teacher-workspace-modal-heading">
-                  <div><span class="modal-eyebrow">RUANG KERJA GURU</span><h2 id="teacher-users-modal-title">Daftar Pengguna</h2><p>Kelola siswa yang berada dalam penetapan Anda.</p></div>
-                  <button class="teacher-workspace-modal-close" type="button" aria-label="Tutup daftar pengguna" @click="closeTeacherWorkspaceModal">×</button>
-                </div>
-                <UsersPanel :admin-session="adminSession" />
-              </section>
-            </div>
-            <div v-if="teacherWorkspaceModal === 'schedule'" class="teacher-workspace-modal-backdrop" role="presentation" @click.self="closeTeacherWorkspaceModal">
-              <section class="teacher-workspace-modal teacher-schedule-modal" role="dialog" aria-modal="true" aria-labelledby="teacher-schedule-modal-title">
-                <div class="teacher-workspace-modal-heading">
-                  <div><span class="modal-eyebrow">RUANG KERJA GURU</span><h2 id="teacher-schedule-modal-title">Jadwal Asesmen</h2><p>Tentukan kapan siswa dapat membuka setiap topik.</p></div>
-                  <button class="teacher-workspace-modal-close" type="button" aria-label="Tutup jadwal asesmen" @click="closeTeacherWorkspaceModal">×</button>
-                </div>
-                <section class="schedule-panel workspace-schedule-panel">
-                  <div class="schedule-layout">
-                    <form class="schedule-form schedule-editor-form" @submit.prevent="saveSchedule">
-                      <div class="panel-heading"><div><h3>Atur jadwal</h3><p>Pilih topik, lalu tentukan jendela pengerjaannya.</p></div></div>
-                      <label>Topik
-                        <RuasSelect v-model="scheduleTopicId" class="schedule-topic-select" :options="scheduleTopicOptions" placeholder="Pilih topik" aria-label="Topik untuk jadwal" searchable search-placeholder="Cari topik, mata pelajaran, atau kelas..." />
-                      </label>
-                      <ScheduleAudiencePicker v-model:mode="scheduleAccessMode" v-model:participant-ids="scheduleParticipantIds" :participants="scheduleParticipants" />
-                      <label>Waktu mulai
-                        <input v-model="scheduleStartAt" type="datetime-local" />
-                      </label>
-                      <label>Waktu selesai <span class="label-optional">(opsional)</span>
-                        <input v-model="scheduleEndAt" type="datetime-local" />
-                      </label>
-                      <label>Catatan <span class="label-optional">(opsional)</span>
-                        <input v-model.trim="scheduleNotes" type="text" maxlength="255" placeholder="Contoh: Sesi pagi kelas XI" />
-                      </label>
-                      <label class="schedule-toggle"><input v-model="scheduleEnabled" type="checkbox" /> <span>Jadwal aktif</span></label>
-                      <div class="schedule-actions">
-                        <p v-if="!scheduleTopicId" class="field-hint">Pilih topik dulu untuk menyimpan jadwal.</p>
-                        <button class="primary-btn" type="submit" :disabled="scheduleSaving || !scheduleTopicId">{{ scheduleSaving ? 'Menyimpan...' : 'Simpan Jadwal' }}</button>
-                        <button class="secondary-btn" type="button" :disabled="scheduleSaving || !scheduleTopicId" @click="openScheduleNow">Buka Sekarang</button>
-                      </div>
-                    </form>
-                    <div class="schedule-list-card">
-                      <div class="panel-heading"><div><h3>Jadwal per topik</h3><p>Pilih jadwal untuk mengubahnya.</p></div></div>
-                      <div v-if="scheduleRows.length === 0" class="schedule-empty">Belum ada jadwal khusus. Peserta dapat mulai segera.</div>
-                      <template v-for="group in scheduleGroups" :key="group.key">
-                        <details v-if="group.key === 'ended' && group.rows.length" class="schedule-ended-accordion">
-                          <summary><span>{{ group.label }}</span><b>{{ group.rows.length }}</b></summary>
-                          <div class="schedule-group schedule-ended-group">
-                            <article v-for="row in group.rows" :key="row.topic_id ?? row.id ?? 'schedule'" class="schedule-row">
-                              <button class="schedule-row-main schedule-row-edit" type="button" @click="editSchedule(row)"><strong>{{ row.topic_label }}</strong><small>{{ row.subject_label || 'Tanpa mata pelajaran' }} · {{ scheduleAudienceLabel(row) }}</small></button>
-                              <span :class="['schedule-row-state', `state-${row.state}`]">{{ scheduleStateLabel(row.state) }}</span>
-                              <span class="schedule-row-time">{{ formatScheduleWindow(row) }}</span>
-                              <button class="schedule-row-share" type="button" @click="openScheduleShare(row)">Bagikan WA</button>
-                            </article>
-                          </div>
-                        </details>
-                        <div v-else-if="group.rows.length" class="schedule-group">
-                          <h4>{{ group.label }} <span>{{ group.rows.length }}</span></h4>
-                          <article v-for="row in group.rows" :key="row.topic_id ?? row.id ?? 'schedule'" class="schedule-row">
-                            <button class="schedule-row-main schedule-row-edit" type="button" @click="editSchedule(row)"><strong>{{ row.topic_label }}</strong><small>{{ row.subject_label || 'Tanpa mata pelajaran' }} · {{ scheduleAudienceLabel(row) }}</small></button>
-                            <span :class="['schedule-row-state', `state-${row.state}`]">{{ scheduleStateLabel(row.state) }}</span>
-                            <span class="schedule-row-time">{{ formatScheduleWindow(row) }}</span>
-                            <button class="schedule-row-share" type="button" @click="openScheduleShare(row)">Bagikan WA</button>
-                          </article>
-                        </div>
-                      </template>
-                    </div>
-                  </div>
-                  <p class="field-hint schedule-hint">Untuk membuka topik segera, gunakan tombol “Buka Sekarang” — waktu mulai dan selesai dikosongkan serta jadwal diaktifkan otomatis. “Simpan Jadwal” menyimpan persis waktu yang Anda isi.</p>
-                  <p v-if="scheduleMessage" :class="scheduleMessageType === 'error' ? 'error-text' : 'success-text'">{{ scheduleMessage }}</p><p v-for="(message, field) in scheduleFieldErrors" :key="field" class="field-error" role="alert">{{ message }}</p>
-                </section>
-              </section>
-            </div>
-            <div v-if="teacherWorkspaceModal === 'reports'" class="teacher-workspace-modal-backdrop" role="presentation" @click.self="closeTeacherWorkspaceModal">
-              <section class="teacher-workspace-modal teacher-report-modal" role="dialog" aria-modal="true" aria-labelledby="teacher-report-modal-title">
-                <div class="teacher-workspace-modal-heading">
-                  <div><span class="modal-eyebrow">RUANG KERJA GURU</span><h2 id="teacher-report-modal-title">Laporan Asesmen</h2><p>Lihat hasil siswa dengan langkah yang sederhana.</p></div>
-                  <button class="teacher-workspace-modal-close" type="button" aria-label="Tutup laporan asesmen" @click="closeTeacherWorkspaceModal">×</button>
-                </div>
-                <ReportsPanel :can-reset="false" :simple="true" />
-              </section>
-            </div>
-            <div v-if="teacherWorkspaceModal === 'questions'" class="teacher-workspace-modal-backdrop" role="presentation" @click.self="closeTeacherWorkspaceModal">
-              <section class="teacher-workspace-modal teacher-question-modal" role="dialog" aria-modal="true" aria-labelledby="teacher-question-list-title">
-                <TeacherQuestionListModal :questions="questions" :question-total="questionTotal" @close="closeTeacherWorkspaceModal" @create="createQuestionFromList" @edit="editQuestionFromList" />
-              </section>
-            </div>
-            <div v-if="teacherWorkspaceModal === 'curriculum'" class="teacher-workspace-modal-backdrop" role="presentation" @click.self="closeTeacherWorkspaceModal">
-              <section class="teacher-workspace-modal teacher-curriculum-modal" role="dialog" aria-modal="true" aria-labelledby="teacher-curriculum-list-title">
-                <div class="teacher-workspace-modal-heading">
-                  <div><span class="modal-eyebrow">STRUKTUR ASESMEN</span><h2 id="teacher-curriculum-list-title">Struktur Asesmen</h2><p>Kelola kelas, mata pelajaran, jenis asesmen, dan topik.</p></div>
-                  <button class="teacher-workspace-modal-close" type="button" aria-label="Tutup struktur asesmen" @click="closeTeacherWorkspaceModal">×</button>
-                </div>
-                <CurriculumPanel :readonly="true" :admin-session="adminSession" @topics-updated="loadData" />
-              </section>
-            </div>
-            <div v-if="teacherWorkspaceModal === 'feedback'" class="teacher-workspace-modal-backdrop" role="presentation" @click.self="closeTeacherWorkspaceModal">
-              <section class="teacher-workspace-modal teacher-feedback-modal" role="dialog" aria-modal="true" aria-labelledby="teacher-feedback-modal-title">
-                <div class="teacher-workspace-modal-heading">
-                  <div><span class="modal-eyebrow">RUANG KERJA GURU</span><h2 id="teacher-feedback-modal-title">Saran &amp; Testimoni</h2><p>Bantu kami memperbaiki pengalaman menggunakan RUAS.</p></div>
-                  <button class="teacher-workspace-modal-close" type="button" aria-label="Tutup saran dan testimoni" @click="closeTeacherWorkspaceModal">×</button>
-                </div>
-                <FeedbackPanel :session="adminSession" :initial-kind="feedbackKind" mode="submit" />
               </section>
             </div>
           </template>
@@ -307,7 +199,7 @@
             </section>
           </section>
 
-          <CurriculumPanel v-else-if="activeSection === 'curriculum'" :admin-session="adminSession" :initial-form="isEditorSession ? curriculumFocus : null" @topics-updated="loadData" />
+          <CurriculumPanel v-else-if="activeSection === 'curriculum'" :admin-session="adminSession" @topics-updated="loadData" />
 
           <ReportsPanel v-else-if="activeSection === 'reports'" :can-reset="isAdminSession" :simple="isEditorSession" />
 
@@ -582,7 +474,7 @@
           </section>
           </template>
         </main>
-      </div>
+      </component>
 
       <nav v-if="!isEditorSession" class="mobile-bottom-nav no-print" aria-label="Navigasi admin mobile">
         <button
@@ -623,10 +515,9 @@ import ReportsPanel from '@/components/ReportsPanel.vue';
 import RuasSelect from '@/components/RuasSelect.vue';
 import UsersPanel from '@/components/UsersPanel.vue';
 import TeacherRequestsPanel from '@/components/TeacherRequestsPanel.vue';
-import TeacherWorkspaceHome from '@/components/TeacherWorkspaceHome.vue';
 import TeacherClassesPanel from '@/components/TeacherClassesPanel.vue';
 import TeacherOnboardingWizard from '@/components/TeacherOnboardingWizard.vue';
-import TeacherQuestionListModal from '@/components/TeacherQuestionListModal.vue';
+import TeacherWizardShell, { type TeacherWizardStepDef } from '@/components/TeacherWizardShell.vue';
 import FeedbackPanel from '@/components/FeedbackPanel.vue';
 import ScheduleAudiencePicker from '@/components/ScheduleAudiencePicker.vue';
 import {
@@ -656,11 +547,11 @@ import { connectAdminRealtime, dispatchAdminRealtimeEvent, type AdminRealtimeEve
 import { extractFieldErrors } from '@/lib/field-errors';
 import { suggestExternalId } from '@/lib/slug';
 import { buildAdminRouteQuery, parseAdminRouteQuery } from '@/lib/admin-route-state';
+import { sectionForTeacherStep, TEACHER_STEPS, teacherStepForSection, teacherStepForWorkspace, type TeacherStepId } from '@/lib/teacher-wizard';
 
 const router = useRouter();
 const route = useRoute();
 type AdminSection = 'overview' | 'curriculum' | 'questions' | 'schedule' | 'reports' | 'users' | 'teacher-requests' | 'feedback';
-type TeacherWorkspaceAction = 'class' | 'assessment-type' | 'subject' | 'topic' | 'question';
 const navigation: Array<{ id: AdminSection; label: string; icon: string; title: string; description: string }> = [
   { id: 'overview', label: 'Ringkasan', icon: '⌂', title: 'Ringkasan', description: 'Pantau isi dan status asesmen RUAS.' },
   { id: 'curriculum', label: 'Struktur Asesmen', icon: '▦', title: 'Struktur Asesmen', description: 'Atur kelas, jenis asesmen, dan mata pelajaran.' },
@@ -680,8 +571,6 @@ const visibleNavigation = computed(() => isAdminSession.value ? navigation : nav
 const visibleMobilePrimaryNavigation = computed(() => visibleNavigation.value.filter((item) => ['overview', 'curriculum', 'questions', 'reports'].includes(item.id)));
 const visibleMobileSecondaryNavigation = computed(() => visibleNavigation.value.filter((item) => ['schedule', 'users', 'teacher-requests', 'feedback'].includes(item.id)));
 const activeSection = ref<AdminSection>('overview');
-const curriculumFocus = ref<'class' | 'type' | 'subject' | 'topic' | null>(null);
-const teacherQuestionFlow = ref(false);
 const teacherWorkspaceModal = ref<'schedule' | 'users' | 'reports' | 'questions' | 'curriculum' | 'feedback' | null>(null);
 const feedbackKind = ref<'suggestion' | 'testimonial'>('suggestion');
 const supportPromptOpen = ref(false);
@@ -865,8 +754,6 @@ watch([difficultyFilter, questionTypeFilter, questionStatusFilter, questionTopic
 
 function selectSection(section: AdminSection) {
   teacherWorkspaceModal.value = null;
-  if (section !== 'overview') curriculumFocus.value = null;
-  if (section !== 'questions') teacherQuestionFlow.value = false;
   activeSection.value = section;
   moreMenuOpen.value = false;
   errorMessage.value = '';
@@ -876,9 +763,20 @@ let applyingRouteState = false;
 function applyRouteState() {
   const state = parseAdminRouteQuery(route.query as Record<string, unknown>);
   applyingRouteState = true;
-  if (isEditorSession.value && state.workspace) {
-    activeSection.value = 'overview';
-    teacherWorkspaceModal.value = state.workspace;
+  if (isEditorSession.value) {
+    // Tampilan guru kini wizard: tautan lama ?workspace= diterjemahkan ke
+    // langkah yang setara; 'feedback' tetap overlay di atas langkah aktif.
+    if (state.workspace === 'feedback') {
+      teacherWorkspaceModal.value = 'feedback';
+    } else if (state.workspace) {
+      teacherWorkspaceModal.value = null;
+      const step = teacherStepForWorkspace(state.workspace);
+      activeSection.value = step ? sectionForTeacherStep(step) : 'overview';
+    } else {
+      teacherWorkspaceModal.value = null;
+      // ?section=users dan section khusus admin mendarat di langkah Kelas.
+      activeSection.value = sectionForTeacherStep(teacherStepForSection(state.section));
+    }
   } else {
     teacherWorkspaceModal.value = null;
     activeSection.value = state.section;
@@ -914,36 +812,45 @@ function applyAdminThemeToDocument() {
 const securedTopicCount = computed(() => topics.value.filter((topic) => topic.token_configured).length);
 
 function handleWizardNavigation(section: 'curriculum' | 'questions' | 'schedule') {
-  if (isEditorSession.value && section === 'schedule') {
-    handleTeacherWorkspaceNavigation('schedule');
-    return;
-  }
   selectSection(section);
 }
 
-function handleTeacherWorkspaceAction(action: TeacherWorkspaceAction) {
-  if (action === 'question') {
-    curriculumFocus.value = null;
-    teacherQuestionFlow.value = true;
-    startNew();
-    selectSection('questions');
-    return;
+// --- Wizard ruang kerja guru ---
+// Langkah diturunkan dari state rute yang sudah ada (section/workspace),
+// sehingga deep link dan tombol kembali browser tetap bekerja seperti dulu.
+const teacherStep = computed<TeacherStepId>(() => {
+  if (teacherWorkspaceModal.value && teacherWorkspaceModal.value !== 'feedback') {
+    return teacherStepForWorkspace(teacherWorkspaceModal.value) ?? 'kelas';
   }
-  teacherQuestionFlow.value = false;
-  const form = action === 'assessment-type' ? 'type' : action;
-  curriculumFocus.value = null;
-  void nextTick(() => { curriculumFocus.value = form; });
-}
+  return teacherStepForSection(activeSection.value);
+});
 
-function handleTeacherWorkspaceNavigation(section: 'curriculum' | 'questions' | 'reports' | 'schedule' | 'users') {
-  teacherQuestionFlow.value = false;
-  curriculumFocus.value = null;
-  if (isEditorSession.value && (section === 'schedule' || section === 'users' || section === 'reports' || section === 'questions' || section === 'curriculum')) {
-    teacherWorkspaceModal.value = section;
-    moreMenuOpen.value = false;
-    return;
-  }
-  selectSection(section);
+// Tanda selesai hanya dari syarat nyata yang sudah dimuat aplikasi:
+// Kelas = guru terpetakan ke ≥1 kelas (dari sesi, termasuk fallback kelas
+// tunggal lama); Laporan tidak punya sinyal tuntas, jadi tanpa tanda.
+const teacherStepDefs = computed<TeacherWizardStepDef[]>(() => {
+  const mappedClassCount = adminSession.value?.class_ids?.length ?? (adminSession.value?.class_id ? 1 : 0);
+  const completion: Record<TeacherStepId, boolean | null> = {
+    kelas: mappedClassCount > 0,
+    topik: topics.value.length > 0,
+    soal: questionTotal.value > 0,
+    jadwal: scheduleRows.value.length > 0,
+    laporan: null,
+  };
+  return TEACHER_STEPS.map((step) => ({ ...step, complete: completion[step.id] }));
+});
+
+const wizardShellProps = computed(() => (isEditorSession.value
+  ? {
+      steps: teacherStepDefs.value,
+      activeStep: teacherStep.value,
+      displayName: adminSession.value?.display_name ?? '',
+      sessionRole: adminSession.value?.role ?? 'editor',
+    }
+  : {}));
+
+function selectTeacherStep(step: TeacherStepId) {
+  selectSection(sectionForTeacherStep(step));
 }
 
 function closeTeacherWorkspaceModal() {
@@ -963,8 +870,6 @@ function clearSupportPromptTimer() {
 function isWorkspaceOverlayOpen() {
   return Boolean(
     teacherWorkspaceModal.value
-    || curriculumFocus.value
-    || teacherQuestionFlow.value
     || questionFormOpen.value
     || importFormOpen.value
     || confirmOpen.value
@@ -993,18 +898,6 @@ function closeSupportPrompt() {
   supportPromptShown.value = true;
   sessionStorage.setItem(supportPromptSeenKey, '1');
   clearSupportPromptTimer();
-}
-
-function createQuestionFromList() {
-  closeTeacherWorkspaceModal();
-  handleTeacherWorkspaceAction('question');
-}
-
-async function editQuestionFromList(id: number) {
-  closeTeacherWorkspaceModal();
-  teacherQuestionFlow.value = true;
-  selectSection('questions');
-  await editQuestion(id);
 }
 
 function syncTopicAccessDrafts(rows: AdminTopic[]) {
@@ -1114,10 +1007,6 @@ function startNew() {
 
 function closeQuestionForm() {
   questionFormOpen.value = false;
-  if (teacherQuestionFlow.value) {
-    teacherQuestionFlow.value = false;
-    activeSection.value = 'overview';
-  }
 }
 
 function openImportModal() {
@@ -2087,7 +1976,7 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .editor-view .mobile-more-item:hover { color: #fff; background: #393542; }
 .teacher-workspace-view { min-height: 100vh; min-height: 100dvh; padding: 0; background: #111115; }
 :global(html:has(.teacher-workspace-view)), :global(body:has(.teacher-workspace-view)) { background: #111115; }
-.teacher-workspace-view .admin-layout { display: block; max-width: none; }
+.teacher-workspace-view .admin-layout:not(.teacher-wizard-shell) { display: block; max-width: none; }
 .teacher-workspace-view .admin-sidebar, .teacher-workspace-view .dashboard-header { display: none; }
 .teacher-workspace-view .admin-content { width: 100%; }
 .teacher-workspace-view .teacher-workspace-home { min-height: 100vh; border-radius: 0; box-shadow: none; }
@@ -2244,14 +2133,14 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 }
 
 @media (max-width: 960px) {
-  .admin-layout { grid-template-columns: 190px minmax(0, 1fr); gap: 18px; }
+  .admin-layout:not(.teacher-wizard-shell) { grid-template-columns: 190px minmax(0, 1fr); gap: 18px; }
   .stats-grid { grid-template-columns: 1fr; }
   .quick-action-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 720px) {
   .admin-view { padding: 18px 14px 100px; }
-  .admin-layout { display: block; }
+  .admin-layout:not(.teacher-wizard-shell) { display: block; }
   .admin-sidebar { display: none; }
   .welcome-card { align-items: flex-start; flex-direction: column; padding: 22px; }
   .dashboard-header { align-items: flex-start; }
