@@ -95,7 +95,7 @@ onMounted(load);
 </script>
 
 <style scoped>
-.teacher-classes-panel { margin: 13px clamp(20px, 5vw, 58px) 42px; padding: 20px; border: 1px solid #dce7f4; border-radius: 3px; color: #1d3557; background: #fff; box-shadow: 0 10px 24px rgba(31, 74, 126, .06); }
+.teacher-classes-panel { margin: 13px 0 42px; padding: 20px; border: 1px solid #dce7f4; border-radius: 16px; color: #1d3557; background: #fff; box-shadow: 0 10px 24px rgba(31, 74, 126, .06); }
 .teacher-classes-heading { display: flex; align-items: center; gap: 14px; }
 .teacher-classes-heading h3 { color: #172b4d; font-size: 1rem; text-transform: uppercase; }
 .teacher-classes-heading p { margin-top: 5px; color: #66788e; font-size: .78rem; line-height: 1.45; }

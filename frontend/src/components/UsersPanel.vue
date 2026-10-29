@@ -327,8 +327,9 @@ onUnmounted(() => window.removeEventListener(ADMIN_REALTIME_EVENT, handleRealtim
   .import-actions { display: grid; grid-template-columns: 1fr 1fr; }
   .action-btn { width: 100%; min-width: 0; }
   .user-table-wrap { overflow: visible; }
-  .user-table, .user-table tbody, .user-table tr, .user-table td { display: block; }
+  .user-table { display: block; width: 100%; }
   .user-table thead { display: none; }
+  .user-table tbody, .user-table tr, .user-table td { display: block; }
   .user-table tr { display: grid; grid-template-columns: 25px minmax(0, 1fr) auto; grid-template-areas: 'select identity status' 'select assignment assignment' 'select actions actions'; column-gap: 8px; row-gap: 8px; margin-bottom: 9px; padding: 13px; border: 1px solid #e1eaf4; border-radius: 14px; background: #fbfdff; }
   .user-table td { display: block; padding: 0; border: 0; white-space: normal; }
   .user-table td.selection-column { grid-area: select; width: auto; padding-top: 2px; }
@@ -340,7 +341,8 @@ onUnmounted(() => window.removeEventListener(ADMIN_REALTIME_EVENT, handleRealtim
   .user-table td.user-identity strong { overflow: hidden; color: #234d87; text-overflow: ellipsis; white-space: nowrap; }
   .user-table td.user-identity small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .import-users-panel { order: 2; }
-  .bulk-assignment-bar { grid-template-columns: 1fr 1fr; }
+  .bulk-assignment-bar { grid-template-columns: 1fr; }
+  .bulk-assignment-bar .select-all-button { width: 100%; }
   .danger-zone { align-items: stretch; flex-direction: column; }
   .danger-zone-button { width: 100%; }
   .bulk-assignment-copy { grid-column: 1 / -1; }

@@ -1883,7 +1883,7 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 :global(html:has(.teacher-workspace-view)), :global(body:has(.teacher-workspace-view)) { background: #f4f7fb; }
 .teacher-workspace-view .admin-layout:not(.teacher-wizard-shell) { display: block; max-width: none; }
 .teacher-workspace-view .admin-sidebar, .teacher-workspace-view .dashboard-header { display: none; }
-.teacher-workspace-view .admin-content { width: 100%; }
+.teacher-workspace-view .admin-content { width: 100%; overflow-x: clip; }
 
 .teacher-workspace-modal-backdrop {
   position: fixed;
