@@ -16,14 +16,15 @@
           <label>Nama tampilan<input v-model.trim="form.display_name" required placeholder="Nama peserta" /><small v-if="formFieldErrors.display_name" class="field-error" role="alert">{{ formFieldErrors.display_name }}</small></label>
           <div v-if="!isEditor && form.role === 'editor'" class="teacher-classes-field">
             <span class="teacher-classes-label">Kelas yang diajar (boleh lebih dari satu)</span>
-            <div class="teacher-classes-list">
-              <label v-for="item in classes" :key="item.id" class="teacher-class-option">
-                <input type="checkbox" :checked="(form.class_ids ?? []).includes(item.id)" @change="toggleFormClass(item.id)" />
-                <span>{{ item.label }} · {{ item.academic_year }}</span>
-                <span v-if="editingMappingSource(item.id) === 'self'" class="self-badge">dipilih sendiri</span>
-              </label>
-              <p v-if="classes.length === 0" class="teacher-classes-empty">Belum ada kelas master. Buat kelas terlebih dahulu lewat Struktur Asesmen.</p>
-            </div>
+            <ClassPicker
+              v-if="classes.length"
+              v-model="formClassIds"
+              :options="classes"
+              :sources="editingSources"
+              aria-label="Kelas yang diajar"
+              empty-selection-text="Belum ada kelas dipilih. Centang kelas di bawah untuk memetakan guru ini."
+            />
+            <p v-else class="teacher-classes-empty">Belum ada kelas master. Buat kelas terlebih dahulu lewat Struktur Asesmen.</p>
             <small>Kelas master dibuat Admin. Guru juga dapat memilih kelas tambahan sendiri dari daftar ini dan Admin dapat mencabutnya di sini.</small>
             <small v-if="formFieldErrors.class_ids" class="field-error" role="alert">{{ formFieldErrors.class_ids }}</small>
           </div>
@@ -85,6 +86,7 @@
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { assignAdminUsersClass, assignAdminUsersSubject, createAdminUser, deleteAdminUser, deleteAllAdminParticipants, fetchAdminCurriculum, fetchAdminParticipantCount, fetchAdminUsers, importAdminUsers, resetAdminUserPassword, updateAdminUser } from '@/api/client';
 import { extractFieldErrors } from '@/lib/field-errors';
+import ClassPicker from '@/components/ClassPicker.vue';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import RuasSelect from '@/components/RuasSelect.vue';
 import type { AdminSession, AdminUser, AdminUserInput, CurriculumClass, Subject, UserClassMapping, UserImportSummary, UserRole } from '@/types';
@@ -151,8 +153,8 @@ function openNewUser() { resetForm(); userFormOpen.value = true; }
 function closeUserForm() { userFormOpen.value = false; }
 function openFilePicker() { fileInput.value?.click(); }
 function editUser(user: AdminUser) { Object.assign(form, { username: user.username, password: '', display_name: user.display_name, class_id: user.class_id, class_ids: [...(user.class_ids ?? (user.class_id ? [user.class_id] : []))], subject_id: user.subject_id, role: isEditor.value ? 'participant' : user.role, active: user.active, is_demo: isEditor.value ? false : user.is_demo }); editingId.value = user.id; editingMappings.value = user.class_mappings ?? []; formMessage.value = ''; userFormOpen.value = true; window.scrollTo({ top: 0, behavior: 'smooth' }); }
-function toggleFormClass(classId: number) { const current = form.class_ids ?? []; form.class_ids = current.includes(classId) ? current.filter((id) => id !== classId) : [...current, classId]; }
-function editingMappingSource(classId: number) { return editingMappings.value.find((mapping) => mapping.class_id === classId)?.source ?? null; }
+const formClassIds = computed<number[]>({ get: () => form.class_ids ?? [], set: (ids) => { form.class_ids = ids; } });
+const editingSources = computed<Record<number, 'admin' | 'self'>>(() => Object.fromEntries(editingMappings.value.map((mapping) => [mapping.class_id, mapping.source])));
 function teacherClassesLabel(user: AdminUser) { const ids = user.class_ids ?? []; if (ids.length === 0) return user.class_label ?? 'Belum ditetapkan'; const labels = ids.map((id) => classes.value.find((item) => item.id === id)?.label ?? (id === user.class_id ? user.class_label : null) ?? `Kelas #${id}`); return `${ids.length} kelas — ${labels.join(', ')}`; }
 function askConfirmation(title: string, message: string, action: () => Promise<void>, label = 'OK', phrase?: string) { confirmTitle.value = title; confirmMessage.value = message; confirmLabel.value = label; confirmPhrase.value = phrase; pendingConfirmation.value = action; confirmOpen.value = true; }
 function closeConfirmation() { confirmOpen.value = false; confirmPhrase.value = undefined; pendingConfirmation.value = null; }
@@ -251,11 +253,7 @@ onUnmounted(() => window.removeEventListener(ADMIN_REALTIME_EVENT, handleRealtim
 .demo-field small { color: #7890ac; font-size: .68rem; font-weight: 400; line-height: 1.4; }
 .teacher-classes-field { display: flex; flex-direction: column; gap: 7px; color: #42628c; font-size: .78rem; font-weight: 700; }
 .teacher-classes-field small { color: #7890ac; font-size: .68rem; font-weight: 400; line-height: 1.4; }
-.teacher-classes-list { display: flex; max-height: 190px; flex-direction: column; gap: 6px; overflow-y: auto; padding: 10px 12px; border: 1px solid #d9e5f2; border-radius: 9px; background: #f8fbff; }
-.teacher-class-option { display: flex; align-items: center; gap: 8px; min-height: 32px; color: #43648d; font-size: .78rem; font-weight: 500; cursor: pointer; }
-.teacher-class-option input { width: auto; accent-color: #246bc5; }
-.teacher-classes-empty { margin: 0; color: #7890ac; font-size: .72rem; font-weight: 400; }
-.self-badge { display: inline-block; border-radius: 999px; padding: 3px 8px; color: #765214; background: #fff2c9; font-size: .65rem; font-weight: 700; }
+.teacher-classes-empty { margin: 0; padding: 10px 12px; border: 1px solid #d9e5f2; border-radius: 9px; color: #7890ac; background: #f8fbff; font-size: .72rem; font-weight: 400; }
 .scope-note { margin: 0; padding: 10px 12px; border: 1px solid #d9e5f2; border-radius: 9px; color: #42628c; background: #f8fbff; font-size: .78rem; font-weight: 700; }
 .check-line input { width: auto; }
 .text-button { border: 0; padding: 6px 0; color: #1d69c5; background: transparent; font: inherit; font-weight: 700; cursor: pointer; }

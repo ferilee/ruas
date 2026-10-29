@@ -34,7 +34,7 @@ describe('TeacherClassesPanel', () => {
     fetchMyClassesMock.mockResolvedValue(payload);
   });
 
-  it('shows mapped classes with their source badges', async () => {
+  it('shows mapped classes as picker selections with their source badges', async () => {
     const wrapper = mount(TeacherClassesPanel);
     await flushPromises();
 
@@ -42,18 +42,34 @@ describe('TeacherClassesPanel', () => {
     expect(wrapper.text()).toContain('Ditetapkan admin');
     expect(wrapper.text()).toContain('Kelas 11 TKJ B');
     expect(wrapper.text()).toContain('Dipilih sendiri');
-    expect(wrapper.findAll('.teacher-classes-item')).toHaveLength(2);
+    expect(wrapper.find('.class-picker-count').text()).toBe('2 kelas dipilih');
+    expect(wrapper.findAll('.class-picker-option.selected')).toHaveLength(2);
+    expect(wrapper.findAll('.class-picker-chip')).toHaveLength(2);
   });
 
-  it('removes a mapping through the API when Lepas is clicked', async () => {
+  it('removes a mapping through the API when its chip is removed', async () => {
     removeMyClassMock.mockResolvedValue({ ...payload, mappings: [payload.mappings[0]] });
     const wrapper = mount(TeacherClassesPanel);
     await flushPromises();
 
-    await wrapper.findAll('.teacher-classes-remove')[1].trigger('click');
+    await wrapper.get('[aria-label="Lepas Kelas 11 TKJ B · 2026/2027"]').trigger('click');
     await flushPromises();
 
     expect(removeMyClassMock).toHaveBeenCalledWith(5);
-    expect(wrapper.findAll('.teacher-classes-item')).toHaveLength(1);
+    expect(wrapper.findAll('.class-picker-chip')).toHaveLength(1);
+    expect(wrapper.find('.class-picker-count').text()).toBe('1 kelas dipilih');
+  });
+
+  it('adds a mapping through the API when an unselected class is checked', async () => {
+    addMyClassMock.mockResolvedValue({ ...payload, mappings: [...payload.mappings, { class_id: 9, source: 'self' as const, created_by: 'guru.satu', created_at: null }] });
+    const wrapper = mount(TeacherClassesPanel);
+    await flushPromises();
+
+    const row = wrapper.findAll('.class-picker-option').find((item) => item.text().includes('Kelas 10 RPL'));
+    await row?.find('input[type="checkbox"]').setValue(true);
+    await flushPromises();
+
+    expect(addMyClassMock).toHaveBeenCalledWith(9);
+    expect(wrapper.find('.class-picker-count').text()).toBe('3 kelas dipilih');
   });
 });
