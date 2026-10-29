@@ -171,20 +171,6 @@ function toggleGroup(group: ClassPickerGroup, select: boolean) {
   flex-direction: column;
   gap: 10px;
 }
-.class-picker.theme-dark {
-  --cp-border: #3d3c43;
-  --cp-surface: #25252a;
-  --cp-text: #f0ede6;
-  --cp-label: #e0dce4;
-  --cp-muted: #a49fae;
-  --cp-accent: #70eee8;
-  --cp-chip-bg: #202d5b;
-  --cp-chip-text: #aab8ff;
-  --cp-badge-self-bg: #fff2c9;
-  --cp-badge-self-text: #765214;
-  --cp-badge-admin-bg: #202d5b;
-  --cp-badge-admin-text: #aab8ff;
-}
 .class-picker-selected { display: flex; flex-direction: column; gap: 7px; }
 .class-picker-count { margin: 0; color: var(--cp-muted); font-size: .68rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
 .class-picker-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
