@@ -1,5 +1,5 @@
 <template>
-  <section v-if="!dismissed" class="onboarding-panel" aria-labelledby="onboarding-title">
+  <section v-if="panelVisible" class="onboarding-panel" aria-labelledby="onboarding-title">
     <div class="onboarding-heading">
       <div>
         <span class="onboarding-eyebrow">PANDUAN AWAL</span>
@@ -46,8 +46,8 @@
 
   <section v-else class="onboarding-collapsed">
     <div>
-      <strong>Butuh panduan menyiapkan asesmen?</strong>
-      <span>{{ completedCount }} dari {{ steps.length }} langkah selesai.</span>
+      <strong>{{ allComplete ? 'Panduan awal' : 'Butuh panduan menyiapkan asesmen?' }}</strong>
+      <span>{{ allComplete ? `Semua ${steps.length} langkah selesai — asesmen Anda siap dibagikan.` : `${completedCount} dari ${steps.length} langkah selesai.` }}</span>
     </div>
     <button type="button" @click="showWizard">Tampilkan panduan</button>
   </section>
@@ -69,6 +69,9 @@ const props = defineProps<{
 
 const emit = defineEmits<{ navigate: [section: 'curriculum' | 'questions' | 'schedule'] }>();
 const dismissed = ref(false);
+// Panel hanya dibuka paksa lewat tombol "Tampilkan panduan" setelah guru
+// menuntaskan semua langkah; tanpa ini panel tidak dirender otomatis lagi.
+const manuallyOpened = ref(false);
 const activeStepIndex = ref(0);
 
 const steps = computed(() => [
@@ -135,6 +138,11 @@ const steps = computed(() => [
 ]);
 
 const completedCount = computed(() => steps.value.filter((step) => step.done).length);
+const allComplete = computed(() => steps.value.length > 0 && completedCount.value === steps.value.length);
+// Panduan awal hanya untuk pemula: begitu semua langkah tuntas, panel besar
+// tidak lagi tampil otomatis (guru berpengalaman langsung ke ruang kerja).
+// Panel tetap bisa dibuka manual lewat bilah ringkas di bawahnya.
+const panelVisible = computed(() => !dismissed.value && (!allComplete.value || manuallyOpened.value));
 const progressPercent = computed(() => Math.round((completedCount.value / steps.value.length) * 100));
 const currentStep = computed(() => steps.value[activeStepIndex.value] ?? steps.value[0]);
 const nextIncompleteIndex = computed(() => steps.value.findIndex((step) => !step.done));
@@ -154,11 +162,13 @@ function continueStep() {
 
 function dismiss() {
   dismissed.value = true;
+  manuallyOpened.value = false;
   localStorage.setItem(storageKey.value, '1');
 }
 
 function showWizard() {
   dismissed.value = false;
+  manuallyOpened.value = true;
   localStorage.removeItem(storageKey.value);
   const firstIncomplete = nextIncompleteIndex.value;
   activeStepIndex.value = firstIncomplete >= 0 ? firstIncomplete : 0;
