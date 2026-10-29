@@ -45,6 +45,14 @@ describe('TeacherWizardShell', () => {
     expect(wrapper.emitted('select-step')).toEqual([['jadwal']]);
   });
 
+  it('renders the SIMAK-style page header and role chip', () => {
+    const wrapper = mountShell();
+    expect(wrapper.find('.wizard-page-eyebrow').text()).toBe('Ruang Kerja Guru');
+    expect(wrapper.find('.wizard-page-title').text()).toBe('Ruang kerja guru');
+    expect(wrapper.find('.wizard-page-subtitle').text()).toContain('langkah yang jelas');
+    expect(wrapper.find('.wizard-role-chip').text()).toBe('Guru');
+  });
+
   it('shows the teacher identity pill and emits back/logout/feedback', async () => {
     const wrapper = mountShell();
     expect(wrapper.find('.wizard-identity').text()).toBe('Feri Lee · Guru');
