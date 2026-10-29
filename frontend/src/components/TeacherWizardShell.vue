@@ -198,6 +198,10 @@ const activeStepDef = computed(() => props.steps[activeIndex.value]);
 .wizard-role-chip { flex: 0 0 auto; padding: 6px 10px; border-radius: 999px; color: #1849a9; background: #eff8ff; font-size: 12px; font-weight: 800; }
 .wizard-main-content { padding-top: 24px; }
 .teacher-wizard-shell :deep(.admin-content) { display: grid; align-content: start; gap: 20px; }
+/* Anak grid .admin-content adalah panel tiap langkah; tanpa min-width: 0
+   min-content panel (mis. baris perkakas Daftar pengguna) menarik panel
+   melewati tepi kartu isi di layar sempit dan memotong isinya. */
+.teacher-wizard-shell :deep(.admin-content > *) { min-width: 0; }
 
 /* Panel langkah disajikan sebagai seksi di dalam kartu isi: tepi lembut
    border-soft dan tanpa bayangan berat agar tidak terasa kartu-di-dalam-kartu.

@@ -303,6 +303,7 @@ onUnmounted(() => window.removeEventListener(ADMIN_REALTIME_EVENT, handleRealtim
 @media (max-width: 820px) { .users-grid { grid-template-columns: 1fr; } }
 @media (max-width: 720px) {
   .users-panel { gap: 14px; }
+  .users-panel, .users-list-panel, .user-table-wrap { min-width: 0; }
   .users-grid { display: flex; flex-direction: column; order: 2; gap: 14px; }
   .users-list-panel { order: 1; }
   .user-form-panel { display: none; }
@@ -312,11 +313,11 @@ onUnmounted(() => window.removeEventListener(ADMIN_REALTIME_EVENT, handleRealtim
   .mobile-close-button { display: block; width: 30px; height: 30px; border: 0; border-radius: 50%; color: #58718e; background: #edf3fa; font-size: 1.3rem; line-height: 1; cursor: pointer; }
   .users-list-heading { flex-direction: column; gap: 13px; }
   .user-list-actions { width: 100%; align-items: stretch; flex-direction: column; }
-  .user-search { width: 100%; }
-  .user-search input { flex: 1; width: auto; }
-  .search-button { min-width: 58px; }
+  .user-search { width: 100%; min-width: 0; }
+  .user-search input { flex: 1; width: auto; min-width: 0; }
+  .search-button { flex: 0 0 auto; min-width: 58px; }
   .mobile-add-user { display: block; width: 100%; padding: 10px 14px; border: 0; border-radius: 9px; color: #fff; background: linear-gradient(110deg, #2378db, #2251b5); font: inherit; font-size: .8rem; font-weight: 700; cursor: pointer; }
-  .user-panel-toggles { width: 100%; display: grid; grid-template-columns: 1fr 1fr; }
+  .user-panel-toggles { width: 100%; display: grid; grid-template-columns: 1fr; }
   .panel-toggle-button { width: 100%; }
   .import-users-panel.open { display: flex; }
   .import-users-panel .panel-heading { align-items: flex-start; flex-direction: column; }
@@ -331,12 +332,13 @@ onUnmounted(() => window.removeEventListener(ADMIN_REALTIME_EVENT, handleRealtim
   .user-table thead { display: none; }
   .user-table tbody, .user-table tr, .user-table td { display: block; }
   .user-table tr { display: grid; grid-template-columns: 25px minmax(0, 1fr) auto; grid-template-areas: 'select identity status' 'select assignment assignment' 'select actions actions'; column-gap: 8px; row-gap: 8px; margin-bottom: 9px; padding: 13px; border: 1px solid #e1eaf4; border-radius: 14px; background: #fbfdff; }
-  .user-table td { display: block; padding: 0; border: 0; white-space: normal; }
+  .user-table td { display: block; min-width: 0; padding: 0; border: 0; white-space: normal; }
   .user-table td.selection-column { grid-area: select; width: auto; padding-top: 2px; }
   .user-table td.user-identity { grid-area: identity; min-width: 0; }
   .user-table td.user-assignment { display: flex; flex-wrap: wrap; grid-area: assignment; align-items: center; gap: 5px 10px; padding-left: 0; }
   .user-table td.user-assignment small { margin: 0; color: #7890ac; }
-  .user-table td.user-status { grid-area: status; padding-top: 1px; }
+  .user-table td.user-status { display: flex; grid-area: status; flex-direction: column; align-items: flex-end; gap: 5px; padding-top: 1px; }
+  .user-table td.user-status .password-status-badge { margin-top: 0; }
   .user-table td.user-actions { display: flex; grid-area: actions; justify-content: flex-start; gap: 14px; padding-top: 9px; border-top: 1px solid #e8eff6; }
   .user-table td.user-identity strong { overflow: hidden; color: #234d87; text-overflow: ellipsis; white-space: nowrap; }
   .user-table td.user-identity small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

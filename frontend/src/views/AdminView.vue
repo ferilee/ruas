@@ -1992,7 +1992,7 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
   .dashboard-header .secondary-btn { align-self: flex-start; }
   .question-toolbar { align-items: stretch; flex-direction: column; }
   .toolbar-search { width: 100%; }
-  .toolbar-search .search-input { max-width: none; }
+  .toolbar-search .search-input { max-width: none; min-width: 0; }
   .import-question-button, .new-question-button { width: 100%; }
   .question-filters { margin-top: 12px; }
   .question-filters > .ruas-select { width: 100%; }
