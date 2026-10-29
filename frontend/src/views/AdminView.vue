@@ -1,15 +1,6 @@
 <template>
   <div :class="['admin-view', { 'editor-view': isEditorSession, 'teacher-workspace-view': isEditorSession }]" :data-theme="adminTheme">
     <ConfirmDialog :open="confirmOpen" :title="confirmTitle" :message="confirmMessage" :confirm-label="confirmLabel" @confirm="runConfirmation" @cancel="closeConfirmation" />
-    <button v-if="showWorkspaceThemeToggle" class="workspace-theme-toggle workspace-theme-toggle-floating" type="button" :aria-pressed="adminTheme === 'light'" :aria-label="adminTheme === 'dark' ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'" :title="adminTheme === 'dark' ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'" @click="toggleAdminTheme">
-      <span aria-hidden="true">{{ adminTheme === 'dark' ? '☼' : '☾' }}</span>
-    </button>
-    <div v-if="showWorkspaceThemeToggle" class="workspace-mobile-toolbar" aria-label="Pengaturan tampilan editor">
-      <span>RUANG KERJA GURU</span>
-      <button class="workspace-theme-toggle workspace-theme-toggle-mobile" type="button" :aria-pressed="adminTheme === 'light'" :aria-label="adminTheme === 'dark' ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'" :title="adminTheme === 'dark' ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'" @click="toggleAdminTheme">
-        <span aria-hidden="true">{{ adminTheme === 'dark' ? '☼' : '☾' }}</span>
-      </button>
-    </div>
     <div v-if="!isAuthenticated" class="admin-header">
       <div>
         <router-link to="/" class="back-link">&larr; Kembali ke latihan</router-link>
@@ -566,7 +557,11 @@ const adminSession = ref<AdminSession | null>(null);
 const isAdminSession = computed(() => adminSession.value?.role === 'admin');
 const isEditorSession = computed(() => adminSession.value?.role === 'editor');
 type AdminTheme = 'light' | 'dark';
-const adminTheme = ref<AdminTheme>('dark');
+// Ruang kerja /admin (guru & admin) dikunci ke mode terang: keputusan pemilik
+// agar semua elemen kontras dan terbaca jelas. Preferensi tema tersimpan
+// ('ruas-editor-theme') sengaja tidak dibaca/diubah di sini, jadi halaman
+// lain di luar /admin tetap berperilaku seperti semula.
+const adminTheme = ref<AdminTheme>('light');
 const visibleNavigation = computed(() => isAdminSession.value ? navigation : navigation.filter((item) => item.id !== 'teacher-requests' && item.id !== 'feedback'));
 const visibleMobilePrimaryNavigation = computed(() => visibleNavigation.value.filter((item) => ['overview', 'curriculum', 'questions', 'reports'].includes(item.id)));
 const visibleMobileSecondaryNavigation = computed(() => visibleNavigation.value.filter((item) => ['schedule', 'users', 'teacher-requests', 'feedback'].includes(item.id)));
@@ -676,7 +671,6 @@ const confirmTitle = ref('Konfirmasi tindakan');
 const confirmMessage = ref('Apakah kamu yakin ingin melanjutkan?');
 const confirmLabel = ref('OK');
 const pendingConfirmation = ref<(() => Promise<void>) | null>(null);
-const showWorkspaceThemeToggle = computed(() => isAuthenticated.value && isEditorSession.value && !questionFormOpen.value && !importFormOpen.value && !teacherWorkspaceModal.value && !supportPromptOpen.value && !confirmOpen.value);
 const scheduleStartAt = ref('');
 const scheduleEndAt = ref('');
 const scheduleEnabled = ref(true);
@@ -797,12 +791,6 @@ watch(() => route.query, () => {
   if (applyingRouteState || !isAuthenticated.value) return;
   applyRouteState();
 });
-
-function toggleAdminTheme() {
-  adminTheme.value = adminTheme.value === 'dark' ? 'light' : 'dark';
-  localStorage.setItem('ruas-editor-theme', adminTheme.value);
-  applyAdminThemeToDocument();
-}
 
 function applyAdminThemeToDocument() {
   document.documentElement.style.colorScheme = adminTheme.value;
@@ -1521,8 +1509,6 @@ function applyImport() {
 }
 
 onMounted(async () => {
-  const savedTheme = localStorage.getItem('ruas-editor-theme');
-  if (savedTheme === 'light' || savedTheme === 'dark') adminTheme.value = savedTheme;
   applyAdminThemeToDocument();
   try {
     const authStatus = await fetchAdminAuthStatus();
@@ -2088,21 +2074,6 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .workspace-schedule-panel { padding: 0; border: 0; box-shadow: none; }
 .workspace-schedule-panel .schedule-layout { grid-template-columns: minmax(320px, .95fr) minmax(0, 1.05fr); }
 .workspace-schedule-panel .schedule-editor-form, .workspace-schedule-panel .schedule-list-card { background: #25252a; }
-.teacher-workspace-modal .feedback-panel { color: #d5d1d8; }
-.teacher-workspace-modal .feedback-intro { border-color: #3d3c43; background: #25252a; }
-.teacher-workspace-modal .feedback-intro strong, .teacher-workspace-modal .feedback-manage-toolbar strong { color: #f0ebf2; }
-.teacher-workspace-modal .feedback-intro p, .teacher-workspace-modal .feedback-manage-toolbar p { color: #9b97a2; }
-.teacher-workspace-modal .feedback-kind-tabs { border-color: #3d3c43; background: #25252a; }
-.teacher-workspace-modal .feedback-kind-tabs button { color: #aaa6b0; }
-.teacher-workspace-modal .feedback-kind-tabs button.active { color: #fff; background: #7350c7; }
-.teacher-workspace-modal .feedback-form label:not(.feedback-consent) { color: #d5d1d8; }
-.teacher-workspace-modal .feedback-form input, .teacher-workspace-modal .feedback-form textarea, .teacher-workspace-modal .feedback-manage-toolbar select, .teacher-workspace-modal .feedback-entry-actions input { border-color: #4b4a52; color: #f4f0ea; background: #1a1a1e; }
-.teacher-workspace-modal .feedback-consent { color: #aaa6b0; }
-.teacher-workspace-modal .feedback-submit { background: #7350c7; }
-.teacher-workspace-modal .feedback-entry { border-color: #3d3c43; background: #25252a; }
-.teacher-workspace-modal .feedback-entry-heading, .teacher-workspace-modal .feedback-entry-author { color: #96919d; }
-.teacher-workspace-modal .feedback-entry-message { color: #d5d1d8; }
-.teacher-workspace-modal .feedback-empty { border-color: #45444e; color: #9b97a2; }
 
 @media (max-width: 720px) {
   .teacher-workspace-modal-backdrop { align-items: stretch; padding: 0; }
@@ -2183,23 +2154,8 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
   .mobile-bottom-nav, .mobile-more-menu, .mobile-more-backdrop { display: none !important; }
 }
 
-.workspace-theme-toggle { position: fixed; z-index: 120; top: 16px; right: 18px; display: inline-flex; width: 38px; height: 38px; align-items: center; justify-content: center; padding: 0; border: 1px solid #45444e; border-radius: 50%; color: #d5d1d8; background: rgba(32, 32, 35, .92); box-shadow: 0 8px 22px rgba(0, 0, 0, .18); backdrop-filter: blur(10px); font: inherit; font-size: .72rem; font-weight: 700; cursor: pointer; }
-.workspace-theme-toggle:hover { color: #fff; border-color: #8a7bc0; }
-.workspace-theme-toggle > span:first-child { color: #f0d466; font-size: 1rem; line-height: 1; }
-.workspace-mobile-toolbar { display: none; }
-:global(.admin-view:has(.teacher-workspace-modal-backdrop) .workspace-theme-toggle),
-:global(.admin-view:has(.confirm-backdrop) .workspace-theme-toggle),
-:global(.admin-view:has(.curriculum-modal-backdrop) .workspace-theme-toggle),
-:global(.admin-view:has(.detail-backdrop) .workspace-theme-toggle),
-:global(.admin-view:has(.form-panel.open) .workspace-theme-toggle),
-:global(.admin-view:has(.import-panel.open) .workspace-theme-toggle) { display: none !important; }
-
 .teacher-workspace-view[data-theme="light"] { color: #1d3557; background: #f4f7fb; }
 :global(html:has(.teacher-workspace-view[data-theme="light"])), :global(body:has(.teacher-workspace-view[data-theme="light"])) { background: #f4f7fb; }
-.teacher-workspace-view[data-theme="light"] .workspace-theme-toggle { border-color: #cbd9e8; color: #365678; background: rgba(255, 255, 255, .94); box-shadow: 0 8px 22px rgba(31, 74, 126, .12); }
-.teacher-workspace-view[data-theme="light"] .workspace-theme-toggle:hover { color: #1d5fc0; border-color: #8bb5e4; }
-.teacher-workspace-view[data-theme="light"] .workspace-theme-toggle > span:first-child { color: #315f9c; }
-.teacher-workspace-view[data-theme="light"] .workspace-mobile-toolbar { border-color: #d7e2ee; color: #7890aa; }
 .teacher-workspace-view[data-theme="light"] :deep(.teacher-workspace-home) { color: #1d3557; background: #f4f7fb; }
 .teacher-workspace-view[data-theme="light"] :deep(.teacher-workspace-eyebrow) { color: #315f9c; }
 .teacher-workspace-view[data-theme="light"] :deep(.teacher-workspace-heading h2) { color: #172b4d; }
@@ -2439,9 +2395,6 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .editor-view[data-theme="light"] .form-panel.open :deep(.ruas-select-option:hover), .editor-view[data-theme="light"] .form-panel.open :deep(.ruas-select-option.highlighted), .editor-view[data-theme="light"] .import-panel.open :deep(.ruas-select-option:hover), .editor-view[data-theme="light"] .import-panel.open :deep(.ruas-select-option.highlighted) { color: #194f9f; background: #edf5ff; }
 
 @media (max-width: 720px) {
-  .workspace-theme-toggle-floating { display: none; }
-  .workspace-mobile-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -2px 0 16px; padding: 0 2px 12px; border-bottom: 1px solid #3b3a41; color: #92909b; font-size: .62rem; font-weight: 800; letter-spacing: .14em; }
-  .workspace-theme-toggle-mobile { position: static; top: auto; right: auto; width: 34px; height: 34px; padding: 0; font-size: .68rem; }
   .teacher-workspace-view[data-theme="light"] .teacher-workspace-modal-heading { background: #fff; }
 }
 </style>

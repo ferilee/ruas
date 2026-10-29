@@ -602,34 +602,6 @@ onUnmounted(() => { dismissToast(); window.removeEventListener(ADMIN_REALTIME_EV
 .curriculum-import-preview div { display: flex; min-width: 0; flex-direction: column; gap: 2px; padding: 8px; border: 1px solid #dce8f4; border-radius: 8px; background: #fff; }
 .curriculum-import-preview span, .curriculum-import-preview small, .curriculum-import-more { color: #66788e; font-size: .65rem; }
 .curriculum-import-preview strong { overflow: hidden; color: #315987; font-size: .72rem; text-overflow: ellipsis; white-space: nowrap; }
-.curriculum-panel.workspace-only .curriculum-import-modal .import-step { color: #d5d1d8; }
-.curriculum-panel.workspace-only .curriculum-import-modal .import-step small { color: #9b97a2; }
-.curriculum-panel.workspace-only .curriculum-import-textarea { border-color: #4b4a52; color: #f4f0ea; background: #1a1a1e; }
-.curriculum-panel.workspace-only .curriculum-import-textarea::placeholder { color: #77747f; }
-.curriculum-panel.workspace-only .curriculum-import-mode { color: #d5d1d8; }
-.curriculum-panel.workspace-only .curriculum-import-summary { border-color: #3d3c43; color: #d5d1d8; background: #25252a; }
-.curriculum-panel.workspace-only .curriculum-import-preview div { border-color: #3d3c43; background: #202023; }
-.curriculum-panel.workspace-only .curriculum-import-preview strong { color: #f0ebf2; }
-.curriculum-panel.workspace-only .curriculum-import-preview span, .curriculum-panel.workspace-only .curriculum-import-preview small, .curriculum-panel.workspace-only .curriculum-import-more { color: #96919d; }
-.curriculum-panel.workspace-only .curriculum-modal-backdrop { background: rgba(8, 8, 12, .78); backdrop-filter: blur(9px); }
-.curriculum-panel.workspace-only .curriculum-modal { border-color: #45444e; background: linear-gradient(145deg, #25252a, #17171b); box-shadow: 0 28px 70px rgba(0, 0, 0, .48); }
-.curriculum-panel.workspace-only .curriculum-modal-heading { border-bottom-color: #3d3c43; }
-.curriculum-panel.workspace-only .curriculum-modal-heading h2 { color: #f7f2eb; }
-.curriculum-panel.workspace-only .curriculum-modal-heading p { color: #aaa6b0; }
-.curriculum-panel.workspace-only .modal-eyebrow { color: #aab8ff; }
-.curriculum-panel.workspace-only .modal-close-btn { color: #c5c2ca; background: #35343c; }
-.curriculum-panel.workspace-only .modal-close-btn:hover { color: #fff; background: #4b4a55; }
-.curriculum-panel.workspace-only .curriculum-form > label, .curriculum-panel.workspace-only .topic-class-field { color: #d5d1d8; }
-.curriculum-panel.workspace-only .curriculum-form > label small, .curriculum-panel.workspace-only .topic-class-field > small { color: #8f8b96; }
-.curriculum-panel.workspace-only .curriculum-form input { border-color: #4b4a52; color: #f4f0ea; background: #1a1a1e; }
-.curriculum-panel.workspace-only .curriculum-form input::placeholder { color: #77747f; }
-.curriculum-panel.workspace-only .curriculum-form input:focus { border-color: #8d8bdb; outline: 2px solid rgba(141, 139, 219, .2); }
-.curriculum-panel.workspace-only .curriculum-form > label.checkbox-field { border-color: #45444e; color: #d5d1d8; background: #1d1d22; }
-.curriculum-panel.workspace-only .topic-class-picker { border-color: #4b4a52; background: #1a1a1e; }
-.curriculum-panel.workspace-only .topic-class-option { border-color: #45444e; color: #c5c2ca; background: #25252a; }
-.curriculum-panel.workspace-only .topic-class-all { color: #aab8ff; background: #252d50; }
-.curriculum-panel.workspace-only .primary-btn { color: #fff; background: #7350c7; }
-.curriculum-panel.workspace-only .secondary-btn { color: #d1c9e9; background: #393542; }
 .curriculum-items { display: flex; flex-direction: column; gap: 7px; margin-top: 14px; }
 .curriculum-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 1px solid #e1e8f0; border-radius: 8px; background: #fff; }
 .curriculum-item strong, .curriculum-item small { display: block; }
@@ -649,16 +621,6 @@ onUnmounted(() => { dismissToast(); window.removeEventListener(ADMIN_REALTIME_EV
 .topic-pagination-controls strong { color: #496482; font-size: .68rem; font-weight: 700; white-space: nowrap; }
 .topic-pagination-controls .ruas-select { width: 108px; }
 .topic-pagination-controls .ruas-select-trigger { min-height: 32px; padding: 6px 8px; border-radius: 8px; font-size: .68rem; box-shadow: none; }
-.curriculum-panel.workspace-only .topic-search-field input { border-color: #4b4a52; color: #f4f0ea; background: #1a1a1e; }
-.curriculum-panel.workspace-only .topic-search-field input::placeholder { color: #77747f; }
-.curriculum-panel.workspace-only .topic-search-field input:focus { border-color: #8d8bdb; box-shadow: 0 0 0 3px rgba(141, 139, 219, .16); }
-.curriculum-panel.workspace-only .topic-list-meta { color: #96919d; }
-.curriculum-panel.workspace-only .topic-list-meta button { color: #bca7ff; }
-.curriculum-panel.workspace-only .topic-pagination { border-top-color: #3d3c43; color: #96919d; }
-.curriculum-panel.workspace-only .topic-pagination-controls > button { border-color: #4b4a52; color: #c3b5ff; background: #25252a; }
-.curriculum-panel.workspace-only .topic-pagination-controls > button:disabled { color: #77747f; background: #1a1a1e; }
-.curriculum-panel.workspace-only .topic-pagination-controls strong { color: #d5d1d8; }
-.curriculum-panel.workspace-only .topic-pagination-controls .ruas-select-trigger { border-color: #4b4a52; color: #e5e0e8; background: #1a1a1e; }
 .item-actions { display: flex; gap: 8px; flex-shrink: 0; }
 .item-actions button { border: 0; color: #1e5ec8; background: transparent; font: inherit; font-size: .74rem; font-weight: 700; cursor: pointer; }
 .item-actions .delete-action { color: #c53030; }

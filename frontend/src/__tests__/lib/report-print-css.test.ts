@@ -8,8 +8,10 @@ const printCss = reportsPanelSource.slice(reportsPanelSource.indexOf('@media pri
 
 describe('report PDF export modes', () => {
   it('offers both export choices from the toolbar of both report modes', () => {
-    expect(reportsPanelSource).toContain('<ReportExportMenu variant="dark"');
-    expect(reportsPanelSource).toContain('<ReportExportMenu variant="light"');
+    // Kedua mode memakai menu yang sama; sejak ruang kerja guru dikunci
+    // satu mode terang, varian menu di kedua toolbar adalah "light".
+    expect(reportsPanelSource.match(/<ReportExportMenu variant="light"/g)).toHaveLength(2);
+    expect(reportsPanelSource).not.toContain('<ReportExportMenu variant="dark"');
     expect(reportExportMenuSource).toContain('PDF Analisis per Soal');
     expect(reportExportMenuSource).toContain('PDF Hasil Siswa');
     expect(reportExportMenuSource).toContain('aria-haspopup="menu"');

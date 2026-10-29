@@ -13,7 +13,7 @@
       <p v-if="errorMessage" class="teacher-classes-error">{{ errorMessage }}</p>
       <ClassPicker
         class="teacher-classes-picker"
-        theme="dark"
+        theme="light"
         :options="classes"
         :model-value="selectedIds"
         :sources="sources"
@@ -95,13 +95,13 @@ onMounted(load);
 </script>
 
 <style scoped>
-.teacher-classes-panel { margin: 13px clamp(20px, 5vw, 58px) 42px; padding: 20px; border: 1px solid #3d3c43; border-radius: 3px; color: #f6f2eb; background: #202023; }
+.teacher-classes-panel { margin: 13px clamp(20px, 5vw, 58px) 42px; padding: 20px; border: 1px solid #dce7f4; border-radius: 3px; color: #1d3557; background: #fff; box-shadow: 0 10px 24px rgba(31, 74, 126, .06); }
 .teacher-classes-heading { display: flex; align-items: center; gap: 14px; }
-.teacher-classes-heading h3 { color: #f8f3ed; font-size: 1rem; text-transform: uppercase; }
-.teacher-classes-heading p { margin-top: 5px; color: #aaa6b0; font-size: .78rem; line-height: 1.45; }
+.teacher-classes-heading h3 { color: #172b4d; font-size: 1rem; text-transform: uppercase; }
+.teacher-classes-heading p { margin-top: 5px; color: #66788e; font-size: .78rem; line-height: 1.45; }
 .teacher-classes-icon { display: grid; width: 40px; height: 40px; flex: 0 0 auto; place-items: center; border: 1px solid currentColor; font-size: 1.25rem; font-weight: 700; }
-.teacher-classes-icon.tone-green { color: #70eee8; background: #123f43; }
+.teacher-classes-icon.tone-green { color: #2c8c67; background: #e3f7ed; }
 .teacher-classes-picker { margin-top: 16px; }
-.teacher-classes-note { margin-top: 14px; color: #a49fae; font-size: .76rem; line-height: 1.55; }
-.teacher-classes-error { margin-top: 14px; color: #ff9d9d; font-size: .78rem; }
+.teacher-classes-note { margin-top: 14px; color: #66788e; font-size: .76rem; line-height: 1.55; }
+.teacher-classes-error { margin-top: 14px; color: #c53030; font-size: .78rem; }
 </style>

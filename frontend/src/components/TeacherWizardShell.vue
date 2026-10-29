@@ -112,18 +112,18 @@ const activeStepDef = computed(() => props.steps[activeIndex.value]);
   flex-direction: column;
   gap: 18px;
   padding: 20px 16px;
-  border: 1px solid #3d3c43;
+  border: 1px solid #dce7f4;
   border-radius: 16px;
-  color: #f6f2eb;
-  background: #17171b;
-  box-shadow: 0 18px 42px rgba(24, 18, 37, .16);
+  color: #1d3557;
+  background: linear-gradient(180deg, #fff 0%, #f7faff 100%);
+  box-shadow: 0 14px 34px rgba(31, 74, 126, .08);
 }
 
 .wizard-profile { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .wizard-avatar { display: grid; width: 42px; height: 42px; flex: 0 0 auto; place-items: center; border-radius: 50%; color: #fff; background: linear-gradient(145deg, #7350c7, #2772c6); font-size: 1.05rem; font-weight: 800; }
 .wizard-profile > div { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
-.wizard-profile strong { overflow: hidden; color: #f7f2eb; font-size: .92rem; text-overflow: ellipsis; white-space: nowrap; }
-.wizard-profile span { color: #9e9aa5; font-size: .7rem; }
+.wizard-profile strong { overflow: hidden; color: #172b4d; font-size: .92rem; text-overflow: ellipsis; white-space: nowrap; }
+.wizard-profile span { color: #66788e; font-size: .7rem; }
 
 .wizard-steps { display: flex; flex-direction: column; gap: 6px; }
 .wizard-step {
@@ -134,43 +134,42 @@ const activeStepDef = computed(() => props.steps[activeIndex.value]);
   padding: 11px 12px;
   border: 1px solid transparent;
   border-radius: 12px;
-  color: #c9c5cf;
+  color: #435d7d;
   background: transparent;
   font: inherit;
   text-align: left;
   cursor: pointer;
   transition: border-color .18s ease, background .18s ease;
 }
-.wizard-step:hover { border-color: #4b4a52; background: #202024; }
-.wizard-step:focus-visible, .wizard-topbar-btn:focus-visible, .wizard-sidebar-footer button:focus-visible, .wizard-sidebar-footer a:focus-visible { outline: 2px solid #9aa7ff; outline-offset: 2px; }
-.wizard-step.is-active { border-color: #5b4a8a; background: #262233; color: #fff; }
-.wizard-step-number { display: grid; width: 26px; height: 26px; flex: 0 0 auto; place-items: center; border-radius: 50%; color: #a49fae; background: #2c2c31; font-size: .74rem; font-weight: 800; }
+.wizard-step:hover { border-color: #cbd9e8; background: #f2f7fd; }
+.wizard-step:focus-visible, .wizard-topbar-btn:focus-visible, .wizard-sidebar-footer button:focus-visible, .wizard-sidebar-footer a:focus-visible { outline: 2px solid #7350c7; outline-offset: 2px; }
+.wizard-step.is-active { border-color: #a68ae0; background: #efeaff; color: #2e1a5e; }
+.wizard-step-number { display: grid; width: 26px; height: 26px; flex: 0 0 auto; place-items: center; border-radius: 50%; color: #5b7290; background: #e3ecf6; font-size: .74rem; font-weight: 800; }
 .wizard-step.is-active .wizard-step-number { color: #fff; background: #7350c7; }
-.wizard-step.is-complete .wizard-step-number { color: #0f2c22; background: #4ade9e; }
+.wizard-step.is-complete .wizard-step-number { color: #fff; background: #1e9e6a; }
 .wizard-step-copy { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
-.wizard-step-copy strong { color: #e8e4ec; font-size: .84rem; }
-.wizard-step.is-active .wizard-step-copy strong { color: #fff; }
-.wizard-step-copy small { color: #96919d; font-size: .68rem; line-height: 1.45; }
+.wizard-step-copy strong { color: #234978; font-size: .84rem; }
+.wizard-step.is-active .wizard-step-copy strong { color: #2e1a5e; }
+.wizard-step-copy small { color: #66788e; font-size: .68rem; line-height: 1.45; }
 .wizard-step-title-mobile { display: none; }
 
-.wizard-side-note { color: #8f8b96; font-size: .72rem; line-height: 1.55; }
-.wizard-sidebar-footer { display: flex; flex-direction: column; gap: 6px; margin-top: auto; padding-top: 14px; border-top: 1px solid #2e2d34; }
-.wizard-sidebar-footer button, .wizard-sidebar-footer a { padding: 8px 10px; border: 0; border-radius: 8px; color: #c9c5cf; background: transparent; font: inherit; font-size: .74rem; font-weight: 650; text-align: left; text-decoration: none; cursor: pointer; }
-.wizard-sidebar-footer button:hover, .wizard-sidebar-footer a:hover { color: #fff; background: #26262c; }
+.wizard-side-note { color: #66788e; font-size: .72rem; line-height: 1.55; }
+.wizard-sidebar-footer { display: flex; flex-direction: column; gap: 6px; margin-top: auto; padding-top: 14px; border-top: 1px solid #e2eaf3; }
+.wizard-sidebar-footer button, .wizard-sidebar-footer a { padding: 8px 10px; border: 0; border-radius: 8px; color: #365678; background: transparent; font: inherit; font-size: .74rem; font-weight: 650; text-align: left; text-decoration: none; cursor: pointer; }
+.wizard-sidebar-footer button:hover, .wizard-sidebar-footer a:hover { color: #1d5fc0; background: #edf5ff; }
 
 .wizard-main { min-width: 0; }
-/* padding-right menyisakan ruang untuk tombol tema mengambang AdminView. */
-.wizard-main-topbar { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin-bottom: 20px; padding-right: 54px; }
+.wizard-main-topbar { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin-bottom: 20px; }
 .wizard-identity { padding: 7px 11px; border: 1px solid #dce7f4; border-radius: 999px; color: #365678; background: #f2f7fd; font-size: .72rem; font-weight: 700; white-space: nowrap; }
-.wizard-badge { padding: 8px 11px; border: 1px solid #3e3d48; border-radius: 999px; color: #aab8ff; background: #1d1d21; font-size: .65rem; font-weight: 800; letter-spacing: .08em; white-space: nowrap; }
+.wizard-badge { padding: 8px 11px; border: 1px solid #cbd9e8; border-radius: 999px; color: #315f9c; background: #eef4fc; font-size: .65rem; font-weight: 800; letter-spacing: .08em; white-space: nowrap; }
 .wizard-topbar-spacer { flex: 1; }
-.wizard-topbar-btn { padding: 8px 11px; border: 1px solid #4b4a52; border-radius: 8px; color: #d5d1d8; background: #25252a; font: inherit; font-size: .68rem; font-weight: 700; white-space: nowrap; cursor: pointer; }
-.wizard-topbar-btn:hover { border-color: #9b8fd0; color: #fff; background: #393542; }
+.wizard-topbar-btn { padding: 8px 11px; border: 1px solid #cbd9e8; border-radius: 8px; color: #365678; background: #fff; font: inherit; font-size: .68rem; font-weight: 700; white-space: nowrap; cursor: pointer; }
+.wizard-topbar-btn:hover { border-color: #8bb5e4; color: #1d5fc0; background: #edf5ff; }
 
 .wizard-main-heading { margin-bottom: 22px; }
-.wizard-eyebrow { color: #8da4ff; font-size: .67rem; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
-.wizard-main-heading h2 { margin-top: 8px; color: #f7f2eb; font-size: clamp(1.6rem, 3vw, 2.3rem); font-weight: 800; letter-spacing: -.03em; }
-.wizard-main-heading p:last-child { margin-top: 6px; color: #9e9aa5; font-size: .88rem; }
+.wizard-eyebrow { color: #7350c7; font-size: .67rem; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+.wizard-main-heading h2 { margin-top: 8px; color: #172b4d; font-size: clamp(1.6rem, 3vw, 2.3rem); font-weight: 800; letter-spacing: -.03em; }
+.wizard-main-heading p:last-child { margin-top: 6px; color: #526a86; font-size: .88rem; }
 
 @media (max-width: 900px) {
   .teacher-wizard-shell.teacher-wizard-shell { grid-template-columns: 1fr; gap: 16px; padding-top: 16px; }
@@ -182,10 +181,5 @@ const activeStepDef = computed(() => props.steps[activeIndex.value]);
   .wizard-step-title-mobile { display: inline; }
   .wizard-side-note { display: none; }
   .wizard-sidebar-footer { flex-direction: row; flex-wrap: wrap; margin-top: 0; padding-top: 10px; }
-}
-
-@media (max-width: 720px) {
-  /* Di lebar ini tombol tema mengambang disembunyikan AdminView. */
-  .wizard-main-topbar { padding-right: 0; }
 }
 </style>

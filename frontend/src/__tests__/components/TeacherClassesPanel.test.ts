@@ -45,6 +45,8 @@ describe('TeacherClassesPanel', () => {
     expect(wrapper.find('.class-picker-count').text()).toBe('2 kelas dipilih');
     expect(wrapper.findAll('.class-picker-option.selected')).toHaveLength(2);
     expect(wrapper.findAll('.class-picker-chip')).toHaveLength(2);
+    // Ruang kerja guru satu mode terang: pemilih kelas wajib memakai tema terang.
+    expect(wrapper.find('.class-picker').classes()).toContain('theme-light');
   });
 
   it('removes a mapping through the API when its chip is removed', async () => {
