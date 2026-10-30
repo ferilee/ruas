@@ -11,21 +11,41 @@
     <p v-if="loading" class="teacher-classes-note">Memuat kelas...</p>
     <template v-else>
       <p v-if="errorMessage" class="teacher-classes-error">{{ errorMessage }}</p>
-      <ClassPicker
-        class="teacher-classes-picker"
-        theme="light"
-        :options="classes"
-        :model-value="selectedIds"
-        :sources="sources"
-        show-admin-badge
-        :disabled="saving"
-        aria-label="Kelas saya"
-        empty-selection-text="Anda belum terpetakan ke kelas mana pun. Centang kelas di bawah ini untuk menambahkannya."
-        empty-options-text="Belum ada kelas master yang tersedia."
-        @update:model-value="applySelection"
-      />
-      <p v-if="classes.length && selectedIds.length === classes.length" class="teacher-classes-note">Semua kelas master sudah masuk daftar Anda.</p>
-      <p class="teacher-classes-note">Kelas master dibuat oleh Admin sebagai satu sumber kebenaran. Kelas yang Anda pilih sendiri langsung aktif, tercatat, dan dapat dicabut Admin; kelas yang belum tersedia dapat diusulkan kepada Admin.</p>
+
+      <!-- Ringkasan: keadaan default guru yang sudah terpetakan. Pemetaan
+           adalah pekerjaan sekali per semester, jadi pemilih lengkap hanya
+           dibuka lewat tombol Kelola kelas. -->
+      <div v-if="!pickerVisible" class="teacher-classes-summary">
+        <p class="teacher-classes-summary-text">
+          Anda terpetakan ke <strong>{{ selectedIds.length }} kelas</strong> dengan total <strong>{{ totalStudents }} siswa</strong>.
+        </p>
+        <ul class="teacher-classes-summary-list">
+          <li v-for="item in mappedClasses" :key="item.id" class="teacher-classes-summary-chip">
+            <span class="teacher-classes-summary-chip-name">{{ item.label }} · {{ item.academic_year }}</span>
+            <span class="teacher-classes-summary-chip-count">{{ item.student_count }} siswa</span>
+          </li>
+        </ul>
+        <button class="teacher-classes-manage-button" type="button" @click="pickerOpen = true">Kelola kelas</button>
+      </div>
+
+      <template v-else>
+        <ClassPicker
+          class="teacher-classes-picker"
+          theme="light"
+          :options="classes"
+          :model-value="selectedIds"
+          :sources="sources"
+          show-admin-badge
+          :disabled="saving"
+          aria-label="Kelas saya"
+          empty-selection-text="Anda belum terpetakan ke kelas mana pun. Centang kelas di bawah ini untuk menambahkannya."
+          empty-options-text="Belum ada kelas master yang tersedia."
+          @update:model-value="applySelection"
+        />
+        <p v-if="classes.length && selectedIds.length === classes.length" class="teacher-classes-note">Semua kelas master sudah masuk daftar Anda.</p>
+        <p class="teacher-classes-note">Kelas master dibuat oleh Admin sebagai satu sumber kebenaran. Kelas yang Anda pilih sendiri langsung aktif, tercatat, dan dapat dicabut Admin; kelas yang belum tersedia dapat diusulkan kepada Admin.</p>
+        <button v-if="selectedIds.length" class="teacher-classes-done-button" type="button" @click="pickerOpen = false">Selesai</button>
+      </template>
     </template>
   </section>
 </template>
@@ -41,9 +61,15 @@ const mappings = ref<UserClassMapping[]>([]);
 const loading = ref(false);
 const saving = ref(false);
 const errorMessage = ref('');
+const pickerOpen = ref(false);
 
 const selectedIds = computed(() => mappings.value.map((mapping) => mapping.class_id));
 const sources = computed<Record<number, 'admin' | 'self'>>(() => Object.fromEntries(mappings.value.map((mapping) => [mapping.class_id, mapping.source])));
+const mappedClasses = computed(() => selectedIds.value.map((id) => classes.value.find((item) => item.id === id)).filter((item): item is MyClassOption => Boolean(item)));
+const totalStudents = computed(() => mappedClasses.value.reduce((total, item) => total + (item.student_count ?? 0), 0));
+// Guru yang belum terpetakan ke kelas mana pun selalu melihat pemilih:
+// memilih kelas adalah tugas pertamanya, ringkasan kosong tidak ditawarkan.
+const pickerVisible = computed(() => pickerOpen.value || selectedIds.value.length === 0);
 
 function applyData(data: MyClassesData) {
   classes.value = data.classes;
@@ -104,4 +130,15 @@ onMounted(load);
 .teacher-classes-picker { margin-top: 16px; }
 .teacher-classes-note { margin-top: 14px; color: #66788e; font-size: .76rem; line-height: 1.55; }
 .teacher-classes-error { margin-top: 14px; color: #c53030; font-size: .78rem; }
+.teacher-classes-summary { margin-top: 16px; min-width: 0; }
+.teacher-classes-summary-text { color: #42628c; font-size: .86rem; line-height: 1.55; }
+.teacher-classes-summary-text strong { color: #172b4d; }
+.teacher-classes-summary-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 0; padding: 0; list-style: none; }
+.teacher-classes-summary-chip { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; min-width: 0; padding: 6px 11px; border: 1px solid #d0d5dd; border-radius: 999px; color: #1849a9; background: #eff8ff; font-size: .78rem; font-weight: 700; }
+.teacher-classes-summary-chip-name { min-width: 0; overflow-wrap: anywhere; }
+.teacher-classes-summary-chip-count { flex: 0 0 auto; color: #42628c; font-size: .72rem; font-weight: 600; }
+.teacher-classes-manage-button { margin-top: 14px; padding: 10px 14px; border: 0; border-radius: 10px; color: #fff; background: #175cd3; font: inherit; font-size: .8rem; font-weight: 700; cursor: pointer; }
+.teacher-classes-manage-button:hover { background: #1849a9; }
+.teacher-classes-done-button { margin-top: 14px; padding: 9px 13px; border: 1px solid #c8dcef; border-radius: 9px; color: #2865ad; background: #fff; font: inherit; font-size: .78rem; font-weight: 700; cursor: pointer; }
+.teacher-classes-done-button:hover { background: #edf6ff; }
 </style>

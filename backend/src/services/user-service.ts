@@ -341,6 +341,21 @@ export async function countParticipantUsers(db: UserDb, scope?: ParticipantScope
   return rows.length;
 }
 
+/**
+ * Jumlah peserta per kelas berdasarkan ikatan siswa yang sebenarnya:
+ * akun berperan 'participant' terikat ke satu kelas lewat users.class_id.
+ * Kelas tanpa siswa tidak muncul di peta (pemanggil memakai 0).
+ */
+export async function countParticipantsByClassId(db: UserDb) {
+  const rows = await db.select({ class_id: users.class_id }).from(users).where(eq(users.role, 'participant'));
+  const counts = new Map<number, number>();
+  for (const row of rows) {
+    if (row.class_id == null) continue;
+    counts.set(row.class_id, (counts.get(row.class_id) ?? 0) + 1);
+  }
+  return counts;
+}
+
 export async function deleteAllParticipants(db: UserDb) {
   const [result] = await db.delete(users).where(eq(users.role, 'participant'));
   return Number(result.affectedRows ?? 0);

@@ -245,6 +245,7 @@ export interface MyClassOption {
   slug: string;
   label: string;
   academic_year: string;
+  student_count: number;
 }
 
 export interface MyClassesData {

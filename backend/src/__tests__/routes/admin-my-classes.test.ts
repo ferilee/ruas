@@ -46,7 +46,7 @@ function selectChain(rows: unknown[]) {
   };
 }
 
-function createFakeDb({ mappingClassIds = [3], classesExist = true }: { mappingClassIds?: number[]; classesExist?: boolean } = {}) {
+function createFakeDb({ mappingClassIds = [3], classesExist = true, studentClassIds = [] as number[] }: { mappingClassIds?: number[]; classesExist?: boolean; studentClassIds?: number[] } = {}) {
   const inserted: Array<{ table: unknown; values: unknown }> = [];
   const deletedTables: unknown[] = [];
   const mappingRows = mappingClassIds.map((classId) => ({
@@ -67,7 +67,9 @@ function createFakeDb({ mappingClassIds = [3], classesExist = true }: { mappingC
           }
           if (table === educationClasses) return selectChain(classesExist ? [{ id: 5 }] : []);
           if (table === subjects) return selectChain([]);
-          if (table === users) return selectChain(fields === undefined ? [teacherRow] : []);
+          // select() tanpa fields = pencarian akun guru; select({ class_id })
+          // = query hitung peserta per kelas (countParticipantsByClassId).
+          if (table === users) return selectChain(fields === undefined ? [teacherRow] : studentClassIds.map((classId) => ({ class_id: classId })));
           return selectChain([]);
         }),
         orderBy: vi.fn(async () => classRows),
@@ -123,6 +125,23 @@ describe('adminMyClassesRoutes (self-pick guru)', () => {
     expect(payload.classes).toHaveLength(3);
     expect(payload.mappings).toEqual([
       expect.objectContaining({ class_id: 3, source: 'admin' }),
+    ]);
+  });
+
+  it('reports student_count per class from participant class bindings, with 0 for empty classes', async () => {
+    // Dua siswa di kelas 3, satu di kelas 9, kelas 5 kosong. Baris class_id
+    // null (peserta belum ditetapkan) tidak boleh terhitung ke kelas mana pun.
+    const { db } = createFakeDb({ studentClassIds: [3, 3, 9] });
+    drizzleMock.mockReturnValue(db);
+    const app = await buildApp(teacherSession());
+
+    const response = await app.request('http://localhost/');
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.classes).toEqual([
+      expect.objectContaining({ id: 3, student_count: 2 }),
+      expect.objectContaining({ id: 5, student_count: 0 }),
+      expect.objectContaining({ id: 9, student_count: 1 }),
     ]);
   });
 

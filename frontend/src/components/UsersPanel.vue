@@ -1,5 +1,5 @@
 <template>
-  <section class="users-panel">
+  <section class="users-panel" :class="{ 'users-panel-search-first': searchFirst }">
     <ConfirmDialog :open="confirmOpen" :title="confirmTitle" :message="confirmMessage" :confirm-label="confirmLabel" :confirmation-phrase="confirmPhrase" @confirm="runConfirmation" @cancel="closeConfirmation" />
     <div class="users-grid">
       <div class="panel user-form-panel" :class="{ open: userFormOpen }">
@@ -65,7 +65,7 @@
     </div>
 
     <div class="panel users-list-panel">
-      <div class="panel-heading users-list-heading"><div><h2>Daftar pengguna</h2><p>{{ users.length }} akun ditemukan.</p></div><div class="user-list-actions"><div class="user-search"><span class="search-icon" aria-hidden="true">⌕</span><input v-model="search" placeholder="Cari username, nama, atau kelas" @keyup.enter="loadUsers" /><button class="search-button" type="button" aria-label="Cari pengguna" title="Cari" @click="loadUsers">Cari</button></div><div class="user-panel-toggles"><button class="panel-toggle-button" type="button" @click="openNewUser">＋ {{ userFormOpen ? 'Edit pengguna' : 'Tambah pengguna' }}</button><button class="panel-toggle-button secondary" type="button" @click="importPanelOpen = !importPanelOpen">{{ importPanelOpen ? 'Sembunyikan import' : 'Import pengguna' }}</button></div></div></div>
+      <div class="panel-heading users-list-heading"><div><h2>Daftar pengguna</h2><p v-if="searchFirst && !hasSearched">{{ participantCount }} akun di kelas Anda.</p><p v-else>{{ users.length }} akun ditemukan.</p></div><div class="user-list-actions"><div class="user-search"><span class="search-icon" aria-hidden="true">⌕</span><input v-model="search" :placeholder="searchFirst ? 'Cari siswa berdasarkan nama atau username…' : 'Cari username, nama, atau kelas'" @keyup.enter="runSearch" /><button class="search-button" type="button" aria-label="Cari pengguna" title="Cari" @click="runSearch">Cari</button></div><div class="user-panel-toggles"><button class="panel-toggle-button" type="button" @click="openNewUser">＋ {{ userFormOpen ? 'Edit pengguna' : 'Tambah pengguna' }}</button><button class="panel-toggle-button secondary" type="button" @click="importPanelOpen = !importPanelOpen">{{ importPanelOpen ? 'Sembunyikan import' : 'Import pengguna' }}</button></div><button v-if="searchFirst && hasSearched" class="text-button search-reset-button" type="button" @click="resetSearch">Hapus pencarian</button></div></div>
       <div v-if="!isEditor && participantCount > 0" class="danger-zone"><div><strong>Hapus semua peserta</strong><small>{{ participantCount }} akun peserta akan dihapus. Akun admin/editor dan laporan asesmen tetap aman.</small></div><button class="danger-zone-button" type="button" :disabled="deletingAll" @click="removeAllParticipants">{{ deletingAll ? 'Menghapus...' : 'Hapus semua peserta' }}</button></div>
       <div v-if="!isEditor && users.length" class="bulk-assignment-bar">
         <div class="bulk-assignment-copy"><strong>Penetapan massal</strong><small>{{ selectedUserIds.length ? `${selectedUserIds.length} pengguna dipilih` : 'Cari kelas atau identitas pengguna, lalu pilih semua hasil.' }}</small></div>
@@ -75,7 +75,8 @@
       </div>
       <p v-if="bulkMessage" :class="bulkMessageType === 'error' ? 'error-text' : 'success-text'">{{ bulkMessage }}</p>
       <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
-      <div v-if="loading" class="panel-empty">Memuat pengguna...</div>
+      <div v-if="searchFirst && !hasSearched" class="panel-empty teacher-search-hint">Daftar pengguna belum ditampilkan agar halaman tetap ringan. Ada {{ participantCount }} akun di kelas Anda — ketik nama atau username pada pencarian di atas, lalu tekan Cari untuk menampilkan daftar.</div>
+      <div v-else-if="loading" class="panel-empty">Memuat pengguna...</div>
       <div v-else-if="users.length === 0" class="panel-empty">Belum ada pengguna.</div>
       <div v-else class="user-table-wrap"><table class="user-table"><thead><tr><th v-if="!isEditor" class="selection-column"><input type="checkbox" :checked="allUsersSelected" aria-label="Pilih semua pengguna" @change="toggleAllUsers" /></th><th>Pengguna</th><th>Peran / penetapan</th><th>Status</th><th>Aksi</th></tr></thead><tbody><tr v-for="user in users" :key="user.id"><td v-if="!isEditor" class="selection-column"><input type="checkbox" :checked="isUserSelected(user.id)" :aria-label="`Pilih ${user.display_name}`" @change="toggleUser(user.id)" /></td><td class="user-identity"><strong>{{ user.display_name }}</strong><small>{{ user.username }}</small></td><td class="user-assignment"><span class="role-badge">{{ roleLabel(user.role) }}</span><span v-if="user.is_demo" class="demo-badge">Demo publik</span><small v-if="user.role === 'editor'">Kelas: {{ teacherClassesLabel(user) }}</small><small v-else>Kelas: {{ user.class_label || 'Belum ditetapkan' }}</small><small v-if="user.role === 'editor' && user.class_mappings?.some((mapping) => mapping.source === 'self')">Ada kelas yang dipilih sendiri oleh guru</small><small>Mapel: {{ subjectLabel(user.subject_id) }}</small></td><td class="user-status"><span :class="['status-badge', { inactive: !user.active }]">{{ user.active ? 'Aktif' : 'Nonaktif' }}</span><span v-if="user.must_change_password" class="password-status-badge">Wajib ubah sandi</span></td><td class="user-actions"><button class="text-button" type="button" @click="editUser(user)">Edit</button><button v-if="!user.is_demo" class="text-button" type="button" @click="resetPassword(user)">Reset sandi</button><button v-if="!isEditor || user.created_by === props.adminSession?.username" class="danger-link" type="button" @click="removeUser(user)">Hapus</button></td></tr></tbody></table></div>
     </div>
@@ -92,7 +93,7 @@ import RuasSelect from '@/components/RuasSelect.vue';
 import type { AdminSession, AdminUser, AdminUserInput, CurriculumClass, Subject, UserClassMapping, UserImportSummary, UserRole } from '@/types';
 import { ADMIN_REALTIME_EVENT, type AdminRealtimeEvent } from '@/lib/admin-realtime';
 
-const props = defineProps<{ adminSession: AdminSession | null }>();
+const props = withDefaults(defineProps<{ adminSession: AdminSession | null; searchFirst?: boolean }>(), { searchFirst: false });
 const isEditor = computed(() => props.adminSession?.role === 'editor');
 const editorClassId = computed(() => props.adminSession?.class_id ?? null);
 const editorClassIds = computed(() => (props.adminSession?.class_ids?.length ? props.adminSession.class_ids : editorClassId.value ? [editorClassId.value] : []));
@@ -114,6 +115,7 @@ const editingId = ref<number | null>(null);
 const userFormOpen = ref(false);
 const importPanelOpen = ref(false);
 const search = ref('');
+const hasSearched = ref(false);
 const importText = ref('');
 const parsedImport = ref<unknown>(null);
 const importMode = ref<'insert' | 'upsert'>('insert');
@@ -160,12 +162,21 @@ function askConfirmation(title: string, message: string, action: () => Promise<v
 function closeConfirmation() { confirmOpen.value = false; confirmPhrase.value = undefined; pendingConfirmation.value = null; }
 async function runConfirmation() { const action = pendingConfirmation.value; closeConfirmation(); if (action) await action(); }
 async function loadUsers() { loading.value = true; errorMessage.value = ''; try { users.value = await fetchAdminUsers(search.value); selectedUserIds.value = []; } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Gagal memuat pengguna.'; } finally { loading.value = false; } }
-watch(search, () => { if (searchTimer) clearTimeout(searchTimer); searchTimer = setTimeout(() => { void loadUsers(); }, 350); });
+/**
+ * Mode guru (searchFirst): daftar akun sengaja tidak dimuat di awal.
+ * Daftar baru tampil setelah guru menjalankan pencarian; penyegaran dari
+ * alur lain (simpan, hapus, import, realtime) hanya berjalan bila daftar
+ * sedang tampil, agar keadaan pencarian awal tidak rusak.
+ */
+async function runSearch() { if (props.searchFirst) hasSearched.value = true; await loadUsers(); }
+async function refreshUsers() { if (props.searchFirst && !hasSearched.value) return; await loadUsers(); }
+function resetSearch() { if (searchTimer) clearTimeout(searchTimer); search.value = ''; users.value = []; selectedUserIds.value = []; hasSearched.value = false; }
+watch(search, () => { if (searchTimer) clearTimeout(searchTimer); searchTimer = setTimeout(() => { if (props.searchFirst && !hasSearched.value && search.value.trim() === '') return; if (props.searchFirst) hasSearched.value = true; void loadUsers(); }, 350); });
 async function loadParticipantCount() { try { participantCount.value = await fetchAdminParticipantCount(); } catch { participantCount.value = 0; } }
-async function saveUser() { saving.value = true; formMessage.value = ''; formFieldErrors.value = {}; const currentId = editingId.value; try { const input = { ...form }; if (currentId === null) await createAdminUser(input); else await updateAdminUser(currentId, input); formMessageType.value = 'success'; resetForm(); formMessage.value = currentId === null ? 'Pengguna berhasil ditambahkan.' : 'Pengguna berhasil diperbarui.'; await Promise.all([loadUsers(), loadParticipantCount()]); } catch (error) { formMessageType.value = 'error'; formMessage.value = error instanceof Error ? error.message : 'Gagal menyimpan pengguna.'; formFieldErrors.value = extractFieldErrors(error); } finally { saving.value = false; } }
-function resetPassword(user: AdminUser) { askConfirmation('Reset sandi pengguna?', `Sandi ${user.username} akan diganti dengan sandi sementara. Sesi login lama akan dibatalkan.`, async () => { try { const result = await resetAdminUserPassword(user.id); bulkMessageType.value = 'success'; bulkMessage.value = `Sandi sementara ${user.username}: ${result.temporary_password}. Berikan sandi ini kepada pengguna dan minta pengguna menggantinya setelah login.`; await loadUsers(); } catch (error) { bulkMessageType.value = 'error'; bulkMessage.value = error instanceof Error ? error.message : 'Gagal mereset sandi pengguna.'; } }, 'Reset sandi'); }
-function removeUser(user: AdminUser) { askConfirmation('Hapus pengguna?', `Akun ${user.username} akan dihapus. Tindakan ini tidak dapat dibatalkan.`, async () => { try { await deleteAdminUser(user.id); await Promise.all([loadUsers(), loadParticipantCount()]); } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Gagal menghapus pengguna.'; } }, 'Hapus'); }
-function removeAllParticipants() { askConfirmation('Hapus semua peserta?', `Sebanyak ${participantCount.value} akun peserta akan dihapus permanen. Riwayat asesmen tetap tersimpan, tetapi akun peserta tidak dapat dipulihkan.`, async () => { deletingAll.value = true; errorMessage.value = ''; try { const deleted = await deleteAllAdminParticipants('HAPUS SEMUA PESERTA'); bulkMessageType.value = 'success'; bulkMessage.value = `${deleted} akun peserta berhasil dihapus.`; await Promise.all([loadUsers(), loadParticipantCount()]); } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Gagal menghapus semua peserta.'; } finally { deletingAll.value = false; } }, 'Hapus semua', 'HAPUS SEMUA PESERTA'); }
+async function saveUser() { saving.value = true; formMessage.value = ''; formFieldErrors.value = {}; const currentId = editingId.value; try { const input = { ...form }; if (currentId === null) await createAdminUser(input); else await updateAdminUser(currentId, input); formMessageType.value = 'success'; resetForm(); formMessage.value = currentId === null ? 'Pengguna berhasil ditambahkan.' : 'Pengguna berhasil diperbarui.'; await Promise.all([refreshUsers(), loadParticipantCount()]); } catch (error) { formMessageType.value = 'error'; formMessage.value = error instanceof Error ? error.message : 'Gagal menyimpan pengguna.'; formFieldErrors.value = extractFieldErrors(error); } finally { saving.value = false; } }
+function resetPassword(user: AdminUser) { askConfirmation('Reset sandi pengguna?', `Sandi ${user.username} akan diganti dengan sandi sementara. Sesi login lama akan dibatalkan.`, async () => { try { const result = await resetAdminUserPassword(user.id); bulkMessageType.value = 'success'; bulkMessage.value = `Sandi sementara ${user.username}: ${result.temporary_password}. Berikan sandi ini kepada pengguna dan minta pengguna menggantinya setelah login.`; await refreshUsers(); } catch (error) { bulkMessageType.value = 'error'; bulkMessage.value = error instanceof Error ? error.message : 'Gagal mereset sandi pengguna.'; } }, 'Reset sandi'); }
+function removeUser(user: AdminUser) { askConfirmation('Hapus pengguna?', `Akun ${user.username} akan dihapus. Tindakan ini tidak dapat dibatalkan.`, async () => { try { await deleteAdminUser(user.id); await Promise.all([refreshUsers(), loadParticipantCount()]); } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Gagal menghapus pengguna.'; } }, 'Hapus'); }
+function removeAllParticipants() { askConfirmation('Hapus semua peserta?', `Sebanyak ${participantCount.value} akun peserta akan dihapus permanen. Riwayat asesmen tetap tersimpan, tetapi akun peserta tidak dapat dipulihkan.`, async () => { deletingAll.value = true; errorMessage.value = ''; try { const deleted = await deleteAllAdminParticipants('HAPUS SEMUA PESERTA'); bulkMessageType.value = 'success'; bulkMessage.value = `${deleted} akun peserta berhasil dihapus.`; await Promise.all([refreshUsers(), loadParticipantCount()]); } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Gagal menghapus semua peserta.'; } finally { deletingAll.value = false; } }, 'Hapus semua', 'HAPUS SEMUA PESERTA'); }
 function isUserSelected(id: number) { return selectedUserIds.value.includes(id); }
 function toggleUser(id: number) { selectedUserIds.value = isUserSelected(id) ? selectedUserIds.value.filter((selectedId) => selectedId !== id) : [...selectedUserIds.value, id]; }
 function toggleAllUsers() { selectedUserIds.value = allUsersSelected.value ? [] : users.value.map((user) => user.id); }
@@ -183,7 +194,7 @@ function applyBulkSubject() {
       bulkSubjectId.value = undefined;
       bulkMessageType.value = 'success';
       bulkMessage.value = `${updated} pengguna berhasil diperbarui.`;
-      await loadUsers();
+      await refreshUsers();
     } catch (error) {
       bulkMessageType.value = 'error';
       bulkMessage.value = error instanceof Error ? error.message : 'Gagal menerapkan penetapan massal.';
@@ -205,7 +216,7 @@ function applyBulkClass() {
       bulkClassId.value = undefined;
       bulkMessageType.value = 'success';
       bulkMessage.value = `${updated} pengguna berhasil ditetapkan ke ${classLabelText}.`;
-      await loadUsers();
+      await refreshUsers();
     } catch (error) {
       bulkMessageType.value = 'error';
       bulkMessage.value = error instanceof Error ? error.message : 'Gagal menetapkan kelas.';
@@ -215,17 +226,17 @@ function applyBulkClass() {
 async function readFile(event: Event) { const file = (event.target as HTMLInputElement).files?.[0]; if (file) { selectedFileName.value = file.name; importText.value = await file.text(); parsedImport.value = null; importSummary.value = null; } }
 function parseImportText() { const value = importText.value.trim(); try { parsedImport.value = JSON.parse(value); } catch { parsedImport.value = value; } }
 async function previewImport() { parseImportText(); importing.value = true; try { importSummary.value = await importAdminUsers(parsedImport.value, importMode.value, true); } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Import tidak valid.'; } finally { importing.value = false; } }
-function applyImport() { if (parsedImport.value === null) return; askConfirmation('Terapkan import?', 'Data pengguna yang sudah dipreview akan disimpan ke database.', async () => { importing.value = true; try { importSummary.value = await importAdminUsers(parsedImport.value, importMode.value, false); await Promise.all([loadUsers(), loadParticipantCount()]); } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Gagal menerapkan import.'; } finally { importing.value = false; } }, 'Terapkan'); }
+function applyImport() { if (parsedImport.value === null) return; askConfirmation('Terapkan import?', 'Data pengguna yang sudah dipreview akan disimpan ke database.', async () => { importing.value = true; try { importSummary.value = await importAdminUsers(parsedImport.value, importMode.value, false); await Promise.all([refreshUsers(), loadParticipantCount()]); } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Gagal menerapkan import.'; } finally { importing.value = false; } }, 'Terapkan'); }
 function roleLabel(role: UserRole) { return { admin: 'Admin', editor: 'Editor', participant: 'Peserta' }[role]; }
 function classLabel(classId: number) { return classes.value.find((item) => item.id === classId)?.label ?? 'Kelas tidak ditemukan'; }
 function subjectLabel(subjectId: number | null) { return subjects.value.find((subject) => subject.id === subjectId)?.label ?? 'Belum ditetapkan'; }
 async function handleRealtime(event: Event) {
   const detail = (event as CustomEvent<AdminRealtimeEvent>).detail;
   if (detail?.resource === 'users' || detail?.resource === 'curriculum') {
-    await Promise.all([loadUsers(), loadParticipantCount(), fetchAdminCurriculum().then((data) => { classes.value = data.classes; subjects.value = data.subjects; }).catch(() => undefined)]);
+    await Promise.all([refreshUsers(), loadParticipantCount(), fetchAdminCurriculum().then((data) => { classes.value = data.classes; subjects.value = data.subjects; }).catch(() => undefined)]);
   }
 }
-onMounted(async () => { await Promise.all([loadUsers(), loadParticipantCount(), fetchAdminCurriculum().then((data) => { classes.value = data.classes; subjects.value = data.subjects; }).catch(() => undefined)]); window.addEventListener(ADMIN_REALTIME_EVENT, handleRealtime); });
+onMounted(async () => { await Promise.all([refreshUsers(), loadParticipantCount(), fetchAdminCurriculum().then((data) => { classes.value = data.classes; subjects.value = data.subjects; }).catch(() => undefined)]); window.addEventListener(ADMIN_REALTIME_EVENT, handleRealtime); });
 onUnmounted(() => { if (searchTimer) clearTimeout(searchTimer); });
 onUnmounted(() => window.removeEventListener(ADMIN_REALTIME_EVENT, handleRealtime));
 </script>
@@ -280,7 +291,10 @@ onUnmounted(() => window.removeEventListener(ADMIN_REALTIME_EVENT, handleRealtim
 .user-panel-toggles { display: flex; gap: 7px; }
 .panel-toggle-button { padding: 10px 12px; border: 0; border-radius: 9px; color: #fff; background: linear-gradient(110deg, #2378db, #2251b5); font: inherit; font-size: .75rem; font-weight: 800; cursor: pointer; white-space: nowrap; }
 .panel-toggle-button.secondary { border: 1px solid #bed5ee; color: #2464ad; background: #f5f9ff; }
-.user-search { position: relative; }.user-search input { width: min(220px, 100%); padding-left: 34px; }.search-icon { position: absolute; top: 50%; left: 11px; z-index: 1; color: #6d88aa; font-size: 1.25rem; line-height: 1; transform: translateY(-53%); pointer-events: none; }.search-button { padding: 10px 13px; border: 0; border-radius: 8px; color: #fff; background: #2b72ce; font: inherit; font-size: .76rem; font-weight: 700; cursor: pointer; }
+.user-search { position: relative; }.user-search input { width: min(220px, 100%); padding-left: 34px; }
+.users-panel-search-first .user-search input { width: min(340px, 100%); }
+.search-reset-button { white-space: nowrap; }
+.teacher-search-hint { line-height: 1.55; }.search-icon { position: absolute; top: 50%; left: 11px; z-index: 1; color: #6d88aa; font-size: 1.25rem; line-height: 1; transform: translateY(-53%); pointer-events: none; }.search-button { padding: 10px 13px; border: 0; border-radius: 8px; color: #fff; background: #2b72ce; font: inherit; font-size: .76rem; font-weight: 700; cursor: pointer; }
 .user-table-wrap { overflow-x: auto; }
 .user-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
 .user-table th, .user-table td { padding: 13px 10px; border-bottom: 1px solid #e6edf5; text-align: left; white-space: nowrap; }

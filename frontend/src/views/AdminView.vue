@@ -120,7 +120,7 @@
               @navigate="handleWizardNavigation"
             />
             <TeacherClassesPanel />
-            <UsersPanel :admin-session="adminSession" />
+            <UsersPanel :admin-session="adminSession" search-first />
             <div v-if="supportPromptOpen" class="teacher-workspace-modal-backdrop support-prompt-backdrop" role="presentation" @click.self="closeSupportPrompt">
               <section class="support-prompt-modal" role="dialog" aria-modal="true" aria-labelledby="support-prompt-title">
                 <button class="teacher-workspace-modal-close support-prompt-close" type="button" aria-label="Tutup informasi dukungan" @click="closeSupportPrompt">×</button>

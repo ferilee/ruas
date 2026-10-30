@@ -7,6 +7,7 @@ import { users } from '@/db/schema/users';
 import type { Pool } from '@/db/connection';
 import {
   addUserClass,
+  countParticipantsByClassId,
   createUserDb,
   findUserByUsername,
   listEffectiveUserClassIds,
@@ -40,10 +41,13 @@ export function adminMyClassesRoutes(pool: Pool) {
   }
 
   async function payload(user: NonNullable<Awaited<ReturnType<typeof findUserByUsername>>>) {
-    const classes = await db
+    const masterClasses = await db
       .select({ id: educationClasses.id, slug: educationClasses.slug, label: educationClasses.label, academic_year: educationClasses.academic_year })
       .from(educationClasses)
       .orderBy(asc(educationClasses.display_order), asc(educationClasses.id));
+    // Jumlah siswa per kelas untuk ringkasan guru; kelas tanpa siswa = 0.
+    const studentCounts = await countParticipantsByClassId(db);
+    const classes = masterClasses.map((educationClass) => ({ ...educationClass, student_count: studentCounts.get(educationClass.id) ?? 0 }));
     const mappingMap = await listUserClassMappings(db, [user.id]);
     let mappings: UserClassMapping[] = mappingMap.get(user.id) ?? [];
     if (mappings.length === 0 && user.class_id) {
