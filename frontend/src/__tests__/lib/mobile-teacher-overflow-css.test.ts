@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import usersSource from '@/components/UsersPanel.vue?raw';
 import adminSource from '@/views/AdminView.vue?raw';
 import shellSource from '@/components/TeacherWizardShell.vue?raw';
+import curriculumSource from '@/components/CurriculumPanel.vue?raw';
 
 // Regresi luapan mobile ruang kerja guru: perbaikan 1a57a60 memotong
 // luapan tingkat halaman, tetapi isi panel Daftar pengguna masih
@@ -50,5 +51,23 @@ describe('question step mobile search', () => {
 describe('wizard shell min-width chain', () => {
   it('lets every step panel shrink within the content grid', () => {
     expect(shellSource).toMatch(/:deep\(\.admin-content > \*\) \{ min-width: 0; \}/);
+  });
+});
+
+describe('topic step slim toolbar and structure strip', () => {
+  it('keeps every slim toolbar column shrinkable with minmax(0, ...)', () => {
+    expect(curriculumSource).toMatch(/\.topic-toolbar-slim \{[^}]*grid-template-columns: minmax\(0, 1\.6fr\) repeat\(4, minmax\(0, 1fr\)\);/);
+    expect(curriculumSource).toMatch(/\.topic-toolbar-slim \.ruas-select \{[^}]*min-width: 0;/);
+  });
+
+  it('collapses the slim toolbar to two then one column on narrow screens', () => {
+    expect(curriculumSource).toMatch(/@media \(max-width: 900px\) \{ \.topic-toolbar-slim \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \}/);
+    expect(curriculumSource).toMatch(/@media \(max-width: 520px\) \{ \.topic-toolbar-slim \{ grid-template-columns: minmax\(0, 1fr\); \}/);
+  });
+
+  it('lets structure summary names shrink with ellipsis instead of pushing the Kelola button out', () => {
+    expect(curriculumSource).toMatch(/\.structure-summary-text \{[^}]*min-width: 0;/);
+    expect(curriculumSource).toMatch(/\.structure-summary-text span \{[^}]*min-width: 0;[^}]*text-overflow: ellipsis;/);
+    expect(curriculumSource).toMatch(/\.structure-manage-btn \{[^}]*flex: 0 0 auto;/);
   });
 });

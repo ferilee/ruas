@@ -89,7 +89,7 @@
         <h2>Kurikulum</h2>
         <p>{{ readonly ? 'Lihat kelas, jenis asesmen, mata pelajaran, dan topik yang tersedia.' : topicOnly ? 'Buat dan kelola topik yang berada dalam penetapan Anda.' : 'Atur pilihan kelas, jenis asesmen, dan mata pelajaran pada halaman peserta.' }}</p>
       </div>
-      <div v-if="!readonly" class="curriculum-heading-actions"><button class="secondary-btn" type="button" :disabled="loading" @click="loadData">Muat ulang</button><button class="primary-btn" type="button" @click="openImportModal">Impor CSV</button></div>
+      <div v-if="!readonly" class="curriculum-heading-actions"><button class="secondary-btn" type="button" :disabled="loading" @click="loadData">Muat ulang</button><button v-if="!simpleLayout" class="primary-btn" type="button" @click="openImportModal">Impor CSV</button></div>
     </div>
 
     <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
@@ -97,7 +97,7 @@
     <div v-if="loading" class="curriculum-loading">Memuat kurikulum...</div>
 
     <div v-else>
-      <section v-if="!topicOnly" class="curriculum-filter-panel" aria-label="Filter struktur asesmen">
+      <section v-if="!topicOnly && !simpleLayout" class="curriculum-filter-panel" aria-label="Filter struktur asesmen">
         <div class="curriculum-filter-heading">
           <div><strong>Filter struktur asesmen</strong><small>Pilih kombinasi untuk melihat bagian kurikulum yang relevan.</small></div>
           <button v-if="hasCurriculumFilter" class="filter-reset-button" type="button" @click="resetCurriculumFilters">Reset</button>
@@ -110,12 +110,29 @@
         <p class="curriculum-filter-result">Menampilkan {{ visibleClasses.length }} kelas · {{ visibleAssessmentTypes.length }} jenis · {{ visibleSubjects.length }} mata pelajaran</p>
       </section>
 
-      <div class="mobile-curriculum-tabs" role="tablist" aria-label="Kategori kurikulum">
+      <section v-if="simpleLayout" class="structure-strip" aria-label="Struktur asesmen">
+        <div class="structure-strip-heading">
+          <div><strong>Struktur asesmen</strong><small>Jenis asesmen dan mata pelajaran yang menjadi dasar topik Anda. Kelas diatur di langkah Kelas.</small></div>
+          <button class="secondary-btn structure-import-btn" type="button" @click="openImportModal">Impor CSV struktur</button>
+        </div>
+        <div class="structure-summary-list">
+          <div class="structure-summary-row">
+            <p class="structure-summary-text"><strong>{{ curriculum.assessment_types.length }} Jenis Asesmen</strong><span v-if="assessmentTypeNamesSummary">{{ assessmentTypeNamesSummary }}</span></p>
+            <button type="button" class="structure-manage-btn" :aria-expanded="structureOpen === 'types'" @click="toggleStructure('types')">{{ structureOpen === 'types' ? 'Tutup' : 'Kelola' }}</button>
+          </div>
+          <div class="structure-summary-row">
+            <p class="structure-summary-text"><strong>{{ curriculum.subjects.length }} Mata Pelajaran</strong><span v-if="subjectNamesSummary">{{ subjectNamesSummary }}</span></p>
+            <button type="button" class="structure-manage-btn" :aria-expanded="structureOpen === 'subjects'" @click="toggleStructure('subjects')">{{ structureOpen === 'subjects' ? 'Tutup' : 'Kelola' }}</button>
+          </div>
+        </div>
+      </section>
+
+      <div v-if="!simpleLayout" class="mobile-curriculum-tabs" role="tablist" aria-label="Kategori kurikulum">
         <button v-for="tab in visibleMobileTabs" :key="tab.value" type="button" role="tab" :aria-selected="mobileTab === tab.value" :class="['mobile-curriculum-tab', { active: mobileTab === tab.value }]" @click="mobileTab = tab.value"><span class="mobile-curriculum-tab-icon" aria-hidden="true">{{ tab.icon }}</span><span>{{ tab.label }}</span></button>
       </div>
 
       <div class="curriculum-grid">
-      <section v-if="!topicOnly" :class="['curriculum-group', 'class-group', { 'mobile-active': mobileTab === 'classes', 'mobile-form-open': mobileFormOpen && mobileTab === 'classes' }]">
+      <section v-if="!topicOnly && !simpleLayout" :class="['curriculum-group', 'class-group', { 'mobile-active': mobileTab === 'classes', 'mobile-form-open': mobileFormOpen && mobileTab === 'classes' }]">
         <div class="curriculum-group-heading"><h3>Kelas</h3><button v-if="!readonly && props.adminSession?.role !== 'editor'" class="curriculum-add-btn" type="button" @click="openClassForm">＋ Tambah</button></div>
         <div class="curriculum-items">
           <div v-for="item in visibleClasses" :key="item.id" class="curriculum-item">
@@ -125,7 +142,7 @@
         </div>
       </section>
 
-      <section v-if="!topicOnly" :class="['curriculum-group', { 'mobile-active': mobileTab === 'types', 'mobile-form-open': mobileFormOpen && mobileTab === 'types' }]">
+      <section v-if="!topicOnly && (!simpleLayout || structureOpen === 'types')" :class="['curriculum-group', { 'mobile-active': mobileTab === 'types' || simpleLayout, 'mobile-form-open': mobileFormOpen && mobileTab === 'types' }]">
         <div class="curriculum-group-heading"><h3>Jenis Asesmen</h3><button v-if="!readonly" class="curriculum-add-btn" type="button" @click="openTypeForm">＋ Tambah</button></div>
         <div class="curriculum-items">
           <div v-for="item in visibleAssessmentTypes" :key="item.id" class="curriculum-item">
@@ -135,7 +152,7 @@
         </div>
       </section>
 
-      <section v-if="!topicOnly" :class="['curriculum-group', 'subject-group', { 'mobile-active': mobileTab === 'subjects', 'mobile-form-open': mobileFormOpen && mobileTab === 'subjects' }]">
+      <section v-if="!topicOnly && (!simpleLayout || structureOpen === 'subjects')" :class="['curriculum-group', 'subject-group', { 'mobile-active': mobileTab === 'subjects' || simpleLayout, 'mobile-form-open': mobileFormOpen && mobileTab === 'subjects' }]">
         <div class="curriculum-group-heading"><h3>Mata Pelajaran</h3><button v-if="!readonly" class="curriculum-add-btn" type="button" @click="openSubjectForm">＋ Tambah</button></div>
         <div class="curriculum-items">
           <div v-for="item in visibleSubjects" :key="item.id" class="curriculum-item">
@@ -145,9 +162,19 @@
         </div>
       </section>
 
-      <section :class="['curriculum-group', 'topic-group', { 'mobile-active': mobileTab === 'topics', 'mobile-form-open': mobileFormOpen && mobileTab === 'topics' }]">
-        <div class="curriculum-group-heading"><h3>Topik</h3><button v-if="!readonly" class="curriculum-add-btn" type="button" @click="openTopicForm">＋ Tambah</button></div>
-        <div class="topic-list-toolbar">
+      <section :class="['curriculum-group', 'topic-group', { 'mobile-active': mobileTab === 'topics' || simpleLayout, 'mobile-form-open': mobileFormOpen && mobileTab === 'topics' }]">
+        <div class="curriculum-group-heading"><h3>Topik</h3><button v-if="!readonly" class="curriculum-add-btn" type="button" @click="openTopicForm">{{ simpleLayout ? '＋ Topik baru' : '＋ Tambah' }}</button></div>
+        <div v-if="simpleLayout" class="topic-toolbar-slim">
+          <label class="topic-search-field">
+            <span class="sr-only">Cari topik</span>
+            <input v-model.trim="topicSearch" type="search" placeholder="Cari nama topik, slug, atau mata pelajaran..." />
+          </label>
+          <RuasSelect v-model="selectedClassId" :options="filterClassOptions" aria-label="Filter kelas topik" />
+          <RuasSelect v-model="selectedAssessmentTypeId" :options="filterAssessmentTypeOptions" aria-label="Filter jenis asesmen topik" />
+          <RuasSelect v-model="selectedSubjectId" :options="filterSubjectOptions" aria-label="Filter mata pelajaran topik" />
+          <RuasSelect v-model="topicOwnerFilter" :options="topicOwnerFilterOptions" searchable search-placeholder="Cari pemilik..." aria-label="Filter pemilik topik" />
+        </div>
+        <div v-else class="topic-list-toolbar">
           <label class="topic-search-field">
             <span class="sr-only">Cari topik</span>
             <input v-model.trim="topicSearch" type="search" placeholder="Cari nama topik, slug, atau mata pelajaran..." />
@@ -156,14 +183,26 @@
         </div>
         <div class="topic-list-meta">
           <span>{{ filteredTopics.length }} topik ditemukan</span>
-          <button v-if="hasTopicFilter" type="button" @click="resetTopicFilters">Reset filter</button>
+          <button v-if="showListReset" type="button" @click="handleListReset">Reset filter</button>
         </div>
         <div class="curriculum-items">
-          <div v-for="item in visibleTopics" :key="item.id" class="curriculum-item">
-            <div><strong>{{ item.label }}</strong><small>{{ item.slug }} · {{ item.subject_label }} · {{ item.class_labels.length ? item.class_labels.join(', ') : 'Semua kelas' }} · {{ item.token_configured ? 'Token aktif' : 'Tanpa token' }} · {{ ownerLabel(item) }}</small><small class="topic-readiness-line"><span :class="['topic-readiness-badge', `readiness-${topicReadiness(item).status}`]">{{ topicReadiness(item).label }}</span> {{ item.question_count ?? 0 }} soal<span v-if="!topicReadiness(item).isReady"> · Langkah berikutnya: {{ topicReadiness(item).nextStep }}</span></small></div>
-            <div v-if="!readonly && canManage(item)" class="item-actions"><button type="button" @click="editTopic(item)">Edit</button><button type="button" class="delete-action" @click="removeTopic(item.id)">Hapus</button></div>
-          </div>
-          <p v-if="visibleTopics.length === 0" class="curriculum-empty">Belum ada topik yang sesuai filter.</p>
+          <template v-if="simpleLayout">
+            <div v-for="group in groupedVisibleTopics" :key="group.subjectId" class="topic-subject-group">
+              <h4 class="topic-subject-heading">{{ group.label }}</h4>
+              <div v-for="item in group.topics" :key="item.id" class="curriculum-item">
+                <div><strong>{{ item.label }}</strong><small>{{ item.slug }} · {{ item.subject_label }} · {{ item.class_labels.length ? item.class_labels.join(', ') : 'Semua kelas' }} · {{ item.token_configured ? 'Token aktif' : 'Tanpa token' }} · {{ ownerLabel(item) }}</small><small class="topic-readiness-line"><span :class="['topic-readiness-badge', `readiness-${topicReadiness(item).status}`]">{{ topicReadiness(item).label }}</span> {{ item.question_count ?? 0 }} soal<span v-if="!topicReadiness(item).isReady"> · Langkah berikutnya: {{ topicReadiness(item).nextStep }}</span></small></div>
+                <div v-if="!readonly && canManage(item)" class="item-actions"><button type="button" @click="editTopic(item)">Edit</button><button type="button" class="delete-action" @click="removeTopic(item.id)">Hapus</button></div>
+              </div>
+            </div>
+            <p v-if="visibleTopics.length === 0" class="curriculum-empty">Belum ada topik yang sesuai filter.</p>
+          </template>
+          <template v-else>
+            <div v-for="item in visibleTopics" :key="item.id" class="curriculum-item">
+              <div><strong>{{ item.label }}</strong><small>{{ item.slug }} · {{ item.subject_label }} · {{ item.class_labels.length ? item.class_labels.join(', ') : 'Semua kelas' }} · {{ item.token_configured ? 'Token aktif' : 'Tanpa token' }} · {{ ownerLabel(item) }}</small><small class="topic-readiness-line"><span :class="['topic-readiness-badge', `readiness-${topicReadiness(item).status}`]">{{ topicReadiness(item).label }}</span> {{ item.question_count ?? 0 }} soal<span v-if="!topicReadiness(item).isReady"> · Langkah berikutnya: {{ topicReadiness(item).nextStep }}</span></small></div>
+              <div v-if="!readonly && canManage(item)" class="item-actions"><button type="button" @click="editTopic(item)">Edit</button><button type="button" class="delete-action" @click="removeTopic(item.id)">Hapus</button></div>
+            </div>
+            <p v-if="visibleTopics.length === 0" class="curriculum-empty">Belum ada topik yang sesuai filter.</p>
+          </template>
         </div>
         <div v-if="filteredTopics.length > 0" class="topic-pagination">
           <span>Menampilkan {{ topicRangeStart }}–{{ topicRangeEnd }} dari {{ filteredTopics.length }}</span>
@@ -197,7 +236,16 @@ import { getTopicReadiness } from '@/lib/topic-readiness';
 import { slugifyLabel } from '@/lib/slug';
 import { ADMIN_REALTIME_EVENT, type AdminRealtimeEvent } from '@/lib/admin-realtime';
 
-const props = withDefaults(defineProps<{ topicOnly?: boolean; workspaceOnly?: boolean; readonly?: boolean; adminSession?: AdminSession | null; initialForm?: CurriculumFormModal | null }>(), { topicOnly: false, workspaceOnly: false, readonly: false, adminSession: null, initialForm: null });
+const props = withDefaults(defineProps<{ topicOnly?: boolean; workspaceOnly?: boolean; readonly?: boolean; simplified?: boolean; adminSession?: AdminSession | null; initialForm?: CurriculumFormModal | null }>(), { topicOnly: false, workspaceOnly: false, readonly: false, simplified: false, adminSession: null, initialForm: null });
+// Tata letak sederhana hanya untuk konteks guru (wizard): daftar topik
+// menjadi isi utama, struktur asesmen diringkas, grup Kelas disembunyikan.
+// Konteks admin (simplified = false) dirender persis seperti sebelumnya.
+const simpleLayout = computed(() => props.simplified && !props.topicOnly);
+type StructureSection = 'types' | 'subjects';
+const structureOpen = ref<StructureSection | null>(null);
+function toggleStructure(section: StructureSection) { structureOpen.value = structureOpen.value === section ? null : section; }
+const assessmentTypeNamesSummary = computed(() => curriculum.value.assessment_types.map((item) => item.label).join(', '));
+const subjectNamesSummary = computed(() => curriculum.value.subjects.map((item) => item.label).join(', '));
 const curriculum = ref<CurriculumData>({ classes: [], assessment_types: [], subjects: [] });
 const loading = ref(true);
 const errorMessage = ref('');
@@ -304,6 +352,34 @@ const visibleTopics = computed(() => {
 });
 const hasCurriculumFilter = computed(() => selectedClassId.value !== null || selectedAssessmentTypeId.value !== null || selectedSubjectId.value !== null);
 const hasTopicFilter = computed(() => Boolean(topicSearch.value.trim()) || topicOwnerFilter.value !== 'all');
+// Pengelompokan topik per mata pelajaran untuk tata letak sederhana:
+// halaman yang sedang tampil dikelompokkan mengikuti urutan mata
+// pelajaran pada data kurikulum; topik di dalam kelompok mengikuti
+// urutan hasil saringan yang sudah ada.
+const groupedVisibleTopics = computed(() => {
+  const subjectOrder = new Map(curriculum.value.subjects.map((subject, index) => [subject.id, index]));
+  const groups = new Map<number, { subjectId: number; label: string; topics: AdminTopic[] }>();
+  for (const item of visibleTopics.value) {
+    let group = groups.get(item.subject_id);
+    if (!group) {
+      const subject = curriculum.value.subjects.find((entry) => entry.id === item.subject_id);
+      group = { subjectId: item.subject_id, label: subject?.label ?? item.subject_label, topics: [] };
+      groups.set(item.subject_id, group);
+    }
+    group.topics.push(item);
+  }
+  return [...groups.values()].sort((a, b) => (subjectOrder.get(a.subjectId) ?? Number.MAX_SAFE_INTEGER) - (subjectOrder.get(b.subjectId) ?? Number.MAX_SAFE_INTEGER));
+});
+const hasAnyToolbarFilter = computed(() => hasCurriculumFilter.value || hasTopicFilter.value);
+const showListReset = computed(() => simpleLayout.value ? hasAnyToolbarFilter.value : hasTopicFilter.value);
+function handleListReset() {
+  if (simpleLayout.value) {
+    resetCurriculumFilters();
+    resetTopicFilters();
+  } else {
+    resetTopicFilters();
+  }
+}
 const formModalTitle = computed(() => ({
   class: editingClassId.value ? 'Edit kelas' : 'Tambah kelas',
   type: editingTypeId.value ? 'Edit jenis asesmen' : 'Tambah jenis asesmen',
@@ -663,4 +739,23 @@ onUnmounted(() => { dismissToast(); window.removeEventListener(ADMIN_REALTIME_EV
   .curriculum-group.mobile-form-open .form-actions { align-self: auto; grid-column: auto; }
   .ruas-toast { top: 14px; right: 14px; left: 14px; max-width: none; }
 }
+.structure-strip { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid #d6e5f4; border-radius: 13px; background: linear-gradient(115deg, #f7fbff, #eef6ff); }
+.structure-strip-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.structure-strip-heading strong, .structure-strip-heading small { display: block; }
+.structure-strip-heading strong { color: #24558f; font-size: .82rem; }
+.structure-strip-heading small { margin-top: 3px; color: #7890ac; font-size: .7rem; }
+.structure-summary-list { display: flex; flex-direction: column; gap: 8px; }
+.structure-summary-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 12px; border: 1px solid #dce8f4; border-radius: 10px; background: #fff; }
+.structure-summary-text { display: flex; min-width: 0; align-items: baseline; gap: 8px; margin: 0; }
+.structure-summary-text strong { flex: 0 0 auto; color: #24558f; font-size: .76rem; }
+.structure-summary-text span { min-width: 0; overflow: hidden; color: #66788e; font-size: .72rem; text-overflow: ellipsis; white-space: nowrap; }
+.structure-manage-btn { flex: 0 0 auto; padding: 6px 12px; border: 1px solid #bfd5ed; border-radius: 8px; color: #246bc5; background: #fff; font: inherit; font-size: .7rem; font-weight: 700; cursor: pointer; }
+.structure-manage-btn:hover { background: #edf6ff; }
+.topic-toolbar-slim { display: grid; grid-template-columns: minmax(0, 1.6fr) repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 13px; }
+.topic-toolbar-slim .ruas-select { width: 100%; min-width: 0; }
+.topic-subject-group { display: flex; flex-direction: column; gap: 7px; }
+.topic-subject-group + .topic-subject-group { margin-top: 10px; }
+.topic-subject-heading { margin: 2px 0 0; color: #24558f; font-size: .8rem; font-weight: 800; }
+@media (max-width: 900px) { .topic-toolbar-slim { grid-template-columns: repeat(2, minmax(0, 1fr)); } .topic-toolbar-slim .topic-search-field { grid-column: 1 / -1; } }
+@media (max-width: 520px) { .topic-toolbar-slim { grid-template-columns: minmax(0, 1fr); } .topic-toolbar-slim .topic-search-field { grid-column: auto; } .structure-strip-heading { flex-direction: column; } .structure-import-btn { width: 100%; } }
 </style>
