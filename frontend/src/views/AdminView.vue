@@ -190,7 +190,7 @@
             </section>
           </section>
 
-          <CurriculumPanel v-else-if="activeSection === 'curriculum'" :admin-session="adminSession" :simplified="isEditorSession" @topics-updated="loadData" />
+          <CurriculumPanel v-else-if="activeSection === 'curriculum'" :admin-session="adminSession" :simplified="isEditorSession" @topics-updated="loadData" @open-topic-questions="openQuestionsForTopic" />
 
           <ReportsPanel v-else-if="activeSection === 'reports'" :can-reset="isAdminSession" :simple="isEditorSession" />
 
@@ -265,6 +265,11 @@
           </section>
 
           <template v-else>
+          <div v-if="isEditorSession" class="question-topic-context-bar">
+            <QuestionTopicPicker v-model="questionTopicFilter" :topics="topics" :subjects="curriculum.subjects" />
+            <p class="question-topic-context-hint">{{ questionTopicFilter === null ? 'Bank soal menampilkan soal dari semua topik. Pilih satu topik untuk bekerja terfokus.' : 'Daftar soal dibatasi pada topik ini — saringan lain disembunyikan agar fokus. Beralih ke “Semua topik” menampilkan seluruh saringan.' }}</p>
+          </div>
+
           <div class="question-toolbar">
             <div class="toolbar-search">
               <input v-model="search" class="search-input" placeholder="Cari soal, topik, atau external ID..." />
@@ -276,12 +281,14 @@
 
           <div class="question-filters" aria-label="Filter bank soal">
             <button v-for="filter in difficultyFilters" :key="filter.value" type="button" :class="['filter-chip', { active: difficultyFilter === filter.value }]" @click="difficultyFilter = filter.value">{{ filter.label }}</button>
-            <RuasSelect v-model="questionTypeFilter" :options="questionTypeFilterOptions" aria-label="Filter tipe soal" />
-            <RuasSelect v-model="questionStatusFilter" :options="questionStatusFilterOptions" aria-label="Filter status soal" />
-            <RuasSelect v-model="questionTopicFilter" class="topic-filter-select" :options="questionTopicFilterOptions" searchable search-placeholder="Cari topik atau mata pelajaran..." aria-label="Filter topik soal" />
+            <RuasSelect v-if="!editorSingleTopicMode" v-model="questionTypeFilter" :options="questionTypeFilterOptions" aria-label="Filter tipe soal" />
+            <RuasSelect v-if="!editorSingleTopicMode" v-model="questionStatusFilter" :options="questionStatusFilterOptions" aria-label="Filter status soal" />
+            <RuasSelect v-if="!isEditorSession" v-model="questionTopicFilter" class="topic-filter-select" :options="questionTopicFilterOptions" searchable search-placeholder="Cari topik atau mata pelajaran..." aria-label="Filter topik soal" />
           </div>
 
-          <details class="panel topic-access-panel">
+          <button v-if="isEditorSession && !topicAccessRevealed" class="secondary-btn topic-access-reveal-btn" type="button" @click="topicAccessRevealed = true">Kelola Akses Topik</button>
+
+          <details v-if="!isEditorSession || topicAccessRevealed" class="panel topic-access-panel" :open="topicAccessOpenAttr">
             <summary class="topic-access-summary"><span><strong>Akses Topik</strong><small>Semua topik menggunakan token</small></span><span class="topic-access-count">{{ topics.length }} topik</span></summary>
             <div class="topic-access-content">
               <p class="field-hint">Token lama tidak dapat ditampilkan kembali karena disimpan sebagai hash. Masukkan token baru jika ingin menggantinya; token baru akan ditampilkan sekali setelah disimpan.</p>
@@ -511,6 +518,7 @@ import TeacherOnboardingWizard from '@/components/TeacherOnboardingWizard.vue';
 import TeacherWizardShell, { type TeacherWizardStepDef } from '@/components/TeacherWizardShell.vue';
 import FeedbackPanel from '@/components/FeedbackPanel.vue';
 import ScheduleAudiencePicker from '@/components/ScheduleAudiencePicker.vue';
+import QuestionTopicPicker from '@/components/QuestionTopicPicker.vue';
 import {
   adminLogin,
   adminLoginFromSession,
@@ -539,6 +547,7 @@ import { extractFieldErrors } from '@/lib/field-errors';
 import { suggestExternalId } from '@/lib/slug';
 import { buildAdminRouteQuery, parseAdminRouteQuery } from '@/lib/admin-route-state';
 import { sectionForTeacherStep, TEACHER_STEPS, teacherStepForSection, teacherStepForWorkspace, type TeacherStepId } from '@/lib/teacher-wizard';
+import { readStoredQuestionTopic, resolveQuestionTopicFilter, storeQuestionTopic } from '@/lib/question-topic-context';
 
 const router = useRouter();
 const route = useRoute();
@@ -606,6 +615,12 @@ const difficultyFilter = ref<AdminQuestionListItem['difficulty'] | 'all'>('all')
 const questionTypeFilter = ref<AdminQuestionListItem['type'] | 'all'>('all');
 const questionStatusFilter = ref<'active' | 'archived' | 'all'>('active');
 const questionTopicFilter = ref<number | null>(null);
+// Konteks topik langkah Soal guru: pemilih topik menjadi konteks utama dan
+// baris saringan menipis selama satu topik dipilih; admin tidak terpengaruh.
+const editorSingleTopicMode = computed(() => isEditorSession.value && questionTopicFilter.value !== null);
+const topicAccessRevealed = ref(false);
+const topicAccessOpenAttr = computed(() => (isEditorSession.value && topicAccessRevealed.value ? true : undefined));
+let questionTopicContextRestored = false;
 const questionPage = ref(1);
 const questionPageSize = ref(25);
 const questionTotal = ref(0);
@@ -745,6 +760,36 @@ watch([difficultyFilter, questionTypeFilter, questionStatusFilter, questionTopic
   questionPage.value = 1;
   void loadQuestions();
 });
+
+// Pilihan konteks topik guru diingat per pengguna agar kunjungan berikutnya
+// langsung melanjutkan topik yang sama. Admin tidak menyimpan apa pun.
+watch(questionTopicFilter, (value) => {
+  if (!isEditorSession.value) return;
+  const usernameForKey = adminSession.value?.username;
+  if (usernameForKey) storeQuestionTopic(usernameForKey, value);
+});
+
+// Pemulihan konteks berjalan sekali setelah data pertama termuat: catatan
+// yang topiknya sudah hilang jatuh ke "Semua topik" (lihat lib
+// question-topic-context), bukan ke topik lain yang tidak dipilih guru.
+function restoreQuestionTopicContext() {
+  if (questionTopicContextRestored || !isEditorSession.value) return;
+  questionTopicContextRestored = true;
+  const usernameForKey = adminSession.value?.username;
+  if (!usernameForKey) return;
+  questionTopicFilter.value = resolveQuestionTopicFilter(readStoredQuestionTopic(usernameForKey), topics.value);
+}
+
+// Warisan dari langkah Topik ("Isi soal" pada sebuah topik): topik tujuan
+// menjadi konteks langkah Soal sekaligus catatan terakhir, mengalahkan
+// ingatan sebelumnya.
+function openQuestionsForTopic(topicId: number) {
+  questionTopicContextRestored = true;
+  questionTopicFilter.value = topicId;
+  const usernameForKey = adminSession.value?.username;
+  if (isEditorSession.value && usernameForKey) storeQuestionTopic(usernameForKey, topicId);
+  selectSection('questions');
+}
 
 function selectSection(section: AdminSection) {
   teacherWorkspaceModal.value = null;
@@ -1148,6 +1193,7 @@ async function loadData() {
     const selectedId = scheduleTopicId.value ?? topics.value[0]?.id ?? null;
     scheduleTopicId.value = selectedId;
     loadScheduleDraft(scheduleRows.value.find((row) => row.topic_id === selectedId) ?? null);
+    restoreQuestionTopicContext();
   } catch (error) {
     isAuthenticated.value = false;
     errorMessage.value = error instanceof Error ? error.message : 'Gagal memuat data editor.';
@@ -1623,6 +1669,9 @@ onUnmounted(() => {
 .question-filters { display: flex; flex-wrap: wrap; gap: 7px; margin: 14px 0 16px; }
 .question-filters > .ruas-select { width: min(210px, 100%); }
 .question-filters > .topic-filter-select { width: min(300px, 100%); }
+.question-topic-context-bar { min-width: 0; margin-bottom: 14px; padding: 14px 16px; border: 1px solid #d0d5dd; border-radius: 16px; background: linear-gradient(180deg, #eff8ff, #fff); }
+.question-topic-context-hint { margin: 9px 0 0; color: #667085; font-size: .76rem; line-height: 1.5; }
+.topic-access-reveal-btn { margin-bottom: 16px; }
 .topic-access-panel { margin-bottom: 16px; padding: 0; }
 .topic-access-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; color: #1e40af; cursor: pointer; list-style: none; }
 .topic-access-summary::-webkit-details-marker { display: none; }
@@ -1996,6 +2045,8 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
   .import-question-button, .new-question-button { width: 100%; }
   .question-filters { margin-top: 12px; }
   .question-filters > .ruas-select { width: 100%; }
+  .question-topic-context-bar { padding: 12px; }
+  .topic-access-reveal-btn { width: 100%; }
   .topic-access-panel { padding: 16px; }
   .topic-access-row { align-items: stretch; flex-direction: column; }
   .topic-access-controls { min-width: 0; grid-template-columns: 1fr; }

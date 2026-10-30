@@ -217,4 +217,27 @@ describe('CurriculumPanel', () => {
     expect(wrapper.find('.topic-subject-group').exists()).toBe(false);
     expect(wrapper.findAll('.topic-group .curriculum-item > div > strong').map((el) => el.text())).toEqual(['Aljabar Dasar', 'Geometri Ruang', 'Algoritma']);
   });
+
+  it('guru: tombol Isi soal pada topik memancarkan openTopicQuestions dengan id topiknya', async () => {
+    const wrapper = mount(CurriculumPanel, { props: { adminSession: teacherSession, simplified: true } });
+    await flushPromises();
+
+    const buttons = wrapper.findAll('.topic-questions-action');
+    expect(buttons).toHaveLength(3);
+    expect(buttons.map((button) => button.attributes('aria-label'))).toEqual([
+      'Isi soal topik Aljabar Dasar',
+      'Isi soal topik Geometri Ruang',
+      'Isi soal topik Algoritma',
+    ]);
+
+    await buttons[1].trigger('click');
+    expect(wrapper.emitted('openTopicQuestions')).toEqual([[102]]);
+  });
+
+  it('admin: tidak ada tombol Isi soal pada daftar topik', async () => {
+    const wrapper = mount(CurriculumPanel, { props: { adminSession: adminSessionFixture } });
+    await flushPromises();
+
+    expect(wrapper.find('.topic-questions-action').exists()).toBe(false);
+  });
 });
