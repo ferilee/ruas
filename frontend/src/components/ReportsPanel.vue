@@ -34,6 +34,16 @@
         </div>
       </section>
 
+      <section v-if="filters.topic_id && pendingParticipants.length" class="simple-report-pending no-print">
+        <div class="simple-report-results-heading"><div><strong>Belum selesai ({{ pendingParticipants.length }})</strong><span>Siswa pada topik ini yang belum menyelesaikan asesmen — daftar tindak lanjut untuk diingatkan.</span></div></div>
+        <div class="simple-report-list">
+          <div v-for="participant in pendingParticipants" :key="participant.participant_id" class="simple-report-pending-row">
+            <span class="simple-report-student"><strong>{{ participant.participant_name }}</strong><small>{{ participant.class_label || 'Tanpa kelas' }}</small></span>
+            <span v-if="participant.state === 'in_progress'" class="status-badge status-in_progress">Sedang mengerjakan</span>
+          </div>
+        </div>
+      </section>
+
       <section v-if="questionStatistics.length" class="simple-question-stats">
         <div class="simple-report-results-heading">
           <div><strong>3. Analisis per soal</strong><span>Persentase siswa yang menjawab benar, dari yang paling sulit.</span></div>
@@ -307,7 +317,7 @@ import ReportExportMenu from '@/components/ReportExportMenu.vue';
 import RuasSelect from '@/components/RuasSelect.vue';
 import { formatReportPrintDate, reportPrintBrand, reportPrintContext, reportPrintDocumentTitle, reportPrintHeading, type ReportPrintMode } from '@/lib/report-print';
 import { latestReportTopicId, readStoredReportContext, resolveReportContext, storeReportContext } from '@/lib/report-context';
-import type { AdminReportClassStatistic, AdminReportDetail, AdminReportFilters, AdminReportQuestionStatistic, AdminReportQuestionStatus, AdminReportRow, AdminReportSummary, AdminTopic, CurriculumData } from '@/types';
+import type { AdminReportClassStatistic, AdminReportDetail, AdminReportFilters, AdminReportPendingParticipant, AdminReportQuestionStatistic, AdminReportQuestionStatus, AdminReportRow, AdminReportSummary, AdminTopic, CurriculumData } from '@/types';
 import { ADMIN_REALTIME_EVENT, type AdminRealtimeEvent } from '@/lib/admin-realtime';
 
 const props = withDefaults(defineProps<{ canReset?: boolean; simple?: boolean; username?: string }>(), { canReset: true, simple: false, username: '' });
@@ -320,6 +330,7 @@ const rows = ref<AdminReportRow[]>([]);
 const summary = ref<AdminReportSummary>({ ...emptySummary });
 const classStatistics = ref<AdminReportClassStatistic[]>([]);
 const questionStatistics = ref<AdminReportQuestionStatistic[]>([]);
+const pendingParticipants = ref<AdminReportPendingParticipant[]>([]);
 const detail = ref<AdminReportDetail | null>(null);
 const analysisFilter = ref<'all' | AdminReportQuestionStatus>('all');
 const loading = ref(false);
@@ -438,6 +449,7 @@ async function loadReport() {
     summary.value = data.summary;
     classStatistics.value = data.class_statistics;
     questionStatistics.value = data.question_statistics ?? [];
+    pendingParticipants.value = data.pending_participants ?? [];
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Gagal memuat laporan.';
   } finally {
@@ -473,6 +485,7 @@ async function resetReportData() {
     resetCount.value = 0;
     rows.value = [];
     classStatistics.value = [];
+    pendingParticipants.value = [];
     summary.value = { ...emptySummary };
     detail.value = null;
     successMessage.value = `${deleted} hasil asesmen berhasil direset.`;
@@ -661,6 +674,9 @@ onUnmounted(() => window.removeEventListener(ADMIN_REALTIME_EVENT, handleRealtim
 .simple-analysis-toggle { flex: 0 0 auto; padding: 8px 12px; border: 1px solid #cbd9e8; border-radius: 9px; color: #365678; background: #fff; font: inherit; font-size: .74rem; font-weight: 800; cursor: pointer; }
 .simple-analysis-toggle:hover { background: #edf6ff; }
 .simple-report-results { overflow: hidden; border: 1px solid #dce7f4; border-radius: 14px; background: #fff; box-shadow: 0 7px 18px rgba(31, 74, 126, .05); }
+.simple-report-pending { overflow: hidden; border: 1px solid #f0dfae; border-radius: 14px; background: #fffdf4; box-shadow: 0 7px 18px rgba(31, 74, 126, .05); }
+.simple-report-pending-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 18px; border-bottom: 1px solid #f3e9cd; }
+.simple-report-pending-row:last-child { border-bottom: 0; }
 .simple-report-results-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px; border-bottom: 1px solid #e4ebf3; }
 .simple-report-results-heading > div { display: flex; flex-direction: column; gap: 5px; }
 .simple-report-list { display: flex; flex-direction: column; }

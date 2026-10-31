@@ -3,7 +3,7 @@ import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import ReportsPanel from '@/components/ReportsPanel.vue';
 import ReportExportMenu from '@/components/ReportExportMenu.vue';
 import { dispatchAdminRealtimeEvent } from '@/lib/admin-realtime';
-import type { AdminReportData, AdminReportFilters, AdminReportQuestionStatistic, AdminReportRow, AdminTopic, CurriculumData } from '@/types';
+import type { AdminReportData, AdminReportFilters, AdminReportPendingParticipant, AdminReportQuestionStatistic, AdminReportRow, AdminTopic, CurriculumData } from '@/types';
 
 const {
   fetchAdminCurriculumMock,
@@ -102,6 +102,13 @@ function questionStats(topicId: number): AdminReportQuestionStatistic[] {
 // tidak ikut berubah oleh mutasi berikutnya.
 const seenFilters: AdminReportFilters[] = [];
 
+// Daftar "Belum selesai" hanya ada bila topik dipilih (meniru kontrak
+// backend): untuk topik 101 ada dua nama, satu sedang mengerjakan.
+const pendingFixture: AdminReportPendingParticipant[] = [
+  { participant_id: 901, participant_name: 'Siswa Proses', username: 'siswa.proses', class_id: 3, class_label: '11 TKJ A', state: 'in_progress' },
+  { participant_id: 902, participant_name: 'Siswa Telat', username: 'siswa.telat', class_id: 3, class_label: '11 TKJ A', state: 'not_started' },
+];
+
 function reportData(filters: AdminReportFilters): AdminReportData {
   const rows = allRows.filter((row) => (filters.topic_id === undefined || row.topic_id === filters.topic_id) && (filters.class_id === undefined || row.class_id === filters.class_id));
   return {
@@ -109,6 +116,9 @@ function reportData(filters: AdminReportFilters): AdminReportData {
     summary: { total_attempts: rows.length, completed_attempts: rows.length, in_progress_attempts: 0, abandoned_attempts: 0, average_score: 80, average_accuracy: 80, average_time_seconds: 600, total_violations: 0 },
     class_statistics: [],
     question_statistics: rows.length ? questionStats(rows[0].topic_id ?? 101) : [],
+    pending_participants: filters.topic_id === 101
+      ? pendingFixture.filter((participant) => filters.class_id === undefined || participant.class_id === filters.class_id)
+      : [],
     rows,
   };
 }
@@ -244,6 +254,73 @@ describe('ReportsPanel', () => {
     expect(wrapper.get('.report-print-documents').text()).toContain('Soal nomor 12 untuk topik 101');
     // Layar tetap terlipat — dokumen cetak memang hidup dari data, bukan dari DOM layar.
     expect(wrapper.findAll('.simple-question-stat-row')).toHaveLength(0);
+  });
+
+  it('simple: kelompok Belum selesai tampil sesudah hasil siswa dengan hitungan dan lencana Sedang mengerjakan', async () => {
+    const wrapper = mount(ReportsPanel, { props: { simple: true, canReset: false, username: 'guru.satu' } });
+    await flushPromises();
+
+    // Keadaan bawaan melingkup ke topik 101, yang punya dua nama pending.
+    const pending = wrapper.find('.simple-report-pending');
+    expect(pending.exists()).toBe(true);
+    expect(pending.text()).toContain('Belum selesai (2)');
+    expect(pending.text()).toContain('Siswa Telat');
+    expect(pending.text()).toContain('Siswa Proses');
+    expect(pending.text()).toContain('11 TKJ A');
+    const badges = pending.findAll('.status-badge');
+    expect(badges).toHaveLength(1);
+    expect(badges[0].text()).toBe('Sedang mengerjakan');
+
+    const sections = wrapper.findAll('section');
+    const resultsIndex = sections.findIndex((section) => section.classes().includes('simple-report-results'));
+    const pendingIndex = sections.findIndex((section) => section.classes().includes('simple-report-pending'));
+    const analysisIndex = sections.findIndex((section) => section.classes().includes('simple-question-stats'));
+    expect(pendingIndex).toBeGreaterThan(resultsIndex);
+    expect(analysisIndex).toBeGreaterThan(pendingIndex);
+  });
+
+  it('simple: kelompok Belum selesai tidak tampil bila daftarnya kosong', async () => {
+    localStorage.setItem('ruas_teacher_report_context:guru.satu', '{"topic_id":102,"class_id":4}');
+    const wrapper = mount(ReportsPanel, { props: { simple: true, canReset: false, username: 'guru.satu' } });
+    await flushPromises();
+
+    expect(lastReportFilters().topic_id).toBe(102);
+    expect(wrapper.find('.simple-report-pending').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('Belum selesai');
+  });
+
+  it('simple: kelompok Belum selesai tidak tampil tanpa topik terpilih', async () => {
+    localStorage.setItem('ruas_teacher_report_context:guru.satu', '{"class_id":4}');
+    const wrapper = mount(ReportsPanel, { props: { simple: true, canReset: false, username: 'guru.satu' } });
+    await flushPromises();
+
+    expect(lastReportFilters().topic_id).toBeUndefined();
+    expect(wrapper.find('.simple-report-pending').exists()).toBe(false);
+  });
+
+  it('simple: nama Belum selesai tidak bocor ke dokumen cetak mana pun', async () => {
+    const wrapper = mount(ReportsPanel, { props: { simple: true, canReset: false, username: 'guru.satu' } });
+    await flushPromises();
+    expect(wrapper.find('.simple-report-pending').exists()).toBe(true);
+
+    const menu = wrapper.findComponent(ReportExportMenu);
+    (menu.vm as unknown as { $emit: (event: string, mode: string) => void }).$emit('select', 'students');
+    await flushPromises();
+
+    expect(wrapper.get('.report-print-documents').text()).not.toContain('Siswa Telat');
+    expect(wrapper.get('.report-print-documents').text()).not.toContain('Siswa Proses');
+  });
+
+  it('admin: kelompok Belum selesai tidak dirender walau respons berisi daftarnya', async () => {
+    fetchAdminReportMock.mockImplementation(async (filters: AdminReportFilters) => {
+      seenFilters.push({ ...filters });
+      return { ...reportData(filters), pending_participants: pendingFixture };
+    });
+    const wrapper = mount(ReportsPanel, { props: { simple: false, canReset: false, username: 'admin' } });
+    await flushPromises();
+
+    expect(wrapper.find('.simple-report-pending').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('Belum selesai');
   });
 
   it('admin: urutan dan isi varian lengkap persis seperti sebelumnya, tanpa ingatan konteks', async () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { summarizeReportByClass } from '@/services/report-service';
+import { computePendingParticipants, summarizeReportByClass, type PendingParticipantsData, type ReportFilters } from '@/services/report-service';
 
 type ReportRow = Parameters<typeof summarizeReportByClass>[0][number];
 
@@ -67,6 +67,152 @@ describe('summarizeReportByClass', () => {
         total_violations: 2,
       }),
     ]);
+  });
+});
+
+type PendingUser = PendingParticipantsData['users'][number];
+
+function pendingUser(overrides: Partial<PendingUser> = {}): PendingUser {
+  return {
+    id: 1,
+    username: 'siswa1',
+    display_name: 'Siswa Satu',
+    class_id: 1,
+    role: 'participant',
+    active: 1,
+    is_demo: 0,
+    created_by: null,
+    ...overrides,
+  };
+}
+
+function pendingData(overrides: Partial<PendingParticipantsData> = {}): PendingParticipantsData {
+  return {
+    topic: { subject_id: 7, created_by: 'env-admin' },
+    subject_created_by: 'env-admin',
+    subject_class_created_by: 'env-admin',
+    schedule_access_mode: null,
+    schedule_participant_user_ids: [],
+    topic_class_ids: [1],
+    classes: [
+      { id: 1, label: 'Kelas 10', created_by: 'env-admin' },
+      { id: 2, label: 'Kelas 11', created_by: 'env-admin' },
+    ],
+    users: [],
+    attempts: [],
+    ...overrides,
+  };
+}
+
+const pendingFilters: ReportFilters = { status: 'completed', topic_id: 10 };
+
+describe('computePendingParticipants (Belum selesai)', () => {
+  it('class mode: roster from topic classes, completed excluded, in_progress marked, sorted by class then name', () => {
+    const result = computePendingParticipants(pendingData({
+      schedule_access_mode: 'class',
+      topic_class_ids: [1, 2],
+      users: [
+        pendingUser({ id: 3, username: 'siswa3', display_name: 'Siswa Tiga', class_id: 2 }),
+        pendingUser({ id: 1, username: 'siswa1', display_name: 'Siswa Satu', class_id: 1 }),
+        pendingUser({ id: 2, username: 'siswa2', display_name: 'Siswa Dua', class_id: 1 }),
+        pendingUser({ id: 4, username: 'siswa4', display_name: 'Siswa Empat', class_id: 1 }),
+        pendingUser({ id: 5, username: 'siswa5', display_name: 'Siswa Lima', class_id: 3 }),
+      ],
+      attempts: [
+        { username: 'siswa2', status: 'completed' },
+        { username: 'siswa4', status: 'in_progress' },
+      ],
+    }), pendingFilters);
+
+    // Urutan: per label kelas, lalu nama (Empat sebelum Satu secara alfabetis).
+    expect(result).toEqual([
+      expect.objectContaining({ participant_id: 4, participant_name: 'Siswa Empat', class_label: 'Kelas 10', state: 'in_progress' }),
+      expect.objectContaining({ participant_id: 1, participant_name: 'Siswa Satu', class_label: 'Kelas 10', state: 'not_started' }),
+      expect.objectContaining({ participant_id: 3, participant_name: 'Siswa Tiga', class_label: 'Kelas 11', state: 'not_started' }),
+    ]);
+  });
+
+  it('no schedule falls back to the topic class roster, same as class mode', () => {
+    const result = computePendingParticipants(pendingData({
+      schedule_access_mode: null,
+      users: [pendingUser()],
+    }), pendingFilters);
+    expect(result).toEqual([expect.objectContaining({ participant_id: 1, state: 'not_started' })]);
+  });
+
+  it('individual mode: only the explicitly listed participants are expected', () => {
+    const result = computePendingParticipants(pendingData({
+      schedule_access_mode: 'individual',
+      schedule_participant_user_ids: [2],
+      topic_class_ids: [1],
+      users: [
+        pendingUser({ id: 1, username: 'siswa1', class_id: 1 }),
+        pendingUser({ id: 2, username: 'siswa2', display_name: 'Siswa Dua', class_id: 2 }),
+        pendingUser({ id: 3, username: 'siswa3', display_name: 'Siswa Tiga', class_id: null }),
+      ],
+    }), pendingFilters);
+    expect(result).toEqual([
+      expect.objectContaining({ participant_id: 2, class_id: 2, class_label: 'Kelas 11', state: 'not_started' }),
+    ]);
+  });
+
+  it('intersects with the report class filter', () => {
+    const result = computePendingParticipants(pendingData({
+      topic_class_ids: [1, 2],
+      users: [
+        pendingUser({ id: 1, class_id: 1 }),
+        pendingUser({ id: 2, username: 'siswa2', display_name: 'Siswa Dua', class_id: 2 }),
+      ],
+    }), { ...pendingFilters, class_id: 2 });
+    expect(result.map((item) => item.participant_id)).toEqual([2]);
+  });
+
+  it('a completed attempt wins over an in_progress attempt for the same student', () => {
+    const result = computePendingParticipants(pendingData({
+      users: [pendingUser()],
+      attempts: [
+        { username: 'siswa1', status: 'in_progress' },
+        { username: 'siswa1', status: 'completed' },
+      ],
+    }), pendingFilters);
+    expect(result).toEqual([]);
+  });
+
+  it('editor scope limits names outside the teacher reach, but own-created students stay visible', () => {
+    const result = computePendingParticipants(pendingData({
+      topic_class_ids: [1, 2],
+      users: [
+        pendingUser({ id: 1, username: 'siswa1', class_id: 1 }),
+        pendingUser({ id: 2, username: 'siswa2', display_name: 'Siswa Dua', class_id: 2 }),
+        pendingUser({ id: 3, username: 'siswa3', display_name: 'Siswa Tiga', class_id: 2, created_by: 'guru.satu' }),
+      ],
+    }), { ...pendingFilters, scope_owner_username: 'guru.satu', scope_subject_id: 7, scope_class_ids: [1] });
+    expect(result.map((item) => item.participant_id)).toEqual([1, 3]);
+  });
+
+  it('topic without class links and without an individual schedule yields an empty list', () => {
+    const result = computePendingParticipants(pendingData({
+      topic_class_ids: [],
+      users: [pendingUser()],
+    }), pendingFilters);
+    expect(result).toEqual([]);
+  });
+
+  it('is not computed without a topic filter or a known topic', () => {
+    expect(computePendingParticipants(pendingData({ users: [pendingUser()] }), { status: 'completed' })).toEqual([]);
+    expect(computePendingParticipants(pendingData({ topic: null, users: [pendingUser()] }), pendingFilters)).toEqual([]);
+  });
+
+  it('excludes inactive, demo, and non-participant accounts from the roster', () => {
+    const result = computePendingParticipants(pendingData({
+      users: [
+        pendingUser({ id: 1 }),
+        pendingUser({ id: 2, username: 'siswa2', active: 0 }),
+        pendingUser({ id: 3, username: 'siswa3', is_demo: 1 }),
+        pendingUser({ id: 4, username: 'guru1', role: 'editor' }),
+      ],
+    }), pendingFilters);
+    expect(result.map((item) => item.participant_id)).toEqual([1]);
   });
 });
 

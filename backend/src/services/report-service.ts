@@ -1,6 +1,8 @@
 import { asc, desc, eq, inArray } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/mysql-core';
 import { drizzle } from 'drizzle-orm/mysql2';
+import { assessmentSchedule } from '@/db/schema/assessment-schedule';
+import { assessmentScheduleParticipants } from '@/db/schema/assessment-schedule-participants';
 import { assessmentTypes } from '@/db/schema/assessment-types';
 import { educationClasses } from '@/db/schema/education-classes';
 import { examAnswers } from '@/db/schema/exam-answers';
@@ -10,6 +12,7 @@ import { participantProfiles } from '@/db/schema/participant-profiles';
 import { questions } from '@/db/schema/questions';
 import { questionOptions } from '@/db/schema/question-options';
 import { subjects } from '@/db/schema/subjects';
+import { topicClasses } from '@/db/schema/topic-classes';
 import { topics } from '@/db/schema/topics';
 import { users } from '@/db/schema/users';
 import type { Pool } from '@/db/connection';
@@ -50,6 +53,8 @@ const subjectClasses = alias(educationClasses, 'subject_classes');
 export function createReportDb(pool: Pool) {
   return drizzle(pool, {
     schema: {
+      assessmentSchedule,
+      assessmentScheduleParticipants,
       assessmentTypes,
       educationClasses,
       examAnswers,
@@ -59,6 +64,7 @@ export function createReportDb(pool: Pool) {
       questions,
       questionOptions,
       subjects,
+      topicClasses,
       topics,
       users,
     },
@@ -424,6 +430,161 @@ export function summarizeReport(rows: Awaited<ReturnType<typeof listReportAttemp
     average_time_seconds: Math.round(average(officialRows.map((row) => row.total_time_seconds))),
     total_violations: officialRows.reduce((total, row) => total + row.violation_count, 0),
   };
+}
+
+export type PendingParticipantState = 'not_started' | 'in_progress';
+
+export interface PendingParticipant {
+  participant_id: number;
+  participant_name: string;
+  username: string;
+  class_id: number | null;
+  class_label: string | null;
+  state: PendingParticipantState;
+}
+
+export interface PendingParticipantUser {
+  id: number;
+  username: string;
+  display_name: string;
+  class_id: number | null;
+  role: string;
+  active: number;
+  is_demo: number;
+  created_by: string | null;
+}
+
+export interface PendingParticipantsData {
+  topic: { subject_id: number; created_by: string | null } | null;
+  subject_created_by: string | null;
+  subject_class_created_by: string | null;
+  schedule_access_mode: 'class' | 'individual' | null;
+  schedule_participant_user_ids: number[];
+  topic_class_ids: number[];
+  classes: Array<{ id: number; label: string; created_by: string | null }>;
+  users: PendingParticipantUser[];
+  attempts: Array<{ username: string; status: ReportStatus }>;
+}
+
+/**
+ * Daftar "Belum selesai" untuk satu topik: peserta yang diharapkan
+ * mengerjakan tetapi belum punya attempt completed pada topik itu.
+ *
+ * Himpunan harapan ditentukan mode akses jadwal topik (pola yang sama
+ * dengan assessment-schedule-service): mode 'individual' mengambil
+ * daftar eksplisit assessment_schedule_participants; mode 'class' atau
+ * topik tanpa jadwal mengambil roster peserta aktif yang kelasnya
+ * terikat ke topik lewat topic_classes. Definisi "belum" hanya membaca
+ * status attempt pada topik (completed menyingkirkan, in_progress
+ * menandai) dan sengaja TIDAK dipengaruhi saringan tampilan lain
+ * (status laporan, rentang tanggal, pencarian) agar daftar tindak
+ * lanjut tidak berubah-ubah mengikuti saringan hasil.
+ */
+export function computePendingParticipants(data: PendingParticipantsData, filters: ReportFilters): PendingParticipant[] {
+  if (!filters.topic_id || !data.topic) return [];
+  const topic = data.topic;
+  const classById = new Map(data.classes.map((item) => [item.id, item]));
+
+  let expected: PendingParticipantUser[];
+  if (data.schedule_access_mode === 'individual') {
+    const ids = new Set(data.schedule_participant_user_ids);
+    expected = data.users.filter((user) => ids.has(user.id));
+  } else {
+    if (data.topic_class_ids.length === 0) return [];
+    const classIds = new Set(data.topic_class_ids);
+    expected = data.users.filter((user) => user.class_id !== null && classIds.has(user.class_id));
+  }
+  expected = expected.filter((user) => user.role === 'participant' && user.active === 1 && user.is_demo === 0);
+
+  const completedUsernames = new Set<string>();
+  const inProgressUsernames = new Set<string>();
+  for (const attempt of data.attempts) {
+    if (attempt.status === 'completed') completedUsernames.add(attempt.username);
+    if (attempt.status === 'in_progress') inProgressUsernames.add(attempt.username);
+  }
+
+  return expected
+    .filter((user) => !completedUsernames.has(user.username))
+    .filter((user) => !filters.class_id || user.class_id === filters.class_id)
+    .filter((user) => {
+      // Scope editor memakai pola kepemilikan/penugasan yang sama dengan
+      // saringan baris pada listReportAttempts.
+      if (!filters.scope_owner_username) {
+        return (!filters.scope_subject_id || topic.subject_id === filters.scope_subject_id)
+          && reportRowInClassScope(filters, user.class_id);
+      }
+      const classCreatedBy = (user.class_id !== null ? classById.get(user.class_id)?.created_by ?? null : null) ?? data.subject_class_created_by;
+      const owned = data.subject_created_by === filters.scope_owner_username
+        || classCreatedBy === filters.scope_owner_username
+        || topic.created_by === filters.scope_owner_username
+        || user.created_by === filters.scope_owner_username;
+      const assigned = (!filters.scope_subject_id || topic.subject_id === filters.scope_subject_id)
+        && reportRowInClassScope(filters, user.class_id);
+      return owned || assigned;
+    })
+    .map((user) => ({
+      participant_id: user.id,
+      participant_name: user.display_name,
+      username: user.username,
+      class_id: user.class_id,
+      class_label: user.class_id !== null ? classById.get(user.class_id)?.label ?? null : null,
+      state: (inProgressUsernames.has(user.username) ? 'in_progress' : 'not_started') as PendingParticipantState,
+    }))
+    .sort((first, second) => (first.class_label ?? 'Tanpa kelas').localeCompare(second.class_label ?? 'Tanpa kelas', 'id')
+      || first.participant_name.localeCompare(second.participant_name, 'id', { sensitivity: 'base' }));
+}
+
+export async function listPendingParticipants(db: ReportDb, filters: ReportFilters): Promise<PendingParticipant[]> {
+  if (!filters.topic_id) return [];
+  const topicId = filters.topic_id;
+
+  const topicRows = await db
+    .select({ subject_id: topics.subject_id, created_by: topics.created_by })
+    .from(topics)
+    .where(eq(topics.id, topicId));
+  const topic = topicRows[0];
+  if (!topic) return [];
+
+  const [subjectRows, scheduleRows, topicClassRows, classRows, userRows, attemptRows] = await Promise.all([
+    db.select({ created_by: subjects.created_by, class_id: subjects.class_id }).from(subjects).where(eq(subjects.id, topic.subject_id)),
+    db.select({ id: assessmentSchedule.id, access_mode: assessmentSchedule.access_mode }).from(assessmentSchedule).where(eq(assessmentSchedule.topic_id, topicId)),
+    db.select({ class_id: topicClasses.class_id }).from(topicClasses).where(eq(topicClasses.topic_id, topicId)),
+    db.select({ id: educationClasses.id, label: educationClasses.label, created_by: educationClasses.created_by }).from(educationClasses),
+    db.select({
+      id: users.id,
+      username: users.username,
+      display_name: users.display_name,
+      class_id: users.class_id,
+      role: users.role,
+      active: users.active,
+      is_demo: users.is_demo,
+      created_by: users.created_by,
+    }).from(users),
+    db.select({ username: participantProfiles.identity_key, status: examAttempts.status, is_demo: participantProfiles.is_demo })
+      .from(examAttempts)
+      .innerJoin(participantProfiles, eq(examAttempts.participant_id, participantProfiles.id))
+      .where(eq(examAttempts.topic_id, topicId)),
+  ]);
+
+  const schedule = scheduleRows[0];
+  const scheduleParticipantUserIds = schedule && schedule.access_mode === 'individual'
+    ? (await db.select({ user_id: assessmentScheduleParticipants.user_id }).from(assessmentScheduleParticipants).where(eq(assessmentScheduleParticipants.schedule_id, schedule.id)))
+      .map((row) => row.user_id)
+    : [];
+  const classById = new Map(classRows.map((item) => [item.id, item]));
+  const subject = subjectRows[0];
+
+  return computePendingParticipants({
+    topic,
+    subject_created_by: subject?.created_by ?? null,
+    subject_class_created_by: subject?.class_id ? classById.get(subject.class_id)?.created_by ?? null : null,
+    schedule_access_mode: schedule?.access_mode ?? null,
+    schedule_participant_user_ids: scheduleParticipantUserIds,
+    topic_class_ids: topicClassRows.map((row) => row.class_id),
+    classes: classRows,
+    users: userRows,
+    attempts: attemptRows.filter((row) => row.is_demo === 0).map((row) => ({ username: row.username, status: row.status })),
+  }, filters);
 }
 
 export function summarizeReportByClass(rows: Awaited<ReturnType<typeof listReportAttempts>>, policy: ReportScorePolicy = 'best') {

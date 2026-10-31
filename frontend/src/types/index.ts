@@ -529,10 +529,22 @@ export interface AdminReportQuestionStatistic {
   difficulty_label: 'Terkuasai' | 'Cukup' | 'Perlu diulang';
 }
 
+export type AdminReportPendingParticipantState = 'not_started' | 'in_progress';
+
+export interface AdminReportPendingParticipant {
+  participant_id: number;
+  participant_name: string;
+  username: string;
+  class_id: number | null;
+  class_label: string | null;
+  state: AdminReportPendingParticipantState;
+}
+
 export interface AdminReportData {
   filters: AdminReportFilters;
   summary: AdminReportSummary;
   class_statistics: AdminReportClassStatistic[];
   question_statistics: AdminReportQuestionStatistic[];
+  pending_participants: AdminReportPendingParticipant[];
   rows: AdminReportRow[];
 }

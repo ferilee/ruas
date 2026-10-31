@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { createReportDbMock, countReportAttemptsMock, resetAllReportDataMock, listReportAttemptsMock, listQuestionStatisticsMock, summarizeReportMock, summarizeReportByClassMock } = vi.hoisted(() => ({
+const { createReportDbMock, countReportAttemptsMock, resetAllReportDataMock, listReportAttemptsMock, listPendingParticipantsMock, listQuestionStatisticsMock, summarizeReportMock, summarizeReportByClassMock } = vi.hoisted(() => ({
   createReportDbMock: vi.fn(),
   countReportAttemptsMock: vi.fn(),
   resetAllReportDataMock: vi.fn(),
   listReportAttemptsMock: vi.fn(),
+  listPendingParticipantsMock: vi.fn(),
   listQuestionStatisticsMock: vi.fn(),
   summarizeReportMock: vi.fn(),
   summarizeReportByClassMock: vi.fn(),
@@ -21,6 +22,7 @@ vi.mock('@/services/report-service', () => ({
   resetAllReportData: resetAllReportDataMock,
   getReportDetail: vi.fn(),
   listReportAttempts: listReportAttemptsMock,
+  listPendingParticipants: listPendingParticipantsMock,
   listQuestionStatistics: listQuestionStatisticsMock,
   summarizeReport: summarizeReportMock,
   summarizeReportByClass: summarizeReportByClassMock,
@@ -32,6 +34,7 @@ describe('adminReportRoutes reset', () => {
     countReportAttemptsMock.mockReset();
     resetAllReportDataMock.mockReset();
     listReportAttemptsMock.mockReset().mockResolvedValue([]);
+    listPendingParticipantsMock.mockReset().mockResolvedValue([]);
     listQuestionStatisticsMock.mockReset().mockResolvedValue([]);
     summarizeReportMock.mockReset().mockReturnValue({});
     summarizeReportByClassMock.mockReset().mockReturnValue([]);
@@ -82,5 +85,21 @@ describe('adminReportRoutes reset', () => {
 
     expect(response.status).toBe(200);
     expect(listReportAttemptsMock).toHaveBeenCalledWith({}, expect.objectContaining({ status: 'all', topic_id: 7 }));
+  });
+
+  it('includes pending_participants computed with the same filters as the rows', async () => {
+    const pending = [{ participant_id: 2, participant_name: 'Siswa Dua', username: 'siswa2', class_id: 1, class_label: 'Kelas 10', state: 'in_progress' }];
+    listPendingParticipantsMock.mockResolvedValue(pending);
+    const { adminReportRoutes } = await import('@/routes/admin-reports');
+    const app = adminReportRoutes({} as never);
+    const response = await app.request('http://localhost/?topic_id=7');
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.pending_participants).toEqual(pending);
+    expect(listPendingParticipantsMock).toHaveBeenCalledWith({}, expect.objectContaining({ topic_id: 7 }));
+    // Filter yang diteruskan harus objek yang sama dengan yang dipakai baris
+    // laporan agar scope editor berlaku identik di keduanya.
+    expect(listPendingParticipantsMock.mock.calls[0][1]).toBe(listReportAttemptsMock.mock.calls[0][1]);
   });
 });

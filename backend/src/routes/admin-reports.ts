@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import type { Pool } from '@/db/connection';
 import { createExamDb, expireOverdueAttempts } from '@/services/exam-service';
-import { countReportAttempts, createReportDb, getReportDetail, listQuestionStatistics, listReportAttempts, resetAllReportData, summarizeReport, summarizeReportByClass } from '@/services/report-service';
+import { countReportAttempts, createReportDb, getReportDetail, listPendingParticipants, listQuestionStatistics, listReportAttempts, resetAllReportData, summarizeReport, summarizeReportByClass } from '@/services/report-service';
 import { rowMatchesAdminScope, sessionClassIds } from '@/lib/admin-scope';
 
 const querySchema = z.object({
@@ -54,10 +54,12 @@ export function adminReportRoutes(pool: Pool) {
     examDb ??= createExamDb(pool);
     await expireOverdueAttempts(examDb);
     const session = c.get('adminSession');
-    const rows = await listReportAttempts(db, session?.role === 'editor'
+    const scopedFilters = session?.role === 'editor'
       ? { ...parsed.data, scope_subject_id: session.subject_id ?? undefined, scope_class_ids: sessionClassIds(session), scope_owner_username: session.username }
-      : parsed.data);
-    return c.json({ filters: parsed.data, summary: summarizeReport(rows, parsed.data.score_policy), class_statistics: summarizeReportByClass(rows, parsed.data.score_policy), question_statistics: await listQuestionStatistics(db, rows), rows });
+      : parsed.data;
+    const rows = await listReportAttempts(db, scopedFilters);
+    const pendingParticipants = await listPendingParticipants(db, scopedFilters);
+    return c.json({ filters: parsed.data, summary: summarizeReport(rows, parsed.data.score_policy), class_statistics: summarizeReportByClass(rows, parsed.data.score_policy), question_statistics: await listQuestionStatistics(db, rows), pending_participants: pendingParticipants, rows });
   });
 
   app.get('/:id', async (c) => {
