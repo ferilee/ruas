@@ -192,6 +192,7 @@
               <div v-for="item in group.topics" :key="item.id" class="curriculum-item">
                 <div><strong>{{ item.label }}</strong><small>{{ item.slug }} · {{ item.subject_label }} · {{ item.class_labels.length ? item.class_labels.join(', ') : 'Semua kelas' }} · {{ item.token_configured ? 'Token aktif' : 'Tanpa token' }} · {{ ownerLabel(item) }}</small><small class="topic-readiness-line"><span :class="['topic-readiness-badge', `readiness-${topicReadiness(item).status}`]">{{ topicReadiness(item).label }}</span> {{ item.question_count ?? 0 }} soal<span v-if="!topicReadiness(item).isReady"> · Langkah berikutnya: {{ topicReadiness(item).nextStep }}</span></small></div>
                 <button class="topic-questions-action" type="button" :aria-label="`Isi soal topik ${item.label}`" @click="emit('openTopicQuestions', item.id)">Isi soal →</button>
+                <button class="topic-schedule-action" type="button" :aria-label="`Atur jadwal topik ${item.label}`" @click="emit('openTopicSchedule', item.id)">Atur jadwal →</button>
                 <div v-if="!readonly && canManage(item)" class="item-actions"><button type="button" @click="editTopic(item)">Edit</button><button type="button" class="delete-action" @click="removeTopic(item.id)">Hapus</button></div>
               </div>
             </div>
@@ -394,7 +395,7 @@ const formModalDescription = computed(() => ({
   topic: 'Tambahkan topik yang akan berisi kumpulan soal.',
 }[formModal.value]));
 
-const emit = defineEmits<{ topicsUpdated: []; openTopicQuestions: [topicId: number] }>();
+const emit = defineEmits<{ topicsUpdated: []; openTopicQuestions: [topicId: number]; openTopicSchedule: [topicId: number] }>();
 
 watch([selectedClassId, selectedAssessmentTypeId], () => {
   if (selectedSubjectId.value !== null && !filteredSubjects.value.some((item) => item.id === selectedSubjectId.value)) selectedSubjectId.value = null;
@@ -703,6 +704,8 @@ onUnmounted(() => { dismissToast(); window.removeEventListener(ADMIN_REALTIME_EV
 .item-actions .delete-action { color: #c53030; }
 .topic-questions-action { flex-shrink: 0; align-self: center; padding: 6px 11px; border: 1px solid #b2ddff; border-radius: 999px; color: #175cd3; background: #eff8ff; font: inherit; font-size: .72rem; font-weight: 800; white-space: nowrap; cursor: pointer; }
 .topic-questions-action:hover { border-color: #175cd3; }
+.topic-schedule-action { flex-shrink: 0; align-self: center; padding: 6px 11px; border: 1px solid #b2ddff; border-radius: 999px; color: #175cd3; background: #eff8ff; font: inherit; font-size: .72rem; font-weight: 800; white-space: nowrap; cursor: pointer; }
+.topic-schedule-action:hover { border-color: #175cd3; }
 .curriculum-loading { color: #778899; }
 .ruas-toast { position: fixed; z-index: 100; top: 22px; right: 22px; display: flex; max-width: min(440px, calc(100vw - 32px)); align-items: center; gap: 11px; overflow: hidden; padding: 14px 42px 14px 14px; border: 1px solid #ffc7cf; border-radius: 15px; color: #7f1d2d; background: rgba(255, 248, 250, .97); box-shadow: 0 16px 34px rgba(41, 46, 84, .2); font-size: .84rem; font-weight: 700; backdrop-filter: blur(12px); }
 .toast-icon { display: grid; width: 24px; height: 24px; flex: 0 0 24px; place-items: center; border-radius: 50%; color: #fff; background: #e34f67; font-weight: 800; }

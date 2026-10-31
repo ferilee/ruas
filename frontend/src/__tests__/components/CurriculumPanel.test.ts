@@ -240,4 +240,27 @@ describe('CurriculumPanel', () => {
 
     expect(wrapper.find('.topic-questions-action').exists()).toBe(false);
   });
+
+  it('guru: tombol Atur jadwal pada topik memancarkan openTopicSchedule dengan id topiknya', async () => {
+    const wrapper = mount(CurriculumPanel, { props: { adminSession: teacherSession, simplified: true } });
+    await flushPromises();
+
+    const buttons = wrapper.findAll('.topic-schedule-action');
+    expect(buttons).toHaveLength(3);
+    expect(buttons.map((button) => button.attributes('aria-label'))).toEqual([
+      'Atur jadwal topik Aljabar Dasar',
+      'Atur jadwal topik Geometri Ruang',
+      'Atur jadwal topik Algoritma',
+    ]);
+
+    await buttons[0].trigger('click');
+    expect(wrapper.emitted('openTopicSchedule')).toEqual([[101]]);
+  });
+
+  it('admin: tidak ada tombol Atur jadwal pada daftar topik', async () => {
+    const wrapper = mount(CurriculumPanel, { props: { adminSession: adminSessionFixture } });
+    await flushPromises();
+
+    expect(wrapper.find('.topic-schedule-action').exists()).toBe(false);
+  });
 });

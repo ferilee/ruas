@@ -190,7 +190,7 @@
             </section>
           </section>
 
-          <CurriculumPanel v-else-if="activeSection === 'curriculum'" :admin-session="adminSession" :simplified="isEditorSession" @topics-updated="loadData" @open-topic-questions="openQuestionsForTopic" />
+          <CurriculumPanel v-else-if="activeSection === 'curriculum'" :admin-session="adminSession" :simplified="isEditorSession" @topics-updated="loadData" @open-topic-questions="openQuestionsForTopic" @open-topic-schedule="openScheduleForTopic" />
 
           <ReportsPanel v-else-if="activeSection === 'reports'" :can-reset="isAdminSession" :simple="isEditorSession" />
 
@@ -207,9 +207,12 @@
               <span class="schedule-status open">{{ scheduleRows.length }} topik</span>
             </div>
 
-            <div class="schedule-layout">
-              <form class="schedule-form schedule-editor-form" @submit.prevent="saveSchedule">
-                <div class="panel-heading"><div><h3>Atur jadwal</h3><p>Pilih topik, lalu tentukan jendela pengerjaannya.</p></div></div>
+            <div :class="['schedule-layout', { 'schedule-layout-editor': isEditorSession }]">
+              <div v-if="isEditorSession" class="schedule-actions-bar">
+                <button class="primary-btn schedule-new-button" type="button" @click="startNewSchedule">＋ Jadwal baru</button>
+              </div>
+              <form v-if="!isEditorSession || scheduleFormOpen" class="schedule-form schedule-editor-form" @submit.prevent="saveSchedule">
+                <div class="panel-heading"><div><h3>Atur jadwal</h3><p v-if="isEditorSession && scheduleEditingTopicLabel">Sedang mengubah jadwal: <strong>{{ scheduleEditingTopicLabel }}</strong></p><p v-else>Pilih topik, lalu tentukan jendela pengerjaannya.</p></div><button v-if="isEditorSession" class="secondary-btn schedule-form-close" type="button" @click="closeScheduleForm">Tutup</button></div>
                   <label>Topik
                     <RuasSelect v-model="scheduleTopicId" class="schedule-topic-select" :options="scheduleTopicOptions" placeholder="Pilih topik" aria-label="Topik untuk jadwal" searchable search-placeholder="Cari topik, mata pelajaran, atau kelas..." />
                   </label>
@@ -231,11 +234,12 @@
                   </button>
                   <button class="secondary-btn" type="button" :disabled="scheduleSaving || !scheduleTopicId" @click="openScheduleNow">Buka Sekarang</button>
                 </div>
+                <p v-if="isEditorSession" class="field-hint schedule-hint">Untuk membuka topik segera, gunakan tombol “Buka Sekarang” — waktu mulai dan selesai dikosongkan serta jadwal diaktifkan otomatis. “Simpan Jadwal” menyimpan persis waktu yang Anda isi. Matikan “Jadwal aktif” untuk menutup sementara.</p>
               </form>
 
               <div class="schedule-list-card">
                 <div class="panel-heading"><div><h3>Jadwal per topik</h3><p>Urutan status: Sedang Berlangsung, Akan Datang, lalu Sudah Berakhir.</p></div></div>
-                <div v-if="scheduleRows.length === 0" class="schedule-empty">Belum ada jadwal khusus. Peserta dapat mulai segera.</div>
+                <div v-if="showScheduleEmptyState" class="schedule-empty">Belum ada jadwal khusus. Peserta dapat mulai segera.</div>
                 <template v-for="group in scheduleGroups" :key="group.key">
                   <details v-if="group.key === 'ended' && group.rows.length" class="schedule-ended-accordion">
                     <summary><span>{{ group.label }}</span><b>{{ group.rows.length }}</b></summary>
@@ -248,6 +252,14 @@
                       </article>
                     </div>
                   </details>
+                  <div v-else-if="group.key === 'unscheduled' && group.topics.length" class="schedule-group schedule-unscheduled-group">
+                    <h4>{{ group.label }} <span>{{ group.topics.length }}</span></h4>
+                    <article v-for="topic in group.topics" :key="topic.id" class="schedule-row schedule-row-unscheduled">
+                      <div class="schedule-row-main"><strong>{{ topic.label }}</strong><small>{{ topic.subject_label || 'Tanpa mata pelajaran' }}</small></div>
+                      <span class="schedule-row-state state-unscheduled">Terbuka kapan saja</span>
+                      <button class="schedule-row-action" type="button" @click="openScheduleForTopic(topic.id)">Atur jadwal</button>
+                    </article>
+                  </div>
                   <div v-else-if="group.rows.length" class="schedule-group">
                     <h4>{{ group.label }} <span>{{ group.rows.length }}</span></h4>
                     <article v-for="row in group.rows" :key="row.topic_id ?? row.id ?? 'schedule'" class="schedule-row">
@@ -260,7 +272,7 @@
                 </template>
               </div>
             </div>
-            <p class="field-hint schedule-hint">Untuk membuka topik segera, gunakan tombol “Buka Sekarang” — waktu mulai dan selesai dikosongkan serta jadwal diaktifkan otomatis. “Simpan Jadwal” menyimpan persis waktu yang Anda isi. Matikan “Jadwal aktif” untuk menutup sementara.</p>
+            <p v-if="!isEditorSession" class="field-hint schedule-hint">Untuk membuka topik segera, gunakan tombol “Buka Sekarang” — waktu mulai dan selesai dikosongkan serta jadwal diaktifkan otomatis. “Simpan Jadwal” menyimpan persis waktu yang Anda isi. Matikan “Jadwal aktif” untuk menutup sementara.</p>
             <p v-if="scheduleMessage" :class="scheduleMessageType === 'error' ? 'error-text' : 'success-text'">{{ scheduleMessage }}</p><p v-for="(message, field) in scheduleFieldErrors" :key="field" class="field-error" role="alert">{{ message }}</p>
           </section>
 
@@ -696,6 +708,7 @@ const scheduleAccessMode = ref<'class' | 'individual'>('class');
 const scheduleParticipantIds = ref<number[]>([]);
 const scheduleParticipants = ref<AdminUser[]>([]);
 const scheduleSaving = ref(false);
+const scheduleFormOpen = ref(false);
 const scheduleMessage = ref('');
 const scheduleMessageType = ref<'success' | 'error'>('success');
 const shareScheduleOpen = ref(false);
@@ -736,12 +749,46 @@ const shareScheduleMessage = computed(() => {
     row.notes ? `Catatan: ${row.notes}` : '',
   ].filter(Boolean).join('\n');
 });
-const scheduleGroups = computed(() => [
-  { key: 'open', label: 'Sedang Berlangsung', rows: scheduleRows.value.filter((row) => row.state === 'open') },
-  { key: 'upcoming', label: 'Akan Datang', rows: scheduleRows.value.filter((row) => row.state === 'upcoming') },
-  { key: 'disabled', label: 'Nonaktif', rows: scheduleRows.value.filter((row) => row.state === 'disabled') },
-  { key: 'ended', label: 'Sudah Berakhir', rows: scheduleRows.value.filter((row) => row.state === 'ended') },
-]);
+// Semesta topik yang terjangkau guru sama dengan sumber opsi topik pada
+// formulir jadwal (topics). Topik tanpa baris jadwal berarti terbuka kapan
+// saja — keadaan bawaan itu harus terlihat oleh guru, bukan tersembunyi.
+const unscheduledScheduleTopics = computed(() => {
+  const scheduledTopicIds = new Set(scheduleRows.value.map((row) => row.topic_id).filter((id): id is number => typeof id === 'number'));
+  return topics.value.filter((topic) => !scheduledTopicIds.has(topic.id));
+});
+
+interface ScheduleGroupView {
+  key: string;
+  label: string;
+  rows: AssessmentSchedule[];
+  topics: AdminTopic[];
+}
+
+const scheduleGroups = computed<ScheduleGroupView[]>(() => {
+  const groups: ScheduleGroupView[] = [
+    { key: 'open', label: 'Sedang Berlangsung', rows: scheduleRows.value.filter((row) => row.state === 'open'), topics: [] },
+    { key: 'upcoming', label: 'Akan Datang', rows: scheduleRows.value.filter((row) => row.state === 'upcoming'), topics: [] },
+  ];
+  if (isEditorSession.value) {
+    groups.push({ key: 'unscheduled', label: 'Tanpa jadwal — terbuka kapan saja', rows: [], topics: unscheduledScheduleTopics.value });
+  }
+  groups.push(
+    { key: 'disabled', label: 'Nonaktif', rows: scheduleRows.value.filter((row) => row.state === 'disabled'), topics: [] },
+    { key: 'ended', label: 'Sudah Berakhir', rows: scheduleRows.value.filter((row) => row.state === 'ended'), topics: [] },
+  );
+  return groups;
+});
+
+// Penanda keadaan mengubah pada kepala formulir guru: topik terpilih yang
+// sudah punya baris jadwal berarti formulir sedang mengubah jadwal itu.
+const scheduleEditingTopicLabel = computed(() => {
+  if (scheduleTopicId.value === null) return null;
+  return scheduleRows.value.find((row) => row.topic_id === scheduleTopicId.value)?.topic_label ?? null;
+});
+
+// Pesan kosong lama hanya jujur bila benar-benar tidak ada topik; guru yang
+// punya topik tanpa jadwal melihat kelompok "Tanpa jadwal" sebagai gantinya.
+const showScheduleEmptyState = computed(() => scheduleRows.value.length === 0 && (!isEditorSession.value || unscheduledScheduleTopics.value.length === 0));
 
 watch(scheduleTopicId, (topicId) => {
   if (topicId === null) return;
@@ -1227,6 +1274,36 @@ function editSchedule(row: AssessmentSchedule) {
   scheduleTopicId.value = row.topic_id;
   loadScheduleDraft(row);
   scheduleMessage.value = '';
+  if (isEditorSession.value) scheduleFormOpen.value = true;
+}
+
+// Langkah Jadwal guru bersifat daftar-dulu: formulir hanya tampil saat
+// dipanggil. "Jadwal baru" selalu mulai dari keadaan kosong yang sama
+// dengan keadaan awal formulir (tanpa topik + draf bawaan).
+function startNewSchedule() {
+  scheduleTopicId.value = null;
+  loadScheduleDraft(null);
+  scheduleMessage.value = '';
+  scheduleFieldErrors.value = {};
+  scheduleFormOpen.value = true;
+}
+
+// Menutup formulir murni urusan tampilan: tidak menyimpan dan tidak
+// mengubah data. Membuka lagi lewat baris selalu memuat ulang baris itu,
+// dan lewat "Jadwal baru" selalu mereset ke keadaan kosong.
+function closeScheduleForm() {
+  scheduleFormOpen.value = false;
+}
+
+// Warisan dari langkah Topik ("Atur jadwal" pada sebuah topik): pindah ke
+// langkah Jadwal dengan formulir terbuka dan topik itu sudah terpilih;
+// jadwal yang sudah ada untuk topik itu ikut termuat lewat mekanisme draf.
+function openScheduleForTopic(topicId: number) {
+  scheduleTopicId.value = topicId;
+  loadScheduleDraft(scheduleRows.value.find((row) => row.topic_id === topicId) ?? null);
+  scheduleMessage.value = '';
+  scheduleFormOpen.value = true;
+  selectSection('schedule');
 }
 
 function scheduleStateLabel(state: AssessmentSchedule['state']) {
@@ -1818,6 +1895,9 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 }
 
 .schedule-layout { display: grid; grid-template-columns: minmax(320px, .95fr) minmax(0, 1.05fr); gap: 16px; align-items: start; }
+.schedule-layout-editor { grid-template-columns: minmax(0, 1fr); }
+.schedule-actions-bar { display: flex; min-width: 0; }
+.schedule-form-close { flex-shrink: 0; }
 .schedule-editor-form, .schedule-list-card { min-width: 0; padding: 16px; border: 1px solid #e1eaf4; border-radius: 13px; background: #fbfdff; }
 .schedule-form.schedule-editor-form { align-items: stretch; flex-direction: column; width: 100%; padding-top: 16px; }
 .schedule-editor-form .panel-heading, .schedule-list-card .panel-heading { margin: 0 0 4px; padding: 0 0 10px; border-bottom: 1px solid #e6eef6; }
@@ -1854,6 +1934,8 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .schedule-row-time { grid-column: 1 / -1; grid-row: 2; line-height: 1.4; }
 .schedule-row-share { grid-column: 3; grid-row: 1; align-self: start; padding: 5px 8px; border: 1px solid #c8dcef; border-radius: 7px; color: #2a65b5; background: #f4f9ff; font: inherit; font-size: .67rem; font-weight: 800; white-space: nowrap; cursor: pointer; }
 .schedule-row-share:hover { border-color: #8bb8ea; background: #e7f1ff; }
+.schedule-row-action { grid-column: 3; grid-row: 1; align-self: start; padding: 5px 8px; border: 1px solid #c8dcef; border-radius: 7px; color: #2a65b5; background: #f4f9ff; font: inherit; font-size: .67rem; font-weight: 800; white-space: nowrap; cursor: pointer; }
+.schedule-row-action:hover { border-color: #8bb8ea; background: #e7f1ff; }
 
 .schedule-status {
   padding: 5px 10px;
