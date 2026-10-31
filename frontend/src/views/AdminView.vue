@@ -192,7 +192,7 @@
 
           <CurriculumPanel v-else-if="activeSection === 'curriculum'" :admin-session="adminSession" :simplified="isEditorSession" @topics-updated="loadData" @open-topic-questions="openQuestionsForTopic" @open-topic-schedule="openScheduleForTopic" />
 
-          <ReportsPanel v-else-if="activeSection === 'reports'" :can-reset="isAdminSession" :simple="isEditorSession" />
+          <ReportsPanel v-else-if="activeSection === 'reports'" :can-reset="isAdminSession" :simple="isEditorSession" :username="adminSession?.username ?? ''" />
 
           <UsersPanel v-else-if="activeSection === 'users'" :admin-session="adminSession" />
 

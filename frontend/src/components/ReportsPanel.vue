@@ -8,22 +8,14 @@
 
       <section class="simple-report-filters">
         <div><strong>1. Pilih yang ingin dilihat</strong><span>Gunakan dua pilihan ini untuk menyaring laporan.</span></div>
-        <label>Topik<RuasSelect v-model="filters.topic_id" :options="topicOptions" aria-label="Pilih topik laporan" @change="loadReport" /></label>
-        <label>Kelas<RuasSelect v-model="filters.class_id" :options="classOptions" aria-label="Pilih kelas laporan" @change="loadReport" /></label>
+        <label>Topik<RuasSelect v-model="filters.topic_id" :options="topicOptions" aria-label="Pilih topik laporan" @change="handleSimpleContextChange" /></label>
+        <label>Kelas<RuasSelect v-model="filters.class_id" :options="classOptions" aria-label="Pilih kelas laporan" @change="handleSimpleContextChange" /></label>
       </section>
 
       <section class="simple-report-summary">
         <article title="Jumlah siswa yang sudah menyelesaikan asesmen"><span>Selesai</span><strong>{{ summary.completed_attempts }}</strong><small>dari {{ summary.total_attempts }} hasil</small></article>
         <article title="Nilai rata-rata dari hasil yang selesai"><span>Nilai</span><strong>{{ summary.average_score }}</strong><small>rata-rata</small></article>
         <article title="Rata-rata jawaban benar"><span>Benar</span><strong>{{ summary.average_accuracy }}%</strong><small>akurasi</small></article>
-      </section>
-
-      <section v-if="questionStatistics.length" class="simple-question-stats">
-        <div class="simple-report-results-heading"><div><strong>Analisis per soal</strong><span>Persentase siswa yang menjawab benar, dari yang paling sulit.</span></div></div>
-        <article v-for="stat in questionStatistics.slice(0, 10)" :key="stat.question_id" class="simple-question-stat-row">
-          <span class="simple-question-stat-copy"><strong><MathText :text="stat.question_text" /></strong><small>{{ stat.topic_label }} · dijawab {{ stat.answered_count }} siswa</small></span>
-          <span class="simple-question-stat-value"><strong>{{ stat.correct_percent }}%</strong><small>{{ stat.difficulty_label }}</small></span>
-        </article>
       </section>
 
       <section class="simple-report-results">
@@ -40,6 +32,19 @@
             <span class="simple-report-arrow" aria-hidden="true">→</span>
           </button>
         </div>
+      </section>
+
+      <section v-if="questionStatistics.length" class="simple-question-stats">
+        <div class="simple-report-results-heading">
+          <div><strong>3. Analisis per soal</strong><span>Persentase siswa yang menjawab benar, dari yang paling sulit.</span></div>
+          <button class="simple-analysis-toggle" type="button" :aria-expanded="simpleAnalysisOpen" @click="simpleAnalysisOpen = !simpleAnalysisOpen">{{ simpleAnalysisOpen ? 'Tutup analisis' : 'Lihat analisis' }}</button>
+        </div>
+        <template v-if="simpleAnalysisOpen">
+          <article v-for="stat in questionStatistics.slice(0, 10)" :key="stat.question_id" class="simple-question-stat-row">
+            <span class="simple-question-stat-copy"><strong><MathText :text="stat.question_text" /></strong><small>{{ stat.topic_label }} · dijawab {{ stat.answered_count }} siswa</small></span>
+            <span class="simple-question-stat-value"><strong>{{ stat.correct_percent }}%</strong><small>{{ stat.difficulty_label }}</small></span>
+          </article>
+        </template>
       </section>
     </template>
     <template v-else>
@@ -301,10 +306,11 @@ import MathText from '@/components/MathText.vue';
 import ReportExportMenu from '@/components/ReportExportMenu.vue';
 import RuasSelect from '@/components/RuasSelect.vue';
 import { formatReportPrintDate, reportPrintBrand, reportPrintContext, reportPrintDocumentTitle, reportPrintHeading, type ReportPrintMode } from '@/lib/report-print';
+import { latestReportTopicId, readStoredReportContext, resolveReportContext, storeReportContext } from '@/lib/report-context';
 import type { AdminReportClassStatistic, AdminReportDetail, AdminReportFilters, AdminReportQuestionStatistic, AdminReportQuestionStatus, AdminReportRow, AdminReportSummary, AdminTopic, CurriculumData } from '@/types';
 import { ADMIN_REALTIME_EVENT, type AdminRealtimeEvent } from '@/lib/admin-realtime';
 
-const props = withDefaults(defineProps<{ canReset?: boolean; simple?: boolean }>(), { canReset: true, simple: false });
+const props = withDefaults(defineProps<{ canReset?: boolean; simple?: boolean; username?: string }>(), { canReset: true, simple: false, username: '' });
 
 const emptySummary: AdminReportSummary = { total_attempts: 0, completed_attempts: 0, in_progress_attempts: 0, abandoned_attempts: 0, average_score: 0, average_accuracy: 0, average_time_seconds: 0, total_violations: 0 };
 const curriculum = reactive<CurriculumData>({ classes: [], assessment_types: [], subjects: [] });
@@ -320,6 +326,7 @@ const loading = ref(false);
 const errorMessage = ref('');
 const successMessage = ref('');
 const filtersOpen = ref(false);
+const simpleAnalysisOpen = ref(false);
 const realtimeRefreshing = ref(false);
 const resetCount = ref(0);
 const resetting = ref(false);
@@ -504,6 +511,49 @@ function handleFilterContextChange() {
   void loadReport();
 }
 
+// Konteks laporan sederhana (varian guru): pilihan topik + kelas adalah
+// konteks kerja guru, jadi perubahan dari kedua pemilih ini diingat per
+// akun dan laporan dimuat ulang dengan konteks yang sama. Topik yang
+// tersingkir oleh pilihan kelas dibersihkan dulu — pola yang sama dengan
+// handleFilterContextChange di varian lengkap — agar konteks yang
+// tersimpan tidak pernah menunjuk topik di luar kelasnya.
+function handleSimpleContextChange() {
+  if (filters.topic_id && !filteredTopics.value.some((topic) => topic.id === filters.topic_id)) filters.topic_id = undefined;
+  persistSimpleReportContext();
+  void loadReport();
+}
+
+function persistSimpleReportContext() {
+  if (!props.simple || !props.username) return;
+  storeReportContext(props.username, { topic_id: filters.topic_id, class_id: filters.class_id });
+}
+
+// Muatan pertama varian sederhana: pulihkan ingatan konteks bila ada
+// (setiap bidang divalidasi terhadap opsi yang benar-benar termuat).
+// Tanpa ingatan, laporan dimuat tanpa lingkup lebih dulu, lalu
+// dilingkupkan ke topik hasil terbaru yang benar-benar ada di data —
+// dan lingkup itu menjadi ingatan kunjungan berikutnya. Penyegaran
+// realtime sesudahnya memanggil loadReport dengan filter yang sudah
+// terpasang, jadi konteks guru tidak pernah direset oleh realtime.
+async function initializeSimpleReport() {
+  const remembered = props.username
+    ? resolveReportContext(readStoredReportContext(props.username), topics.value, curriculum.classes)
+    : {};
+  if (remembered.topic_id !== undefined || remembered.class_id !== undefined) {
+    if (remembered.class_id !== undefined) filters.class_id = remembered.class_id;
+    if (remembered.topic_id !== undefined && filteredTopics.value.some((topic) => topic.id === remembered.topic_id)) filters.topic_id = remembered.topic_id;
+    await loadReport();
+    return;
+  }
+  await loadReport();
+  const latestTopicId = latestReportTopicId(rows.value);
+  if (latestTopicId !== undefined) {
+    filters.topic_id = latestTopicId;
+    persistSimpleReportContext();
+    await loadReport();
+  }
+}
+
 function openReportGroup(group: (typeof reportGroups.value)[number]) {
   if (group.attempts.length === 1) {
     void openDetail(group.attempts[0].attempt_id);
@@ -569,7 +619,7 @@ onMounted(async () => {
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Gagal memuat filter kurikulum.';
   }
-  await Promise.all([loadReport(), props.canReset ? loadResetCount() : Promise.resolve()]);
+  await Promise.all([props.simple ? initializeSimpleReport() : loadReport(), props.canReset ? loadResetCount() : Promise.resolve()]);
   window.addEventListener(ADMIN_REALTIME_EVENT, handleRealtime);
 });
 
@@ -608,6 +658,8 @@ onUnmounted(() => window.removeEventListener(ADMIN_REALTIME_EVENT, handleRealtim
 .simple-question-stat-value strong { display: block; color: #24558f; }
 .simple-question-stat-value small { color: #66788e; font-size: .68rem; }
 .question-stat-text { overflow-wrap: anywhere; }
+.simple-analysis-toggle { flex: 0 0 auto; padding: 8px 12px; border: 1px solid #cbd9e8; border-radius: 9px; color: #365678; background: #fff; font: inherit; font-size: .74rem; font-weight: 800; cursor: pointer; }
+.simple-analysis-toggle:hover { background: #edf6ff; }
 .simple-report-results { overflow: hidden; border: 1px solid #dce7f4; border-radius: 14px; background: #fff; box-shadow: 0 7px 18px rgba(31, 74, 126, .05); }
 .simple-report-results-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px; border-bottom: 1px solid #e4ebf3; }
 .simple-report-results-heading > div { display: flex; flex-direction: column; gap: 5px; }
