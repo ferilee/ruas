@@ -102,7 +102,7 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ message: 'Gagal memuat data.' }));
-    if (res.status === 403 && body.error === 'password_change_required') {
+    if (res.status === 403 && body.error === 'password_change_required' && window.location.pathname !== '/change-password') {
       window.location.href = '/change-password';
     }
     const error = new Error(body.message || `HTTP ${res.status}`) as Error & { code?: string; details?: Record<string, unknown>; fields?: Record<string, string> };
