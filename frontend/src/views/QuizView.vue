@@ -102,8 +102,9 @@
           <p v-else-if="explanationMode === 'after_answer'" class="review-note">Pembahasan telah ditampilkan setelah setiap jawaban.</p>
           <template v-else-if="examReview.length">
             <article v-for="item in examReview" :key="item.question_id" class="review-item">
-              <div class="review-item-heading"><strong>Soal nomor {{ item.question_number }}</strong><span :class="item.is_correct ? 'review-correct' : 'review-incorrect'">{{ item.is_correct ? 'Benar' : 'Salah' }}</span></div>
+              <div class="review-item-heading"><strong>Soal nomor {{ item.question_number }}</strong><span :class="reviewStatusClass(item)">{{ reviewStatusLabel(item) }}</span></div>
               <MathText :text="item.question_text" />
+              <p v-if="item.statements_correct !== null && item.statements_correct !== undefined && item.statement_total" class="review-statement-line">Tepat {{ item.statements_correct }} dari {{ item.statement_total }} pernyataan.</p>
               <QuestionMediaGallery :media="item.media" />
               <div class="review-explanation"><strong>Pembahasan</strong><MathText :text="item.explanation" /></div>
             </article>
@@ -135,13 +136,25 @@
             <div class="pane-heading">
               <div>
                 <span class="pane-kicker">JAWABAN</span>
-                <h2>{{ question.type === 'multiple_response' ? 'Pilih semua jawaban yang benar.' : 'Pilih satu jawaban.' }}</h2>
+                <h2>{{ answerInstruction }}</h2>
               </div>
               <span v-if="isDoubtful" class="doubt-badge">Ragu-ragu</span>
             </div>
 
             <div class="pane-scroll answer-scroll">
+              <StatementJudgementList
+                v-if="question.type === 'true_false_multi'"
+                :options="question.options"
+                :judgements="statementJudgements"
+                :disabled="answerOptionsDisabled"
+                :statement-results="result?.statement_results"
+                :correct-keys="result?.correct_keys"
+                :show-result="state === 'reviewing' && Boolean(result)"
+                @judge="onJudgeStatement"
+              />
+
               <OptionList
+                v-else
                 :options="question.options"
                 :type="question.type"
                 :selected-keys="selectedKeys"
@@ -155,6 +168,7 @@
                 v-if="state === 'reviewing' && result && result.explanation"
                 :correct="result.correct"
                 :correct_keys="result.correct_keys"
+                :statement_summary="statementSummary"
                 :explanation="result.explanation || ''"
                 :elapsed_seconds="finalTime"
                 :is_last="isLastQuestion"
@@ -175,10 +189,10 @@
           <button class="nav-button nav-doubt" :class="{ active: isDoubtful }" type="button" :disabled="flagSaving" @click="toggleDoubtful">
             <span>□</span> {{ isDoubtful ? 'Ragu-ragu ditandai' : 'Tandai ragu-ragu' }}
           </button>
-          <button v-if="state === 'answering' || (state === 'reviewing' && answerChanged)" class="nav-button nav-primary" type="button" :disabled="selectedKeys.length === 0 || submittingAnswer" :title="selectedKeys.length === 0 ? 'Pilih jawaban dulu untuk menyimpan' : undefined" @click="submitAnswer">
+          <button v-if="state === 'answering' || (state === 'reviewing' && answerChanged)" class="nav-button nav-primary" type="button" :disabled="!canSubmitAnswer || submittingAnswer" :title="!canSubmitAnswer ? submitHint : undefined" @click="submitAnswer">
             {{ submittingAnswer ? 'Menyimpan...' : state === 'reviewing' ? 'Simpan perubahan' : 'Simpan jawaban' }} <span>›</span>
           </button>
-          <p v-if="(state === 'answering' || state === 'reviewing') && selectedKeys.length === 0" class="nav-hint">Pilih jawaban dulu untuk menyimpan.</p>
+          <p v-if="(state === 'answering' || (state === 'reviewing' && answerChanged)) && !canSubmitAnswer" class="nav-hint">{{ submitHint }}</p>
           <button v-else class="nav-button nav-primary" type="button" :disabled="questionNavigationLoading || (isLastQuestion && !canComplete)" @click="goToNextStep">
             {{ questionNavigationLoading ? 'Memuat soal...' : isLastQuestion ? canComplete ? 'Lihat hasil' : `Tunggu ${formatDuration(minimumTimeRemaining)}` : 'Soal berikutnya' }} <span>›</span>
           </button>
@@ -271,6 +285,7 @@ import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router';
 import MathText from '@/components/MathText.vue';
 import QuestionMediaGallery from '@/components/QuestionMediaGallery.vue';
 import OptionList from '@/components/OptionList.vue';
+import StatementJudgementList from '@/components/StatementJudgementList.vue';
 import ExplanationPanel from '@/components/ExplanationPanel.vue';
 import TimerBar from '@/components/TimerBar.vue';
 import { fetchParticipantProfile, verifyExamExitPassword } from '@/api/client';
@@ -303,7 +318,8 @@ const {
   startQuiz, state, subjectId, submitAnswer, topicLabel, totalTime, timerRunning, onTime,
   deadlineAt, serverClockOffsetMs, canComplete, minimumDurationSeconds, minimumTimeRemaining, submittingAnswer, questionNavigationLoading,
   toggleDoubtful, flagSaving, isQuestionAnswered, isQuestionDoubtful, loadQuestionNumber,
-  previousQuestion,
+  previousQuestion, statementJudgements, isStatementQuestion, allStatementsJudged, unjudgedStatementCount,
+  canSubmitAnswer, onJudgeStatement,
 } = useQuizSession({
   getTopicId,
   getQuerySubjectId: () => Number(route.query.subject_id),
@@ -311,6 +327,40 @@ const {
 });
 
 const answerOptionsDisabled = computed(() => !['answering', 'reviewing'].includes(state.value));
+
+const answerInstruction = computed(() => {
+  if (question.value?.type === 'multiple_response') return 'Pilih semua jawaban yang benar.';
+  if (question.value?.type === 'true_false_multi') return 'Nilai setiap pernyataan: Benar atau Salah.';
+  return 'Pilih satu jawaban.';
+});
+
+const submitHint = computed(() => {
+  if (isStatementQuestion.value && !allStatementsJudged.value) {
+    return `${unjudgedStatementCount.value} pernyataan belum dinilai. Nilai semua pernyataan dulu untuk menyimpan.`;
+  }
+  return 'Pilih jawaban dulu untuk menyimpan.';
+});
+
+const statementSummary = computed(() => {
+  const statementResults = result.value?.statement_results;
+  if (!statementResults?.length) return null;
+  const exact = statementResults.filter((entry) => entry.correct === true).length;
+  const correctKeys = result.value?.correct_keys ?? [];
+  const keyNote = correctKeys.length ? ` Pernyataan berkunci Benar: ${correctKeys.join(', ')}.` : '';
+  return `Tepat ${exact} dari ${statementResults.length} pernyataan.${keyNote}`;
+});
+
+function reviewStatusLabel(item: { is_correct: boolean; statements_correct?: number | null }) {
+  if (item.is_correct) return 'Benar';
+  if (item.statements_correct !== null && item.statements_correct !== undefined && item.statements_correct > 0) return 'Sebagian benar';
+  return 'Salah';
+}
+
+function reviewStatusClass(item: { is_correct: boolean; statements_correct?: number | null }) {
+  if (item.is_correct) return 'review-correct';
+  if (item.statements_correct !== null && item.statements_correct !== undefined && item.statements_correct > 0) return 'review-partial';
+  return 'review-incorrect';
+}
 
 const examGuard = useExamGuard({ onViolation: handleViolation });
 const violationCount = examGuard.violationCount;
@@ -332,6 +382,7 @@ const fontSizeClass = computed(() => `font-${fontSize.value}`);
 const questionNumbers = computed(() => Array.from({ length: questionCount.value }, (_, index) => index + 1));
 const questionTypeLabel = computed(() => {
   if (question.value?.type === 'multiple_response') return 'Pilihan ganda kompleks';
+  if (question.value?.type === 'true_false_multi') return 'Benar / Salah (Banyak Pernyataan)';
   if (question.value?.type === 'true_false') return 'Benar atau salah';
   return 'Pilihan ganda';
 });
@@ -601,7 +652,8 @@ onMounted(() => {
 .review-item { margin-top: 11px; padding: 14px; border: 1px solid #dce8f5; border-radius: 11px; background: #fff; font-size: .82rem; line-height: 1.55; }
 .review-item-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; color: #294e7d; }
 .review-correct, .review-incorrect { font-size: .7rem; font-weight: 800; }
-.review-correct { color: #25815f; }.review-incorrect { color: #c1604e; }
+.review-correct { color: #25815f; }.review-incorrect { color: #c1604e; }.review-partial { color: #a86d1b; }
+.review-statement-line { margin-top: 6px; color: #66809e; font-size: .78rem; font-weight: 700; }
 .review-explanation { margin-top: 11px; padding: 10px 12px; border-radius: 9px; color: #4b6785; background: #f1f7ff; }
 .review-explanation strong { display: block; margin-bottom: 4px; color: #245da5; font-size: .75rem; }
 .explanation-unavailable { margin-top: 14px; padding: 12px; border: 1px dashed #bdd2e8; border-radius: 10px; color: #66809e; background: #f7fbff; font-size: .8rem; }

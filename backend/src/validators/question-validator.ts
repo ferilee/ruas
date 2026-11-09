@@ -6,8 +6,12 @@ const randomQuerySchema = z.object({
   exclude: z.string().optional(),
 });
 
+// Panjang minimum tidak dipaksakan di skema: untuk soal Benar / Salah (Banyak
+// Pernyataan) array kosong adalah jawaban sah (semua pernyataan dinilai Salah).
+// Kekosongan untuk jenis lain ditolak oleh validateSelectedKeys sesudah jenis
+// soal diketahui.
 const checkBodySchema = z.object({
-  selected_keys: z.array(z.string().min(1)).min(1),
+  selected_keys: z.array(z.string().min(1)),
 });
 
 export function parseRandomQuestionQuery(query: Record<string, string | undefined>) {
@@ -53,6 +57,10 @@ export function validateSelectedKeys(
 
   if ((questionType === 'single_choice' || questionType === 'true_false') && selectedKeys.length !== 1) {
     return 'Tipe soal ini hanya menerima satu jawaban.';
+  }
+
+  if (questionType !== 'true_false_multi' && selectedKeys.length === 0) {
+    return 'selected_keys wajib diisi.';
   }
 
   return null;

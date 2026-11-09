@@ -6,7 +6,11 @@
       <span class="explanation-time">{{ formattedTime }}</span>
     </div>
 
-    <div class="explanation-answer">
+    <div v-if="statement_summary" class="explanation-answer">
+      <strong>Hasil pernyataan:</strong>
+      <span class="correct-keys">{{ statement_summary }}</span>
+    </div>
+    <div v-else class="explanation-answer">
       <strong>Jawaban benar:</strong>
       <span class="correct-keys">{{ correctKeysDisplay }}</span>
     </div>
@@ -36,8 +40,10 @@ const props = withDefaults(defineProps<{
   elapsed_seconds: number;
   is_last?: boolean;
   showActions?: boolean;
+  statement_summary?: string | null;
 }>(), {
   showActions: true,
+  statement_summary: null,
 });
 
 defineEmits<{

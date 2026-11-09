@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
-import { checkAnswer } from '../lib/scoring';
+import { checkAnswer, checkStatementJudgements } from '../lib/scoring';
 import type { Pool } from '../db/connection';
 import type { QuestionType } from '../lib/scoring';
 import {
@@ -148,7 +148,9 @@ export function questionsRoutes(pool: Pool, mediaStorage: MediaStorage | null = 
       return c.json({ error: 'invalid_body', message: validationError }, 400);
     }
 
-    const result = checkAnswer(question.type as QuestionType, parsed.data.selected_keys, options);
+    const result = question.type === 'true_false_multi'
+      ? checkStatementJudgements(parsed.data.selected_keys, options)
+      : checkAnswer(question.type as QuestionType, parsed.data.selected_keys, options);
     const settings = await findQuestionFeedbackSettings(db, id);
     const explanationMode = settings.explanation_mode;
     const revealCorrectAnswer = result.correct || settings.show_correct_answer_on_wrong;

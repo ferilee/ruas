@@ -399,8 +399,8 @@
               <small v-if="formFieldErrors.external_id" class="field-error" role="alert">{{ formFieldErrors.external_id }}</small>
             </label>
 
-            <label>Pertanyaan
-              <textarea v-model="draft.question_text" rows="5" required placeholder="Tulis pertanyaan..."></textarea>
+            <label>{{ draft.type === 'true_false_multi' ? 'Stimulus / teks soal' : 'Pertanyaan' }}
+              <textarea v-model="draft.question_text" rows="5" required :placeholder="draft.type === 'true_false_multi' ? 'Tulis stimulus yang menjadi dasar penilaian pernyataan...' : 'Tulis pertanyaan...'"></textarea>
               <small v-if="formFieldErrors.question_text" class="field-error" role="alert">{{ formFieldErrors.question_text }}</small>
               <small class="field-hint">Rumus: \( ... \) untuk inline atau \[ ... \] untuk blok. Format lama seperti c^2 dan akar(100) juga didukung.</small>
             </label>
@@ -428,7 +428,31 @@
               <p v-else class="field-hint">Setelah soal disimpan, buka kembali soal ini untuk menambahkan gambar.</p>
             </fieldset>
 
-            <fieldset>
+            <fieldset v-if="draft.type === 'true_false_multi'">
+              <legend>Pernyataan</legend>
+              <p class="field-hint">Tulis 3–6 pernyataan yang dinilai terhadap stimulus di atas. Setiap pernyataan wajib berkunci Benar atau Salah, dan kuncinya harus campuran. Urutan pernyataan tidak diacak untuk siswa.</p>
+              <div v-for="(option, index) in draft.options" :key="index" class="option-editor statement-editor">
+                <span class="statement-key-badge">{{ option.key }}</span>
+                <div class="option-text-editor">
+                  <input v-model="option.text" class="option-text-input" placeholder="Teks pernyataan" required />
+                  <div v-if="option.text.trim()" class="option-math-preview"><MathText :text="option.text" /></div>
+                  <small v-if="statementUnchosenIndexes.has(index)" class="field-error" role="alert">Kunci pernyataan ini belum dipilih.</small>
+                </div>
+                <div class="statement-key-toggle" role="group" aria-label="Kunci pernyataan">
+                  <button type="button" :class="{ selected: !statementUnchosenIndexes.has(index) && option.is_correct }" @click="setStatementKey(index, true)">Benar</button>
+                  <button type="button" :class="{ selected: !statementUnchosenIndexes.has(index) && !option.is_correct }" @click="setStatementKey(index, false)">Salah</button>
+                </div>
+                <span class="statement-move">
+                  <button type="button" class="remove-option" :disabled="index === 0" aria-label="Naikkan pernyataan" @click="moveStatement(index, -1)">↑</button>
+                  <button type="button" class="remove-option" :disabled="index === draft.options.length - 1" aria-label="Turunkan pernyataan" @click="moveStatement(index, 1)">↓</button>
+                </span>
+                <button v-if="draft.options.length > 3" type="button" class="remove-option" @click="removeStatement(index)">×</button>
+              </div>
+              <p class="field-hint">{{ draft.options.length }} dari maks. 6 pernyataan</p>
+              <button v-if="draft.options.length < 6" type="button" class="add-option" @click="addStatement">+ Tambah pernyataan</button>
+            </fieldset>
+
+            <fieldset v-else>
               <legend>Opsi Jawaban</legend>
               <div v-for="(option, index) in draft.options" :key="index" class="option-editor">
                 <input v-model="option.key" class="option-key-input" maxlength="5" aria-label="Key opsi" />
@@ -655,6 +679,7 @@ const questionTypeOptions = [
   { value: 'single_choice', label: 'Pilihan Ganda' },
   { value: 'multiple_response', label: 'Pilihan Ganda Kompleks' },
   { value: 'true_false', label: 'Benar / Salah' },
+  { value: 'true_false_multi', label: 'Benar / Salah (Banyak Pernyataan)' },
 ];
 const difficultyOptions = [
   { value: 'easy', label: 'Mudah' },
@@ -1030,7 +1055,81 @@ async function copyTopicToken(topicId: number) {
   }
 }
 
+// Indeks pernyataan yang kuncinya belum dipilih guru. Dilacak per indeks baris
+// (bukan per key) supaya tetap tepat sesudah pernyataan ditambah, dihapus,
+// atau dipindah urutannya; key S1..Sn selalu diterbitkan ulang dari posisi
+// baris oleh renumberStatements.
+const statementUnchosenIndexes = ref<Set<number>>(new Set());
+
+function renumberStatements() {
+  draft.options.forEach((option, index) => {
+    option.key = `S${index + 1}`;
+  });
+}
+
+function markAllStatementsUnchosen() {
+  statementUnchosenIndexes.value = new Set(draft.options.map((_, index) => index));
+}
+
+function setStatementKey(index: number, isCorrect: boolean) {
+  const option = draft.options[index];
+  if (!option) return;
+  option.is_correct = isCorrect;
+  const next = new Set(statementUnchosenIndexes.value);
+  next.delete(index);
+  statementUnchosenIndexes.value = next;
+}
+
+function addStatement() {
+  if (draft.options.length >= 6) return;
+  draft.options.push({ key: `S${draft.options.length + 1}`, text: '', is_correct: false });
+  renumberStatements();
+  const next = new Set(statementUnchosenIndexes.value);
+  next.add(draft.options.length - 1);
+  statementUnchosenIndexes.value = next;
+}
+
+function removeStatement(index: number) {
+  if (draft.options.length <= 3) return;
+  draft.options.splice(index, 1);
+  renumberStatements();
+  statementUnchosenIndexes.value = new Set(
+    [...statementUnchosenIndexes.value]
+      .filter((unchosen) => unchosen !== index)
+      .map((unchosen) => (unchosen > index ? unchosen - 1 : unchosen)),
+  );
+}
+
+function moveStatement(index: number, direction: -1 | 1) {
+  const target = index + direction;
+  if (target < 0 || target >= draft.options.length) return;
+  const [moved] = draft.options.splice(index, 1);
+  draft.options.splice(target, 0, moved);
+  renumberStatements();
+  const remapped = new Set<number>();
+  for (const unchosen of statementUnchosenIndexes.value) {
+    if (unchosen === index) remapped.add(target);
+    else if (unchosen === target) remapped.add(index);
+    else remapped.add(unchosen);
+  }
+  statementUnchosenIndexes.value = remapped;
+}
+
+function validateStatementDraft(): string | null {
+  if (draft.type !== 'true_false_multi') return null;
+  if (draft.options.length < 3 || draft.options.length > 6) return 'Soal Benar / Salah (Banyak Pernyataan) harus memiliki 3 sampai 6 pernyataan.';
+  if (draft.options.some((option) => !option.text.trim())) return 'Semua pernyataan wajib diisi teksnya.';
+  if (statementUnchosenIndexes.value.size > 0) return 'Setiap pernyataan wajib dipilih kuncinya: Benar atau Salah.';
+  const correctCount = draft.options.filter((option) => option.is_correct).length;
+  if (correctCount < 1 || correctCount > draft.options.length - 1) return 'Kunci pernyataan harus campuran: minimal satu Benar dan satu Salah.';
+  return null;
+}
+
 function createDefaultOptions(type: AdminQuestionInput['type']) {
+  if (type === 'true_false_multi') {
+    return [1, 2, 3].map((number) => ({ key: `S${number}`, text: '', is_correct: false }));
+  }
+
   if (type === 'true_false') {
     return [
       { key: 'true', text: 'Benar', is_correct: true },
@@ -1066,6 +1165,7 @@ function setDraft(input: AdminQuestionInput) {
   Object.assign(draft, input);
   draft.topic_ids = [...(input.topic_ids?.length ? input.topic_ids : input.topic_id > 0 ? [input.topic_id] : [])];
   draft.options = input.options.map((option) => ({ ...option }));
+  statementUnchosenIndexes.value = new Set();
 }
 
 function resetDraft() {
@@ -1473,6 +1573,8 @@ function generateExternalId() {
 
 function syncOptionsForType() {
   draft.options = createDefaultOptions(draft.type);
+  if (draft.type === 'true_false_multi') markAllStatementsUnchosen();
+  else statementUnchosenIndexes.value = new Set();
 }
 
 function addOption() {
@@ -1525,6 +1627,13 @@ async function saveQuestion() {
   saving.value = true;
   formMessage.value = '';
   formFieldErrors.value = {};
+  const statementError = validateStatementDraft();
+  if (statementError) {
+    formMessageType.value = 'error';
+    formMessage.value = statementError;
+    saving.value = false;
+    return;
+  }
   try {
     if (draft.topic_id > 0 && !draft.topic_ids.includes(draft.topic_id)) draft.topic_ids.unshift(draft.topic_id);
     if (editingId.value === null) {
@@ -1570,7 +1679,7 @@ function difficultyLabel(value: AdminQuestionListItem['difficulty']) {
 }
 
 function questionTypeLabel(value: AdminQuestionListItem['type']) {
-  return { single_choice: 'Pilihan ganda', multiple_response: 'Multi jawaban', true_false: 'Benar / Salah' }[value];
+  return { single_choice: 'Pilihan ganda', multiple_response: 'Multi jawaban', true_false: 'Benar / Salah', true_false_multi: 'Benar / Salah (Banyak Pernyataan)' }[value];
 }
 
 function parseImportText(): unknown | null {
@@ -1838,6 +1947,12 @@ legend { padding: 0 6px; color: #445566; font-weight: 600; }
 .danger-link, .archive-link { color: #c53030; }
 .restore-link { color: #28734f; }
 .add-option { align-self: flex-start; color: #1e40af; border: 0; background: transparent; cursor: pointer; font-weight: 600; }
+.statement-key-badge { min-width: 34px; padding: 6px 0 0; color: #1e40af; font-weight: 800; font-size: .85rem; }
+.statement-key-toggle { display: flex; gap: 6px; }
+.statement-key-toggle button { min-height: 38px; padding: 6px 14px; border: 2px solid #aab4c0; border-radius: 8px; background: #fff; color: #44566b; font: inherit; font-size: .85rem; font-weight: 700; cursor: pointer; }
+.statement-key-toggle button.selected { border-color: #1e40af; background: #1e40af; color: #fff; }
+.statement-move { display: flex; flex-direction: column; }
+.statement-move .remove-option:disabled { opacity: .35; cursor: default; }
 .import-panel { display: none; flex-direction: column; gap: 14px; }
 .form-panel { display: none; }
 .form-panel.open, .import-panel.open { position: fixed; z-index: 60; top: 50%; left: 50%; display: flex; width: min(800px, calc(100vw - 40px)); max-height: calc(100vh - 40px); overflow-y: auto; transform: translate(-50%, -50%); border: 1px solid #d8e6f5; border-radius: 18px; box-shadow: 0 0 0 100vmax rgba(18, 42, 76, .34), 0 22px 55px rgba(22, 55, 104, .28); }

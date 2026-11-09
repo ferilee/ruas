@@ -229,6 +229,7 @@ export async function getReportDetail(db: ReportDb, attemptId: number) {
         question_text: questions.question_text,
         selected_keys: examAnswers.selected_keys,
         is_correct: examAnswers.is_correct,
+        score_fraction: examAnswers.score_fraction,
         elapsed_seconds: examAnswers.elapsed_seconds,
         answered_at: examAnswers.answered_at,
       })
@@ -250,7 +251,7 @@ export async function getReportDetail(db: ReportDb, attemptId: number) {
   const answeredQuestionIds = uniqueAnswers.map((answer) => answer.question_id);
   const orderedQuestionIds = storedQuestionOrder.length ? storedQuestionOrder : answeredQuestionIds;
   const questionRows = orderedQuestionIds.length
-    ? await db.select({ id: questions.id, question_text: questions.question_text })
+    ? await db.select({ id: questions.id, question_text: questions.question_text, type: questions.type })
       .from(questions)
       .where(inArray(questions.id, orderedQuestionIds))
     : [];
@@ -275,18 +276,40 @@ export async function getReportDetail(db: ReportDb, attemptId: number) {
     const options = optionsByQuestion.get(questionId) ?? [];
     const selectedKeys = normalizeSelectedKeys(answer?.selected_keys);
     const correctKeys = options.filter((option) => option.is_correct).map((option) => option.option_key);
-    const status = answer ? (answer.is_correct ? 'correct' : 'incorrect') : 'unanswered';
+    const isStatementQuestion = question?.type === 'true_false_multi';
+    const scoreFraction = answer?.score_fraction ?? null;
+    const status = !answer
+      ? 'unanswered'
+      : answer.is_correct
+        ? 'correct'
+        : isStatementQuestion && scoreFraction !== null && scoreFraction > 0
+          ? 'partial'
+          : 'incorrect';
     return {
       question_number: index + 1,
       question_id: questionId,
       topic_label: attempt.topic_label ?? 'Topik',
       question_text: question?.question_text ?? answer?.question_text ?? 'Soal tidak tersedia',
+      type: question?.type ?? null,
       selected_keys: selectedKeys,
       selected_texts: options.filter((option) => selectedKeys.includes(option.option_key)).map((option) => option.option_text),
       correct_keys: correctKeys,
       correct_texts: options.filter((option) => option.is_correct).map((option) => option.option_text),
       status,
       is_correct: answer?.is_correct ?? false,
+      score_fraction: scoreFraction,
+      statement_details: isStatementQuestion
+        ? options.map((option) => {
+            const judgedTrue = selectedKeys.includes(option.option_key);
+            return {
+              key: option.option_key,
+              text: option.option_text,
+              key_is_true: Boolean(option.is_correct),
+              judged_true: answer ? judgedTrue : null,
+              exact: answer ? judgedTrue === Boolean(option.is_correct) : null,
+            };
+          })
+        : null,
       elapsed_seconds: answer?.elapsed_seconds ?? 0,
       answered_at: answer ? toIso(answer.answered_at) : null,
     };
@@ -298,6 +321,7 @@ export async function getReportDetail(db: ReportDb, attemptId: number) {
     integrity_events: events.map((event) => ({ ...event, occurred_at: toIso(event.occurred_at) })),
     question_analysis: questionAnalysis,
     correct_question_numbers: questionAnalysis.filter((question) => question.status === 'correct').map((question) => question.question_number),
+    partial_question_numbers: questionAnalysis.filter((question) => question.status === 'partial').map((question) => question.question_number),
     incorrect_question_numbers: questionAnalysis.filter((question) => question.status === 'incorrect').map((question) => question.question_number),
     unanswered_question_numbers: questionAnalysis.filter((question) => question.status === 'unanswered').map((question) => question.question_number),
   };
@@ -311,6 +335,25 @@ export interface QuestionStatisticAnswer {
   topic_label: string;
   is_correct: boolean;
   elapsed_seconds: number;
+  type?: string;
+  selected_keys?: string[];
+}
+
+export interface StatementDefinition {
+  key: string;
+  text: string;
+  is_correct: boolean;
+}
+
+export interface StatementStatistic {
+  key: string;
+  text: string;
+  key_is_true: boolean;
+  judged_count: number;
+  exact_count: number;
+  exact_percent: number;
+  judged_true_percent: number;
+  difficulty_label: 'Terkuasai' | 'Cukup' | 'Perlu diulang';
 }
 
 export interface QuestionStatistic {
@@ -322,10 +365,44 @@ export interface QuestionStatistic {
   correct_percent: number;
   average_time_seconds: number;
   difficulty_label: 'Terkuasai' | 'Cukup' | 'Perlu diulang';
+  statement_statistics: StatementStatistic[] | null;
+}
+
+function difficultyLabel(percent: number): QuestionStatistic['difficulty_label'] {
+  return percent >= 75 ? 'Terkuasai' : percent >= 50 ? 'Cukup' : 'Perlu diulang';
+}
+
+function summarizeStatementStatistics(
+  answers: QuestionStatisticAnswer[],
+  definitions: StatementDefinition[],
+): StatementStatistic[] {
+  return definitions.map((definition) => {
+    let exactCount = 0;
+    let judgedTrueCount = 0;
+    for (const answer of answers) {
+      const judgedTrue = (answer.selected_keys ?? []).includes(definition.key);
+      if (judgedTrue) judgedTrueCount += 1;
+      if (judgedTrue === definition.is_correct) exactCount += 1;
+    }
+    const exactPercent = answers.length ? Math.round((exactCount / answers.length) * 100) : 0;
+    return {
+      key: definition.key,
+      text: definition.text,
+      key_is_true: definition.is_correct,
+      judged_count: answers.length,
+      exact_count: exactCount,
+      exact_percent: exactPercent,
+      judged_true_percent: answers.length ? Math.round((judgedTrueCount / answers.length) * 100) : 0,
+      difficulty_label: difficultyLabel(exactPercent),
+    };
+  });
 }
 
 /** Agregat analisis per soal lintas siswa (RUAS-009): % benar = tingkat kesukaran empiris. */
-export function summarizeQuestionStatistics(answers: QuestionStatisticAnswer[]): QuestionStatistic[] {
+export function summarizeQuestionStatistics(
+  answers: QuestionStatisticAnswer[],
+  statementsByQuestion: Map<number, StatementDefinition[]> = new Map(),
+): QuestionStatistic[] {
   const byQuestion = new Map<number, QuestionStatisticAnswer[]>();
   for (const answer of answers) {
     const list = byQuestion.get(answer.question_id) ?? [];
@@ -336,6 +413,7 @@ export function summarizeQuestionStatistics(answers: QuestionStatisticAnswer[]):
     .map((list) => {
       const correct = list.filter((answer) => answer.is_correct).length;
       const percent = list.length ? Math.round((correct / list.length) * 100) : 0;
+      const definitions = list[0].type === 'true_false_multi' ? statementsByQuestion.get(list[0].question_id) : undefined;
       return {
         question_id: list[0].question_id,
         question_text: list[0].question_text,
@@ -344,7 +422,8 @@ export function summarizeQuestionStatistics(answers: QuestionStatisticAnswer[]):
         correct_count: correct,
         correct_percent: percent,
         average_time_seconds: Math.round(list.reduce((total, answer) => total + answer.elapsed_seconds, 0) / list.length),
-        difficulty_label: (percent >= 75 ? 'Terkuasai' : percent >= 50 ? 'Cukup' : 'Perlu diulang') as QuestionStatistic['difficulty_label'],
+        difficulty_label: difficultyLabel(percent),
+        statement_statistics: definitions ? summarizeStatementStatistics(list, definitions) : null,
       };
     })
     .sort((a, b) => a.correct_percent - b.correct_percent || b.answered_count - a.answered_count);
@@ -360,6 +439,8 @@ export async function listQuestionStatistics(db: ReportDb, rows: ReportRow[]): P
       question_id: examAnswers.question_id,
       question_text: questions.question_text,
       topic_label: topics.label,
+      type: questions.type,
+      selected_keys: examAnswers.selected_keys,
       is_correct: examAnswers.is_correct,
       elapsed_seconds: examAnswers.elapsed_seconds,
     })
@@ -370,13 +451,32 @@ export async function listQuestionStatistics(db: ReportDb, rows: ReportRow[]): P
     .orderBy(asc(examAnswers.id));
   const latestByAttemptQuestion = new Map<string, (typeof answers)[number]>();
   for (const answer of answers) latestByAttemptQuestion.set(`${answer.attempt_id}:${answer.question_id}`, answer);
-  return summarizeQuestionStatistics([...latestByAttemptQuestion.values()].map((answer) => ({
+  const latestAnswers = [...latestByAttemptQuestion.values()];
+
+  const multiQuestionIds = [...new Set(latestAnswers.filter((answer) => answer.type === 'true_false_multi').map((answer) => answer.question_id))];
+  const statementsByQuestion = new Map<number, StatementDefinition[]>();
+  if (multiQuestionIds.length > 0) {
+    const optionRows = await db
+      .select({ question_id: questionOptions.question_id, key: questionOptions.option_key, text: questionOptions.option_text, is_correct: questionOptions.is_correct })
+      .from(questionOptions)
+      .where(inArray(questionOptions.question_id, multiQuestionIds))
+      .orderBy(asc(questionOptions.display_order));
+    for (const row of optionRows) {
+      const list = statementsByQuestion.get(row.question_id) ?? [];
+      list.push({ key: row.key, text: row.text, is_correct: Boolean(row.is_correct) });
+      statementsByQuestion.set(row.question_id, list);
+    }
+  }
+
+  return summarizeQuestionStatistics(latestAnswers.map((answer) => ({
     question_id: answer.question_id,
     question_text: answer.question_text,
     topic_label: answer.topic_label ?? 'Topik',
     is_correct: Boolean(answer.is_correct),
     elapsed_seconds: answer.elapsed_seconds,
-  })));
+    type: answer.type,
+    selected_keys: normalizeSelectedKeys(answer.selected_keys),
+  })), statementsByQuestion);
 }
 
 function average(values: number[]) {

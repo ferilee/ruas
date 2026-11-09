@@ -237,3 +237,32 @@ describe('summarizeQuestionStatistics (RUAS-009)', () => {
     expect(summarizeQuestionStatistics([])).toEqual([]);
   });
 });
+
+describe('summarizeQuestionStatistics - pernyataan Benar/Salah multi', () => {
+  it('computes per-statement exact and judged-true percentages', async () => {
+    const { summarizeQuestionStatistics } = await import('@/services/report-service');
+    const definitions = new Map([[7, [
+      { key: 'S1', text: 'Pernyataan satu', is_correct: true },
+      { key: 'S2', text: 'Pernyataan dua', is_correct: false },
+    ]]]);
+    const stats = summarizeQuestionStatistics([
+      { question_id: 7, question_text: 'Stimulus', topic_label: 'Matematika Keuangan', type: 'true_false_multi', is_correct: true, elapsed_seconds: 40, selected_keys: ['S1'] },
+      { question_id: 7, question_text: 'Stimulus', topic_label: 'Matematika Keuangan', type: 'true_false_multi', is_correct: false, elapsed_seconds: 60, selected_keys: ['S1', 'S2'] },
+      { question_id: 7, question_text: 'Stimulus', topic_label: 'Matematika Keuangan', type: 'true_false_multi', is_correct: false, elapsed_seconds: 50, selected_keys: [] },
+      { question_id: 7, question_text: 'Stimulus', topic_label: 'Matematika Keuangan', type: 'true_false_multi', is_correct: false, elapsed_seconds: 50, selected_keys: ['S2'] },
+    ], definitions);
+    expect(stats).toHaveLength(1);
+    expect(stats[0].statement_statistics).toEqual([
+      { key: 'S1', text: 'Pernyataan satu', key_is_true: true, judged_count: 4, exact_count: 2, exact_percent: 50, judged_true_percent: 50, difficulty_label: 'Cukup' },
+      { key: 'S2', text: 'Pernyataan dua', key_is_true: false, judged_count: 4, exact_count: 2, exact_percent: 50, judged_true_percent: 50, difficulty_label: 'Cukup' },
+    ]);
+  });
+
+  it('leaves statement_statistics null for legacy question types', async () => {
+    const { summarizeQuestionStatistics } = await import('@/services/report-service');
+    const stats = summarizeQuestionStatistics([
+      { question_id: 3, question_text: 'Soal lama', topic_label: 'Aljabar', is_correct: true, elapsed_seconds: 20 },
+    ]);
+    expect(stats[0].statement_statistics).toBeNull();
+  });
+});

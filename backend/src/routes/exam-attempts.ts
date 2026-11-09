@@ -6,14 +6,17 @@ import { questions } from '@/db/schema/questions';
 import { topicQuestions } from '@/db/schema/topic-questions';
 import type { Pool } from '@/db/connection';
 import { getParticipantIdentity } from '@/lib/participant-identity';
-import { checkAnswer } from '@/lib/scoring';
+import { checkAnswer, checkStatementJudgements } from '@/lib/scoring';
 import { mapCheckAnswerResponse } from '@/mappers/question-response';
 import { createExamDb, abandonAttempt, completeAttempt, createAttempt, findActiveAttempt, findAttempt, findAttemptAnswers, getAttemptAvailability, getAttemptQuestion, getExamReview, getNextAttemptQuestion, getQuestionExplanationMode, getSubjectExamSettings, isAttemptExpired, saveAnswer, saveIntegrityEvent, updateAttemptQuestionFlag } from '@/services/exam-service';
 import { getAssessmentScheduleStatusFromDb } from '@/services/assessment-schedule-service';
 import type { MediaStorage } from '@/services/media-storage';
 
 const attemptSchema = z.object({ subject_id: z.coerce.number().int().positive(), topic_id: z.coerce.number().int().positive(), total_questions: z.coerce.number().int().nonnegative(), topic_access_token: z.string().trim().max(100).optional() });
-const answerSchema = z.object({ question_id: z.coerce.number().int().positive(), selected_keys: z.array(z.string().min(1)).min(1), elapsed_seconds: z.coerce.number().int().nonnegative() });
+// selected_keys boleh kosong HANYA untuk soal Benar / Salah (Banyak Pernyataan):
+// array kosong di sana berarti siswa menilai semua pernyataan Salah. Keabsahan
+// isi diperiksa ulang sesudah soal dimuat dan jenisnya diketahui (lihat handler).
+const answerSchema = z.object({ question_id: z.coerce.number().int().positive(), selected_keys: z.array(z.string().min(1)), elapsed_seconds: z.coerce.number().int().nonnegative() });
 const eventSchema = z.object({ event_type: z.enum(['fullscreen_exit', 'tab_hidden', 'window_blur', 'blocked_shortcut']), occurred_at: z.string().datetime().optional() });
 const flagSchema = z.object({ is_doubtful: z.boolean() });
 
@@ -126,8 +129,21 @@ export function examAttemptRoutes(pool: Pool, mediaStorage: MediaStorage | null 
     if (!topicQuestion) return c.json({ error: 'invalid_question', message: 'Soal tidak termasuk dalam sesi ujian ini.' }, 400);
     const storedOptions = await db.select().from(questionOptions).where(eq(questionOptions.question_id, question.id));
     const options = storedOptions.map((option) => ({ key: option.option_key, text: option.option_text, is_correct: option.is_correct }));
-    const result = checkAnswer(question.type, parsed.data.selected_keys, options);
-    await saveAnswer(db, attemptId, { ...parsed.data, is_correct: result.correct });
+    const isStatementQuestion = question.type === 'true_false_multi';
+    if (!isStatementQuestion && parsed.data.selected_keys.length === 0) {
+      return c.json({ error: 'invalid_body', message: 'Jawaban tidak valid.' }, 400);
+    }
+    if (isStatementQuestion) {
+      const statementKeys = new Set(options.map((option) => option.key));
+      const hasUnknownKey = parsed.data.selected_keys.some((key) => !statementKeys.has(key));
+      const hasDuplicateKey = new Set(parsed.data.selected_keys).size !== parsed.data.selected_keys.length;
+      if (hasUnknownKey || hasDuplicateKey) {
+        return c.json({ error: 'invalid_body', message: 'Jawaban tidak valid.' }, 400);
+      }
+    }
+    const statementResult = isStatementQuestion ? checkStatementJudgements(parsed.data.selected_keys, options) : null;
+    const result = statementResult ?? checkAnswer(question.type, parsed.data.selected_keys, options);
+    await saveAnswer(db, attemptId, { ...parsed.data, is_correct: result.correct, score_fraction: statementResult ? statementResult.fraction : null });
     const settings = await getSubjectExamSettings(db, attempt.subject_id);
     const explanationMode = await getQuestionExplanationMode(db, question.id);
     const revealCorrectAnswer = result.correct || settings.show_correct_answer_on_wrong;

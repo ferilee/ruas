@@ -18,7 +18,7 @@ const optionSchema = z.object({
 
 const questionSchema = z.object({
   topic_slug: z.string().min(1),
-  type: z.enum(['single_choice', 'multiple_response', 'true_false']),
+  type: z.enum(['single_choice', 'multiple_response', 'true_false', 'true_false_multi']),
   difficulty: z.enum(['easy', 'medium', 'hard']),
   external_id: z.string().optional(),
   question_text: z.string().min(1),
@@ -117,6 +117,35 @@ const seedSchema = z.object({
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: 'Soal true_false harus memiliki tepat satu jawaban benar.',
+          path: ['questions', index, 'options'],
+        });
+      }
+    }
+
+    if (question.type === 'true_false_multi') {
+      const count = question.options.length;
+
+      if (count < 3 || count > 6) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Soal Benar / Salah (Banyak Pernyataan) harus memiliki 3 sampai 6 pernyataan.',
+          path: ['questions', index, 'options'],
+        });
+      }
+
+      const keysSequential = question.options.every((option, optionIndex) => option.key === `S${optionIndex + 1}`);
+      if (!keysSequential) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Key pernyataan soal Benar / Salah (Banyak Pernyataan) harus berurutan S1, S2, dan seterusnya.',
+          path: ['questions', index, 'options'],
+        });
+      }
+
+      if (correctOptions.length < 1 || correctOptions.length > count - 1) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Soal Benar / Salah (Banyak Pernyataan) harus memiliki minimal satu pernyataan Benar dan satu pernyataan Salah.',
           path: ['questions', index, 'options'],
         });
       }

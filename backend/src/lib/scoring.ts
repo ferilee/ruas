@@ -1,4 +1,44 @@
-export type QuestionType = 'single_choice' | 'multiple_response' | 'true_false';
+export type QuestionType = 'single_choice' | 'multiple_response' | 'true_false' | 'true_false_multi';
+
+export interface StatementResult {
+  key: string;
+  judged_true: boolean;
+  correct: boolean;
+}
+
+export interface StatementCheckResult {
+  correct: boolean;
+  correct_keys: string[];
+  fraction: number;
+  statement_results: StatementResult[];
+}
+
+/**
+ * Evaluates per-statement Benar/Salah judgements for `true_false_multi`.
+ * selectedKeys holds the keys of the statements the student judged Benar;
+ * any statement absent from selectedKeys was judged Salah. Scoring is
+ * partial: fraction = exact judgements / total statements, and the
+ * question counts as correct only when every statement is exact.
+ */
+export function checkStatementJudgements(
+  selectedKeys: string[],
+  statements: QuestionOption[],
+): StatementCheckResult {
+  const judgedTrue = new Set(selectedKeys);
+  const statementResults = statements.map((statement) => {
+    const isTrue = judgedTrue.has(statement.key);
+    return { key: statement.key, judged_true: isTrue, correct: isTrue === statement.is_correct };
+  });
+  const exactCount = statementResults.filter((result) => result.correct).length;
+  const fraction = statements.length ? exactCount / statements.length : 0;
+
+  return {
+    correct: statements.length > 0 && exactCount === statements.length,
+    correct_keys: statements.filter((statement) => statement.is_correct).map((statement) => statement.key),
+    fraction,
+    statement_results: statementResults,
+  };
+}
 
 export interface CheckResult {
   correct: boolean;

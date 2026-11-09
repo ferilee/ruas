@@ -23,6 +23,7 @@ const typeLabel = computed(() => {
     case 'single_choice': return 'Pilihan Ganda';
     case 'multiple_response': return 'Pilihan Ganda Kompleks';
     case 'true_false': return 'Benar - Salah';
+    case 'true_false_multi': return 'Benar - Salah (Banyak Pernyataan)';
     default: return props.type;
   }
 });

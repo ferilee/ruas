@@ -20,6 +20,8 @@ interface CheckQuestionRow {
 interface CheckAnswerResult {
   correct: boolean;
   correct_keys: string[];
+  fraction?: number;
+  statement_results?: Array<{ key: string; judged_true: boolean; correct: boolean }>;
 }
 
 export function mapRandomQuestionResponse(
@@ -60,5 +62,17 @@ export function mapCheckAnswerResponse(
     explanation: correctAnswerHidden ? null : explanation,
     explanation_mode: explanationMode,
     correct_answer_hidden: correctAnswerHidden,
+    // Bidang aditif untuk soal Benar / Salah (Banyak Pernyataan); ketepatan per
+    // pernyataan hanya dibuka bersama kunci jawaban, sama seperti correct_keys.
+    ...(result.fraction !== undefined ? { score_fraction: result.fraction } : {}),
+    ...(result.statement_results !== undefined
+      ? {
+          statement_results: result.statement_results.map((statement) => ({
+            key: statement.key,
+            judged_true: statement.judged_true,
+            correct: correctAnswerHidden ? null : statement.correct,
+          })),
+        }
+      : {}),
   };
 }

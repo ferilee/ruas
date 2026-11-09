@@ -53,7 +53,7 @@ function difficultyLabel(value: AdminQuestionListItem['difficulty']) {
 }
 
 function questionTypeLabel(value: AdminQuestionListItem['type']) {
-  return { single_choice: 'Pilihan ganda', multiple_response: 'Pilihan kompleks', true_false: 'Benar / Salah' }[value];
+  return { single_choice: 'Pilihan ganda', multiple_response: 'Pilihan kompleks', true_false: 'Benar / Salah', true_false_multi: 'Benar / Salah (Banyak Pernyataan)' }[value];
 }
 </script>
 

@@ -47,6 +47,11 @@ export function useQuizSession(options: UseQuizSessionOptions) {
   const result = ref<CheckResult | null>(null);
   const selectedKeys = ref<string[]>([]);
   const savedSelectedKeys = ref<string[]>([]);
+  // Penilaian per pernyataan untuk soal Benar / Salah (Banyak Pernyataan):
+  // key pernyataan -> true (dinilai Benar) / false (dinilai Salah). Pernyataan
+  // yang belum ada di peta ini berarti belum dinilai; selectedKeys hanya berisi
+  // key yang dinilai Benar, mengikuti pengkodean jawaban di server.
+  const statementJudgements = ref<Record<string, boolean>>({});
   const timerRunning = ref(false);
   const elapsedTime = ref(0);
   const finalTime = ref(0);
@@ -112,6 +117,50 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     return !keysEqual(savedSelectedKeys.value, selectedKeys.value);
   });
 
+  const isStatementQuestion = computed(() => question.value?.type === 'true_false_multi');
+  const judgedStatementCount = computed(() => Object.keys(statementJudgements.value).length);
+  const unjudgedStatementCount = computed(() => {
+    if (!isStatementQuestion.value || !question.value) return 0;
+    return Math.max(0, question.value.options.length - judgedStatementCount.value);
+  });
+  const allStatementsJudged = computed(() => isStatementQuestion.value && unjudgedStatementCount.value === 0);
+  const canSubmitAnswer = computed(() => {
+    if (isStatementQuestion.value) return allStatementsJudged.value;
+    return selectedKeys.value.length > 0;
+  });
+
+  function syncSelectedKeysFromJudgements() {
+    if (!question.value) return;
+    selectedKeys.value = question.value.options
+      .map((option) => option.key)
+      .filter((key) => statementJudgements.value[key] === true);
+  }
+
+  function restoreJudgementsFromSavedAnswer(restoredKeys: string[], answered: boolean) {
+    if (!isStatementQuestion.value || !question.value) {
+      statementJudgements.value = {};
+      return;
+    }
+    if (!answered) {
+      statementJudgements.value = {};
+      return;
+    }
+    // Jawaban tersimpan selalu menilai semua pernyataan (simpan diblokir
+    // sebelum lengkap), jadi pernyataan di luar selectedKeys pasti dinilai Salah.
+    const restored: Record<string, boolean> = {};
+    for (const option of question.value.options) restored[option.key] = restoredKeys.includes(option.key);
+    statementJudgements.value = restored;
+  }
+
+  function onJudgeStatement(key: string, judgedTrue: boolean) {
+    if (!isStatementQuestion.value || !question.value) return;
+    if (!question.value.options.some((option) => option.key === key)) return;
+    statementJudgements.value = { ...statementJudgements.value, [key]: judgedTrue };
+    const previousKeys = selectedKeys.value;
+    syncSelectedKeysFromJudgements();
+    if (state.value === 'reviewing' && !keysEqual(previousKeys, selectedKeys.value)) result.value = null;
+  }
+
   function normalizeQuestionOrder(value: unknown): number[] {
     if (Array.isArray(value)) return value.map(Number).filter((id) => Number.isInteger(id) && id > 0);
     if (typeof value !== 'string') return [];
@@ -143,6 +192,7 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     result.value = null;
     selectedKeys.value = [];
     savedSelectedKeys.value = [];
+    statementJudgements.value = {};
     elapsedTime.value = 0;
     finalTime.value = 0;
     savedElapsedSeconds.value = null;
@@ -198,6 +248,7 @@ export function useQuizSession(options: UseQuizSessionOptions) {
       const restoredSelectedKeys = normalizeSelectedKeys(loaded.selected_keys);
       selectedKeys.value = restoredSelectedKeys;
       savedSelectedKeys.value = [...restoredSelectedKeys];
+      restoreJudgementsFromSavedAnswer(restoredSelectedKeys, loaded.answered);
       savedElapsedSeconds.value = loaded.answered ? (loaded.elapsed_seconds ?? 0) : null;
       finalTime.value = loaded.answered ? (loaded.elapsed_seconds ?? 0) : 0;
       if (loaded.answered) {
@@ -332,7 +383,10 @@ export function useQuizSession(options: UseQuizSessionOptions) {
   }
 
   async function submitAnswer() {
-    if (submittingAnswer.value || !question.value || selectedKeys.value.length === 0) return;
+    if (submittingAnswer.value || !question.value) return;
+    // Soal pernyataan hanya boleh disimpan bila semua pernyataan sudah dinilai;
+    // jenis lain mensyaratkan minimal satu kunci terpilih (pengkodean lama).
+    if (isStatementQuestion.value ? !allStatementsJudged.value : selectedKeys.value.length === 0) return;
 
     submittingAnswer.value = true;
     finalTime.value = savedElapsedSeconds.value ?? elapsedTime.value;
@@ -496,6 +550,7 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     answeredQuestionNumbers.value = new Set();
     questionOrder.value = [];
     doubtfulQuestionIds.value = new Set();
+    statementJudgements.value = {};
     sessionResults.value = [];
     autoStart.value = false;
     attemptId.value = null;
@@ -613,6 +668,12 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     retryCurrentState,
     selectedKeys,
     answerChanged,
+    statementJudgements,
+    isStatementQuestion,
+    allStatementsJudged,
+    unjudgedStatementCount,
+    canSubmitAnswer,
+    onJudgeStatement,
     showExitModal,
     startQuiz,
     state,

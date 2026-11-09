@@ -172,7 +172,7 @@ export function expireOverdueAttempts(db: ExamDb, now = new Date()) {
 
 async function buildAttemptOrder(db: ExamDb, topicId: number, previousOrders: PreviousAttemptOrder[] = []): Promise<AttemptOrder> {
   const questionRows = await db
-    .select({ id: questions.id })
+    .select({ id: questions.id, type: questions.type })
     .from(questions)
     .innerJoin(topicQuestions, and(
       eq(topicQuestions.question_id, questions.id),
@@ -192,8 +192,15 @@ async function buildAttemptOrder(db: ExamDb, topicId: number, previousOrders: Pr
       .where(inArray(questionOptions.question_id, questionOrder))
       .orderBy(asc(questionOptions.display_order));
 
+    const typeByQuestion = new Map(questionRows.map((row) => [row.id, row.type]));
     for (const questionId of questionOrder) {
       const keys = optionRows.filter((row) => row.question_id === questionId).map((row) => row.key);
+      // Pernyataan pada soal Benar / Salah (Banyak Pernyataan) bersifat posisional:
+      // urutannya tidak pernah diacak, selalu mengikuti display_order penulisannya.
+      if (typeByQuestion.get(questionId) === 'true_false_multi') {
+        optionOrder[String(questionId)] = keys;
+        continue;
+      }
       const previousOptionOrders = previousOrders
         .map((order) => order.option_order[String(questionId)])
         .filter((order): order is string[] => Array.isArray(order) && order.length === keys.length);
@@ -440,7 +447,9 @@ export async function getExamReview(db: ExamDb, attemptId: number, identityKey: 
       question_id: examAnswers.question_id,
       question_text: questions.question_text,
       explanation: questions.explanation_text,
+      type: questions.type,
       is_correct: examAnswers.is_correct,
+      score_fraction: examAnswers.score_fraction,
       elapsed_seconds: examAnswers.elapsed_seconds,
     })
     .from(examAnswers)
@@ -448,7 +457,26 @@ export async function getExamReview(db: ExamDb, attemptId: number, identityKey: 
     .where(eq(examAnswers.attempt_id, attemptId))
     .orderBy(asc(examAnswers.id));
 
-  const items = orderExamReviewItems(rows, order.question_order);
+  const multiQuestionIds = [...new Set(rows.filter((row) => row.type === 'true_false_multi').map((row) => row.question_id))];
+  const statementTotals = new Map<number, number>();
+  if (multiQuestionIds.length > 0) {
+    const optionRows = await db
+      .select({ question_id: questionOptions.question_id })
+      .from(questionOptions)
+      .where(inArray(questionOptions.question_id, multiQuestionIds));
+    for (const row of optionRows) statementTotals.set(row.question_id, (statementTotals.get(row.question_id) ?? 0) + 1);
+  }
+
+  const items = orderExamReviewItems(rows, order.question_order).map((item) => {
+    const statementTotal = item.type === 'true_false_multi' ? (statementTotals.get(item.question_id) ?? 0) : null;
+    return {
+      ...item,
+      statement_total: statementTotal,
+      statements_correct: statementTotal !== null && item.score_fraction !== null && item.score_fraction !== undefined
+        ? Math.round(item.score_fraction * statementTotal)
+        : null,
+    };
+  });
   const mediaByQuestion = new Map<number, Awaited<ReturnType<typeof listQuestionMedia>>>();
   await Promise.all([...new Set(items.map((item) => item.question_id))].map(async (questionId) => {
     mediaByQuestion.set(questionId, await listQuestionMedia(db, questionId, mediaStorage));
@@ -510,7 +538,14 @@ export async function createAttempt(
   return { limited: false as const, attempt: await findAttempt(db, Number(result.insertId), identityKey) };
 }
 
-export async function saveAnswer(db: ExamDb, attemptId: number, input: { question_id: number; selected_keys: string[]; is_correct: boolean; elapsed_seconds: number }) {
+export async function saveAnswer(db: ExamDb, attemptId: number, input: { question_id: number; selected_keys: string[]; is_correct: boolean; elapsed_seconds: number; score_fraction?: number | null }) {
+  const values = {
+    question_id: input.question_id,
+    selected_keys: input.selected_keys,
+    is_correct: input.is_correct,
+    elapsed_seconds: input.elapsed_seconds,
+    score_fraction: input.score_fraction ?? null,
+  };
   const [existing] = await db
     .select({ id: examAnswers.id })
     .from(examAnswers)
@@ -518,9 +553,9 @@ export async function saveAnswer(db: ExamDb, attemptId: number, input: { questio
     .limit(1);
 
   if (existing) {
-    await db.update(examAnswers).set({ ...input, selected_keys: input.selected_keys, answered_at: new Date() }).where(eq(examAnswers.id, existing.id));
+    await db.update(examAnswers).set({ ...values, answered_at: new Date() }).where(eq(examAnswers.id, existing.id));
   } else {
-    await db.insert(examAnswers).values({ attempt_id: attemptId, ...input, selected_keys: input.selected_keys });
+    await db.insert(examAnswers).values({ attempt_id: attemptId, ...values });
   }
 }
 
@@ -545,7 +580,11 @@ export async function completeAttempt(db: ExamDb, attemptId: number, identityKey
   if (!options.force && !deadlineReached && totalTime < minimumTime) {
     return { blocked: true as const, minimum_duration_seconds: minimumTime, elapsed_seconds: totalTime };
   }
-  const accuracy = answers.length ? Math.round((correctCount / answers.length) * 100) : 0;
+  // Skor per soal terjawab: pecahan tersimpan (soal Benar / Salah Banyak Pernyataan)
+  // didahulukan; jenis lama tidak pernah memiliki pecahan sehingga rumusnya
+  // tereduksi persis ke perhitungan biner sebelumnya.
+  const scoreTotal = answers.reduce((total, answer) => total + (answer.score_fraction ?? (answer.is_correct ? 1 : 0)), 0);
+  const accuracy = answers.length ? Math.round((scoreTotal / answers.length) * 100) : 0;
   const violationCount = Number(events[0]?.total ?? 0);
   await db.update(examAttempts).set({
     status: 'completed',

@@ -134,7 +134,7 @@ export interface QuestionMedia {
 
 export interface Question {
   id: number;
-  type: 'single_choice' | 'multiple_response' | 'true_false';
+  type: 'single_choice' | 'multiple_response' | 'true_false' | 'true_false_multi';
   difficulty: 'easy' | 'medium' | 'hard';
   question_text: string;
   options: QuestionOption[];
@@ -333,12 +333,20 @@ export interface UserImportSummary {
   errors: string[];
 }
 
+export interface StatementResult {
+  key: string;
+  judged_true: boolean;
+  correct: boolean | null;
+}
+
 export interface CheckResult {
   correct: boolean;
   correct_keys: string[];
   explanation: string | null;
   explanation_mode: ExplanationMode;
   correct_answer_hidden?: boolean;
+  score_fraction?: number;
+  statement_results?: StatementResult[];
 }
 
 export interface ExamReviewItem {
@@ -346,7 +354,11 @@ export interface ExamReviewItem {
   question_number: number;
   question_text: string;
   explanation: string;
+  type?: Question['type'];
   is_correct: boolean;
+  score_fraction?: number | null;
+  statement_total?: number | null;
+  statements_correct?: number | null;
   elapsed_seconds: number;
   media: QuestionMedia[];
 }
@@ -394,6 +406,7 @@ export interface ExamAnswerRecord {
   question_id: number;
   selected_keys: string[];
   is_correct: boolean;
+  score_fraction?: number | null;
   elapsed_seconds: number;
   answered_at: string;
 }
@@ -481,23 +494,35 @@ export interface AdminReportAnswer {
   question_text: string;
   selected_keys: string[];
   is_correct: boolean;
+  score_fraction?: number | null;
   elapsed_seconds: number;
   answered_at: string;
 }
 
-export type AdminReportQuestionStatus = 'correct' | 'incorrect' | 'unanswered';
+export type AdminReportQuestionStatus = 'correct' | 'incorrect' | 'unanswered' | 'partial';
+
+export interface AdminReportStatementDetail {
+  key: string;
+  text: string;
+  key_is_true: boolean;
+  judged_true: boolean | null;
+  exact: boolean | null;
+}
 
 export interface AdminReportQuestionAnalysis {
   question_number: number;
   question_id: number;
   topic_label: string;
   question_text: string;
+  type?: Question['type'] | null;
   selected_keys: string[];
   selected_texts: string[];
   correct_keys: string[];
   correct_texts: string[];
   status: AdminReportQuestionStatus;
   is_correct: boolean;
+  score_fraction?: number | null;
+  statement_details?: AdminReportStatementDetail[] | null;
   elapsed_seconds: number;
   answered_at: string | null;
 }
@@ -514,8 +539,20 @@ export interface AdminReportDetail extends AdminReportRow {
   integrity_events: AdminReportIntegrityEvent[];
   question_analysis: AdminReportQuestionAnalysis[];
   correct_question_numbers: number[];
+  partial_question_numbers: number[];
   incorrect_question_numbers: number[];
   unanswered_question_numbers: number[];
+}
+
+export interface AdminReportStatementStatistic {
+  key: string;
+  text: string;
+  key_is_true: boolean;
+  judged_count: number;
+  exact_count: number;
+  exact_percent: number;
+  judged_true_percent: number;
+  difficulty_label: 'Terkuasai' | 'Cukup' | 'Perlu diulang';
 }
 
 export interface AdminReportQuestionStatistic {
@@ -527,6 +564,7 @@ export interface AdminReportQuestionStatistic {
   correct_percent: number;
   average_time_seconds: number;
   difficulty_label: 'Terkuasai' | 'Cukup' | 'Perlu diulang';
+  statement_statistics?: AdminReportStatementStatistic[] | null;
 }
 
 export type AdminReportPendingParticipantState = 'not_started' | 'in_progress';

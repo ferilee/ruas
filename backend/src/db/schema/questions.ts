@@ -4,7 +4,7 @@ import { topics } from './topics';
 export const questions = mysqlTable('questions', {
   id: int('id').autoincrement().primaryKey(),
   topic_id: int('topic_id').notNull().references(() => topics.id),
-  type: mysqlEnum('type', ['single_choice', 'multiple_response', 'true_false']).notNull(),
+  type: mysqlEnum('type', ['single_choice', 'multiple_response', 'true_false', 'true_false_multi']).notNull(),
   difficulty: mysqlEnum('difficulty', ['easy', 'medium', 'hard']).notNull(),
   question_text: text('question_text').notNull(),
   explanation_text: text('explanation_text').notNull(),

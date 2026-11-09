@@ -26,7 +26,7 @@ import { topicMatchesAdminScope } from '@/lib/admin-scope';
 const questionListQuerySchema = z.object({
   search: z.string().trim().max(200).optional(),
   topic_id: z.coerce.number().int().positive().optional(),
-  type: z.enum(['single_choice', 'multiple_response', 'true_false']).optional(),
+  type: z.enum(['single_choice', 'multiple_response', 'true_false', 'true_false_multi']).optional(),
   difficulty: z.enum(['easy', 'medium', 'hard']).optional(),
   status: z.enum(['active', 'archived', 'all']).default('active'),
   page: z.coerce.number().int().min(1).default(1),

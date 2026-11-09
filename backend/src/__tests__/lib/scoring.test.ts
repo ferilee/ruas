@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { checkAnswer } from '@/lib/scoring.js';
+import { checkAnswer, checkStatementJudgements } from '@/lib/scoring.js';
 
 const sampleOptions = [
   { key: 'A', is_correct: false },
@@ -95,5 +95,47 @@ describe('checkAnswer - true_false', () => {
   it('returns incorrect when select false', () => {
     const result = checkAnswer('true_false', ['false'], tfOptions);
     expect(result.correct).toBe(false);
+  });
+});
+
+describe('checkStatementJudgements - true_false_multi', () => {
+  const statements = [
+    { key: 'S1', is_correct: true },
+    { key: 'S2', is_correct: false },
+    { key: 'S3', is_correct: true },
+    { key: 'S4', is_correct: false },
+  ];
+
+  it('returns fraction 1 and correct when every judgement is exact', () => {
+    const result = checkStatementJudgements(['S1', 'S3'], statements);
+    expect(result.correct).toBe(true);
+    expect(result.fraction).toBe(1);
+    expect(result.correct_keys).toEqual(['S1', 'S3']);
+    expect(result.statement_results.every((entry) => entry.correct)).toBe(true);
+  });
+
+  it('returns partial fraction when some judgements miss', () => {
+    const result = checkStatementJudgements(['S1', 'S2', 'S3'], statements);
+    expect(result.correct).toBe(false);
+    expect(result.fraction).toBe(0.75);
+    expect(result.statement_results).toEqual([
+      { key: 'S1', judged_true: true, correct: true },
+      { key: 'S2', judged_true: true, correct: false },
+      { key: 'S3', judged_true: true, correct: true },
+      { key: 'S4', judged_true: false, correct: true },
+    ]);
+  });
+
+  it('accepts an empty selection as judging every statement Salah', () => {
+    const result = checkStatementJudgements([], statements);
+    expect(result.correct).toBe(false);
+    expect(result.fraction).toBe(0.5);
+    expect(result.statement_results.map((entry) => entry.judged_true)).toEqual([false, false, false, false]);
+  });
+
+  it('returns fraction 0 when every judgement misses', () => {
+    const result = checkStatementJudgements(['S2', 'S4'], statements);
+    expect(result.correct).toBe(false);
+    expect(result.fraction).toBe(0);
   });
 });

@@ -12,7 +12,7 @@ const externalIdSchema = z.preprocess(
 );
 
 function validateQuestionRules(
-  question: { type: 'single_choice' | 'multiple_response' | 'true_false'; options: Array<{ key: string; is_correct: boolean }> },
+  question: { type: 'single_choice' | 'multiple_response' | 'true_false' | 'true_false_multi'; options: Array<{ key: string; is_correct: boolean }> },
   ctx: z.RefinementCtx,
 ) {
   if (new Set(question.options.map((option) => option.key)).size !== question.options.length) {
@@ -61,10 +61,40 @@ function validateQuestionRules(
       });
     }
   }
+
+  if (question.type === 'true_false_multi') {
+    const count = question.options.length;
+
+    if (count < 3 || count > 6) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Soal Benar / Salah (Banyak Pernyataan) harus memiliki 3 sampai 6 pernyataan.',
+        path: ['options'],
+      });
+    }
+
+    const expectedKeys = question.options.map((_, index) => `S${index + 1}`);
+    const keysMatch = question.options.every((option, index) => option.key === expectedKeys[index]);
+    if (!keysMatch) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Key pernyataan soal Benar / Salah (Banyak Pernyataan) harus berurutan S1, S2, dan seterusnya.',
+        path: ['options'],
+      });
+    }
+
+    if (correctCount < 1 || correctCount > count - 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Soal Benar / Salah (Banyak Pernyataan) harus memiliki minimal satu pernyataan Benar dan satu pernyataan Salah.',
+        path: ['options'],
+      });
+    }
+  }
 }
 
 const questionContentSchema = z.object({
-  type: z.enum(['single_choice', 'multiple_response', 'true_false']),
+  type: z.enum(['single_choice', 'multiple_response', 'true_false', 'true_false_multi']),
   difficulty: z.enum(['easy', 'medium', 'hard']),
   external_id: externalIdSchema,
   question_text: z.string().min(1),
@@ -81,7 +111,7 @@ export const adminQuestionSchema = questionContentSchema
 
 export const importQuestionSchema = z.object({
   topic_slug: z.string().min(1),
-  type: z.enum(['single_choice', 'multiple_response', 'true_false']),
+  type: z.enum(['single_choice', 'multiple_response', 'true_false', 'true_false_multi']),
   difficulty: z.enum(['easy', 'medium', 'hard']),
   external_id: externalIdSchema,
   question_text: z.string().min(1),

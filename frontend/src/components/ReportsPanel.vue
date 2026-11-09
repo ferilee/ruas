@@ -149,15 +149,33 @@
           </colgroup>
           <thead><tr><th>Soal</th><th>Topik</th><th>Dijawab</th><th>Benar</th><th>% Benar</th><th>Waktu rata-rata</th><th>Kesimpulan</th></tr></thead>
           <tbody>
-            <tr v-for="stat in questionStatistics" :key="stat.question_id">
-              <td class="question-stat-text"><MathText :text="stat.question_text" /></td>
-              <td>{{ stat.topic_label }}</td>
-              <td class="nowrap-cell">{{ stat.answered_count }}</td>
-              <td class="nowrap-cell">{{ stat.correct_count }}</td>
-              <td class="score-cell nowrap-cell">{{ stat.correct_percent }}%</td>
-              <td class="nowrap-cell">{{ formatDuration(stat.average_time_seconds) }}</td>
-              <td><span :class="['violation-badge', { clean: stat.difficulty_label === 'Terkuasai' }]">{{ stat.difficulty_label }}</span></td>
-            </tr>
+            <template v-for="stat in questionStatistics" :key="stat.question_id">
+              <tr>
+                <td class="question-stat-text"><MathText :text="stat.question_text" /></td>
+                <td>{{ stat.topic_label }}</td>
+                <td class="nowrap-cell">{{ stat.answered_count }}</td>
+                <td class="nowrap-cell">{{ stat.correct_count }}</td>
+                <td class="score-cell nowrap-cell">{{ stat.correct_percent }}%</td>
+                <td class="nowrap-cell">{{ formatDuration(stat.average_time_seconds) }}</td>
+                <td><span :class="['violation-badge', { clean: stat.difficulty_label === 'Terkuasai' }]">{{ stat.difficulty_label }}</span></td>
+              </tr>
+              <tr v-if="stat.statement_statistics?.length" class="statement-stat-row">
+                <td colspan="7">
+                  <table class="statement-stat-table">
+                    <thead><tr><th>Pernyataan</th><th>Kunci</th><th>% Tepat</th><th>% Menilai Benar</th><th>Kesimpulan</th></tr></thead>
+                    <tbody>
+                      <tr v-for="statement in stat.statement_statistics" :key="statement.key">
+                        <td class="question-stat-text"><MathText :text="statement.text" /></td>
+                        <td>{{ statement.key_is_true ? 'Benar' : 'Salah' }}</td>
+                        <td>{{ statement.exact_percent }}%</td>
+                        <td>{{ statement.judged_true_percent }}%</td>
+                        <td>{{ statement.difficulty_label }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </td>
+              </tr>
+            </template>
           </tbody>
         </table>
       </div>
@@ -218,6 +236,7 @@
           <div class="analysis-summary-heading"><div><h4>Analisis per nomor soal</h4><p>Gunakan ringkasan ini untuk melihat bagian yang sudah dikuasai dan yang perlu diulang.</p></div><RuasSelect v-model="analysisFilter" :options="analysisFilterOptions" aria-label="Filter hasil analisis" /></div>
           <div class="analysis-counts">
             <div class="analysis-count correct"><strong>{{ detail.correct_question_numbers.length }}</strong><span>Benar</span><small>{{ questionNumbers(detail.correct_question_numbers) }}</small></div>
+            <div v-if="detail.partial_question_numbers?.length" class="analysis-count partial"><strong>{{ detail.partial_question_numbers.length }}</strong><span>Sebagian benar</span><small>{{ questionNumbers(detail.partial_question_numbers) }}</small></div>
             <div class="analysis-count incorrect"><strong>{{ detail.incorrect_question_numbers.length }}</strong><span>Salah</span><small>{{ questionNumbers(detail.incorrect_question_numbers) }}</small></div>
             <div class="analysis-count unanswered"><strong>{{ detail.unanswered_question_numbers.length }}</strong><span>Tidak dijawab</span><small>{{ questionNumbers(detail.unanswered_question_numbers) }}</small></div>
           </div>
@@ -226,6 +245,12 @@
               <div class="question-analysis-title"><strong>Soal {{ question.question_number }}</strong><span>{{ question.topic_label }}</span><b>{{ analysisStatusLabel(question.status) }}</b></div>
               <div class="question-analysis-text"><MathText :text="question.question_text" /></div>
               <div class="answer-comparison"><span><small>Jawaban siswa</small><strong><MathText :text="question.selected_texts.length ? question.selected_texts.join(', ') : question.selected_keys.length ? question.selected_keys.join(', ') : 'Tidak dijawab'" /></strong></span><span><small>Kunci jawaban</small><strong><MathText :text="question.correct_texts.join(', ') || question.correct_keys.join(', ') || '—'" /></strong></span></div>
+              <ul v-if="question.statement_details?.length" class="statement-detail-list">
+                <li v-for="statement in question.statement_details" :key="statement.key" :class="{ exact: statement.exact === true, missed: statement.exact === false }">
+                  <span class="statement-detail-text"><MathText :text="statement.text" /></span>
+                  <span class="statement-detail-meta">Kunci: <b>{{ statement.key_is_true ? 'Benar' : 'Salah' }}</b> · Siswa: <b>{{ statement.judged_true === null ? '—' : statement.judged_true ? 'Benar' : 'Salah' }}</b> · <b>{{ statement.exact === null ? 'Tidak dijawab' : statement.exact ? 'Tepat' : 'Kurang tepat' }}</b></span>
+                </li>
+              </ul>
             </article>
           </div>
           <p v-else class="muted">Tidak ada soal pada filter ini.</p>
@@ -259,16 +284,35 @@
           </colgroup>
           <thead><tr><th>No</th><th>Soal</th><th>Topik</th><th>Dijawab</th><th>Benar</th><th>% Benar</th><th>Waktu rata-rata</th><th>Kesimpulan</th></tr></thead>
           <tbody>
-            <tr v-for="(stat, index) in questionStatistics" :key="stat.question_id">
-              <td>{{ index + 1 }}</td>
-              <td class="question-stat-text"><MathText :text="stat.question_text" /></td>
-              <td>{{ stat.topic_label }}</td>
-              <td>{{ stat.answered_count }}</td>
-              <td>{{ stat.correct_count }}</td>
-              <td>{{ stat.correct_percent }}%</td>
-              <td>{{ formatDuration(stat.average_time_seconds) }}</td>
-              <td>{{ stat.difficulty_label }}</td>
-            </tr>
+            <template v-for="(stat, index) in questionStatistics" :key="stat.question_id">
+              <tr>
+                <td>{{ index + 1 }}</td>
+                <td class="question-stat-text"><MathText :text="stat.question_text" /></td>
+                <td>{{ stat.topic_label }}</td>
+                <td>{{ stat.answered_count }}</td>
+                <td>{{ stat.correct_count }}</td>
+                <td>{{ stat.correct_percent }}%</td>
+                <td>{{ formatDuration(stat.average_time_seconds) }}</td>
+                <td>{{ stat.difficulty_label }}</td>
+              </tr>
+              <tr v-if="stat.statement_statistics?.length" class="statement-stat-row">
+                <td></td>
+                <td colspan="7">
+                  <table class="statement-stat-table">
+                    <thead><tr><th>Pernyataan</th><th>Kunci</th><th>% Tepat</th><th>% Menilai Benar</th><th>Kesimpulan</th></tr></thead>
+                    <tbody>
+                      <tr v-for="statement in stat.statement_statistics" :key="statement.key">
+                        <td class="question-stat-text"><MathText :text="statement.text" /></td>
+                        <td>{{ statement.key_is_true ? 'Benar' : 'Salah' }}</td>
+                        <td>{{ statement.exact_percent }}%</td>
+                        <td>{{ statement.judged_true_percent }}%</td>
+                        <td>{{ statement.difficulty_label }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </td>
+              </tr>
+            </template>
           </tbody>
         </table>
       </section>
@@ -404,6 +448,7 @@ const activeFilterLabels = computed(() => {
 const analysisFilterOptions = [
   { value: 'all', label: 'Semua soal' },
   { value: 'correct', label: 'Benar saja' },
+  { value: 'partial', label: 'Sebagian benar' },
   { value: 'incorrect', label: 'Salah saja' },
   { value: 'unanswered', label: 'Tidak dijawab' },
 ];
@@ -510,7 +555,7 @@ function questionNumbers(numbers: number[]) {
 }
 
 function analysisStatusLabel(status: AdminReportQuestionStatus) {
-  return { correct: 'Benar', incorrect: 'Salah', unanswered: 'Tidak dijawab' }[status];
+  return { correct: 'Benar', partial: 'Sebagian benar', incorrect: 'Salah', unanswered: 'Tidak dijawab' }[status];
 }
 
 function resetFilters() {
@@ -824,4 +869,18 @@ td strong, td small { display: block; }.report-row { cursor: pointer; }.report-r
   .print-table .question-stat-text { overflow-wrap: anywhere; }
 }
 @page { margin: 12mm; }
+
+.analysis-count.partial { border-left-color: #d7a34d; }
+.question-analysis-item.analysis-partial { border-left-color: #d7a34d; }
+.analysis-partial .question-analysis-title b { color: #a16c1c; background: #fff3d9; }
+.statement-detail-list { margin: 10px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.statement-detail-list li { padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; font-size: .8rem; }
+.statement-detail-list li.exact { border-color: #bfe6cf; background: #f2fbf5; }
+.statement-detail-list li.missed { border-color: #f3c2c2; background: #fff5f5; }
+.statement-detail-text { display: block; line-height: 1.5; }
+.statement-detail-meta { display: block; margin-top: 3px; color: #66809e; font-size: .74rem; }
+.statement-stat-row > td { background: #f8fafc; padding: 8px 12px 14px; }
+.statement-stat-table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+.statement-stat-table th, .statement-stat-table td { padding: 6px 8px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: top; }
+.statement-stat-table th { color: #587087; font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; }
 </style>
