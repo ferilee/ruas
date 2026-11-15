@@ -246,6 +246,13 @@
       "when": 1793218414791,
       "tag": "0034_benar_salah_banyak_pernyataan",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "5",
+      "when": 1794734008633,
+      "tag": "0035_simak_handoff_tokens",
+      "breakpoints": true
     }
   ]
 }

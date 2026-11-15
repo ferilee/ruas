@@ -49,6 +49,7 @@ const app = createApp({
   appPassword: config.APP_PASSWORD,
   adminPassword: config.ADMIN_PASSWORD,
   examExitPassword: config.EXAM_EXIT_PASSWORD,
+  simakInternalSecret: config.SIMAK_INTERNAL_SECRET,
   mediaStorage,
 });
 

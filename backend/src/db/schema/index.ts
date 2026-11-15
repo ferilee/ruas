@@ -17,3 +17,4 @@ export { users } from './users';
 export { userClasses } from './user-classes';
 export { teacherAccessRequests } from './teacher-access-requests';
 export { feedbackEntries } from './feedback-entries';
+export { simakHandoffTokens } from './simak-handoff-tokens';

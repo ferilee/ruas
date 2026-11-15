@@ -26,6 +26,7 @@ import { teacherAccessRequestRoutes } from './routes/teacher-access-requests';
 import { adminTeacherRequestRoutes } from './routes/admin-teacher-requests';
 import { adminMyClassesRoutes } from './routes/admin-my-classes';
 import { feedbackRoutes } from './routes/feedback';
+import { simakHandoffRedeemRoutes, simakInternalRoutes } from './routes/simak-internal';
 import { publishRealtimeEvent } from './lib/realtime-events';
 import type { Pool } from './db/connection';
 import type { MediaStorage } from './services/media-storage';
@@ -46,6 +47,7 @@ interface AppConfig {
   appPassword: string;
   adminPassword?: string;
   examExitPassword?: string;
+  simakInternalSecret?: string;
   mediaStorage?: MediaStorage | null;
 }
 
@@ -143,6 +145,8 @@ export function createApp(config: AppConfig) {
   app.route('/api/admin/teacher-requests', adminTeacherRequestRoutes(config.pool));
   app.route('/api/admin/my-classes', adminMyClassesRoutes(config.pool));
   app.route('/api', feedbackRoutes(config.pool));
+  app.route('/api/internal/simak', simakInternalRoutes(config.pool, config.simakInternalSecret));
+  app.route('/', simakHandoffRedeemRoutes(config.pool));
 
   if (process.env.NODE_ENV === 'production') {
     const distDir = '../frontend/dist';
