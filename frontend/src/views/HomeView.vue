@@ -76,11 +76,12 @@
       </div>
     </section>
 
-    <a class="simak-link" href="https://simak.smkpasirian-lmj.sch.id/login" target="_blank" rel="noopener noreferrer">
+    <button type="button" class="simak-link" :disabled="simakOpening" @click="openSimak">
       <span class="simak-link-icon" aria-hidden="true">↗</span>
-      <span class="simak-link-copy"><strong>Buka SIMAK</strong><small>Materi, LKPD &amp; Ruang Guru</small></span>
-      <span class="simak-link-arrow" aria-hidden="true">→</span>
-    </a>
+      <span class="simak-link-copy"><strong>Buka SIMAK</strong><small>{{ simakOpening ? 'Menyiapkan sesi SIMAK Anda…' : 'Lanjut belajar di SIMAK tanpa masuk lagi' }}</small></span>
+      <span class="simak-link-arrow" aria-hidden="true">{{ simakOpening ? '…' : '→' }}</span>
+    </button>
+    <p v-if="simakError" class="simak-link-error" role="alert">{{ simakError }}</p>
 
     <footer class="home-footer">Ruang Asesmen — Belajar dan berlatih dengan terarah.</footer>
   </div>
@@ -89,7 +90,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { fetchAssessmentSchedule, fetchCurriculum, fetchParticipantProfile, fetchSchoolName } from '@/api/client';
+import { fetchAssessmentSchedule, fetchCurriculum, fetchParticipantProfile, fetchSchoolName, fetchSimakHandoffUrl } from '@/api/client';
 import { assessmentTitle } from '@/lib/school-title';
 import RuasSelect from '@/components/RuasSelect.vue';
 import type { AssessmentSchedule, CurriculumData, ParticipantProfile } from '@/types';
@@ -105,6 +106,8 @@ const curriculumLoading = ref(true);
 const error = ref<string | null>(null);
 const assignmentLocked = ref(Boolean(sessionStorage.getItem('auth_token')));
 const participantProfile = ref<ParticipantProfile | null>(null);
+const simakOpening = ref(false);
+const simakError = ref<string | null>(null);
 const schedule = ref<AssessmentSchedule | null>(null);
 const scheduleLoading = ref(true);
 const scheduleError = ref<string | null>(null);
@@ -186,6 +189,22 @@ function formatRemaining(seconds: number) {
     : minutes > 0
       ? `${minutes}m ${remainder}dtk lagi`
       : `${remainder}dtk lagi`;
+}
+
+// Serah-terima ke SIMAK: minta URL masuk tanpa login ke backend, lalu
+// navigasikan peramban ke sana. Kegagalan selalu menjadi pesan lembut yang
+// sama — murid tetap bisa membuka SIMAK dengan cara biasa.
+async function openSimak() {
+  if (simakOpening.value) return;
+  simakOpening.value = true;
+  simakError.value = null;
+  try {
+    const url = await fetchSimakHandoffUrl();
+    window.location.href = url;
+  } catch {
+    simakError.value = 'SIMAK belum bisa dibuka otomatis — buka SIMAK seperti biasa.';
+    simakOpening.value = false;
+  }
 }
 
 function startAssessment() {
@@ -434,6 +453,9 @@ onUnmounted(() => {
 .simak-link-copy strong { color: #234978; font-size: .78rem; }
 .simak-link-copy small { color: #66809e; font-size: .69rem; }
 .simak-link-arrow { color: #356fbd; font-size: 1.1rem; }
+button.simak-link { font: inherit; text-align: left; cursor: pointer; }
+button.simak-link:disabled { cursor: wait; opacity: .78; transform: none; }
+.simak-link-error { position: relative; z-index: 1; width: min(100%, 520px); margin-top: 2px; color: #b3374a; font-size: .72rem; line-height: 1.5; text-align: center; }
 
 @media (max-width: 520px) {
   .selection-card {

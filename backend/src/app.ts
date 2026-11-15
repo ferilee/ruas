@@ -27,6 +27,7 @@ import { adminTeacherRequestRoutes } from './routes/admin-teacher-requests';
 import { adminMyClassesRoutes } from './routes/admin-my-classes';
 import { feedbackRoutes } from './routes/feedback';
 import { simakHandoffRedeemRoutes, simakInternalRoutes } from './routes/simak-internal';
+import { simakOpenRoutes } from './routes/simak-open';
 import { publishRealtimeEvent } from './lib/realtime-events';
 import type { Pool } from './db/connection';
 import type { MediaStorage } from './services/media-storage';
@@ -48,6 +49,7 @@ interface AppConfig {
   adminPassword?: string;
   examExitPassword?: string;
   simakInternalSecret?: string;
+  simakInternalUrl?: string;
   mediaStorage?: MediaStorage | null;
 }
 
@@ -97,6 +99,7 @@ export function createApp(config: AppConfig) {
   app.use('/api/profile', authMiddleware);
   app.use('/api/exam/attempts', authMiddleware);
   app.use('/api/exam/attempts/*', authMiddleware);
+  app.use('/api/simak-handoff', authMiddleware);
 
   app.use('/api/admin/questions', requireAdminAuth);
   app.use('/api/admin/topics', requireAdminAuth);
@@ -146,6 +149,10 @@ export function createApp(config: AppConfig) {
   app.route('/api/admin/my-classes', adminMyClassesRoutes(config.pool));
   app.route('/api', feedbackRoutes(config.pool));
   app.route('/api/internal/simak', simakInternalRoutes(config.pool, config.simakInternalSecret));
+  app.route(
+    '/api/simak-handoff',
+    simakOpenRoutes({ simakInternalUrl: config.simakInternalUrl, simakInternalSecret: config.simakInternalSecret }),
+  );
   app.route('/', simakHandoffRedeemRoutes(config.pool));
 
   if (process.env.NODE_ENV === 'production') {

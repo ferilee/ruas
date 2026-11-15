@@ -152,6 +152,15 @@ export async function fetchParticipantProfile(): Promise<ParticipantProfile | nu
   return data.profile;
 }
 
+// Serah-terima ke SIMAK (Hub Murid Tahap 4): backend RUAS meminta URL masuk
+// SIMAK tanpa login untuk sesi murid yang aktif. Kegagalan apa pun (jembatan
+// belum disetel, SIMAK tak terjangkau) melempar galat berkode
+// "simak_unavailable" yang diterjemahkan pemanggil menjadi pesan lembut.
+export async function fetchSimakHandoffUrl(): Promise<string> {
+  const data = await request<{ url: string }>('/simak-handoff', { method: 'POST' });
+  return data.url;
+}
+
 export async function saveParticipantProfile(profile: ParticipantProfileInput | ParticipantProfile): Promise<ParticipantProfile> {
   const data = await request<{ profile: ParticipantProfile }>('/profile', {
     method: 'PUT',

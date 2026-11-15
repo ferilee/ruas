@@ -14,6 +14,7 @@ export interface AppConfig {
   ADMIN_PASSWORD: string;
   EXAM_EXIT_PASSWORD: string;
   SIMAK_INTERNAL_SECRET: string;
+  SIMAK_INTERNAL_URL: string;
   CORS_ORIGIN: string;
   DB_HOST: string;
   DB_PORT: number;
@@ -78,6 +79,7 @@ export function loadConfig(): AppConfig {
     ADMIN_PASSWORD: adminPassword,
     EXAM_EXIT_PASSWORD: getEnvValue(process.env.EXAM_EXIT_PASSWORD, fileEnv.EXAM_EXIT_PASSWORD, adminPassword),
     SIMAK_INTERNAL_SECRET: getEnvValue(process.env.SIMAK_INTERNAL_SECRET, fileEnv.SIMAK_INTERNAL_SECRET, ''),
+    SIMAK_INTERNAL_URL: getEnvValue(process.env.SIMAK_INTERNAL_URL, fileEnv.SIMAK_INTERNAL_URL, ''),
     CORS_ORIGIN: getEnvValue(process.env.CORS_ORIGIN, fileEnv.CORS_ORIGIN, `http://localhost:${frontendPort}`),
     DB_HOST: getEnvValue(process.env.DB_HOST, fileEnv.DB_HOST, '127.0.0.1'),
     DB_PORT: Number(getEnvValue(process.env.DB_PORT, fileEnv.DB_PORT, '3306')) || 3306,
