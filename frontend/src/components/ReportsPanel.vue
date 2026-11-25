@@ -1,5 +1,9 @@
 <template>
   <section :class="['reports-panel', { 'simple-reports-panel': props.simple, 'printing-questions': printMode === 'questions', 'printing-students': printMode === 'students' }]">
+    <div v-if="totalGradingPending > 0" class="grading-pending-banner no-print" role="status">
+      <span><strong>{{ totalGradingPending }} jawaban uraian</strong> pada hasil yang tampil masih menunggu penilaian. Skor siswa terkait masih sementara.</span>
+      <button class="secondary-btn" type="button" @click="emit('open-grading')">Buka Penilaian Uraian</button>
+    </div>
     <template v-if="props.simple">
       <div class="simple-report-header">
         <div><span class="eyebrow">HASIL ASESMEN</span><h2>Laporan sederhana</h2><p>Pilih topik dan kelas untuk melihat hasil siswa.</p></div>
@@ -239,12 +243,14 @@
             <div v-if="detail.partial_question_numbers?.length" class="analysis-count partial"><strong>{{ detail.partial_question_numbers.length }}</strong><span>Sebagian benar</span><small>{{ questionNumbers(detail.partial_question_numbers) }}</small></div>
             <div class="analysis-count incorrect"><strong>{{ detail.incorrect_question_numbers.length }}</strong><span>Salah</span><small>{{ questionNumbers(detail.incorrect_question_numbers) }}</small></div>
             <div class="analysis-count unanswered"><strong>{{ detail.unanswered_question_numbers.length }}</strong><span>Tidak dijawab</span><small>{{ questionNumbers(detail.unanswered_question_numbers) }}</small></div>
+            <div v-if="detail.pending_question_numbers?.length" class="analysis-count pending"><strong>{{ detail.pending_question_numbers.length }}</strong><span>Menunggu penilaian</span><small>{{ questionNumbers(detail.pending_question_numbers) }}</small></div>
           </div>
           <div v-if="filteredAnalysis.length" class="question-analysis-list">
             <article v-for="question in filteredAnalysis" :key="question.question_id" :class="['question-analysis-item', `analysis-${question.status}`]">
               <div class="question-analysis-title"><strong>Soal {{ question.question_number }}</strong><span>{{ question.topic_label }}</span><b>{{ analysisStatusLabel(question.status) }}</b></div>
               <div class="question-analysis-text"><MathText :text="question.question_text" /></div>
               <div class="answer-comparison"><span><small>Jawaban siswa</small><strong><MathText :text="question.selected_texts.length ? question.selected_texts.join(', ') : question.selected_keys.length ? question.selected_keys.join(', ') : 'Tidak dijawab'" /></strong></span><span><small>Kunci jawaban</small><strong><MathText :text="question.correct_texts.join(', ') || question.correct_keys.join(', ') || '—'" /></strong></span></div>
+              <p v-if="question.answer_text" class="essay-report-answer"><small>Jawaban uraian siswa</small><span>{{ question.answer_text }}</span></p>
               <ul v-if="question.statement_details?.length" class="statement-detail-list">
                 <li v-for="statement in question.statement_details" :key="statement.key" :class="{ exact: statement.exact === true, missed: statement.exact === false }">
                   <span class="statement-detail-text"><MathText :text="statement.text" /></span>
@@ -366,11 +372,14 @@ import { ADMIN_REALTIME_EVENT, type AdminRealtimeEvent } from '@/lib/admin-realt
 
 const props = withDefaults(defineProps<{ canReset?: boolean; simple?: boolean; username?: string }>(), { canReset: true, simple: false, username: '' });
 
+const emit = defineEmits<{ (e: 'open-grading'): void }>();
+
 const emptySummary: AdminReportSummary = { total_attempts: 0, completed_attempts: 0, in_progress_attempts: 0, abandoned_attempts: 0, average_score: 0, average_accuracy: 0, average_time_seconds: 0, total_violations: 0 };
 const curriculum = reactive<CurriculumData>({ classes: [], assessment_types: [], subjects: [] });
 const topics = ref<AdminTopic[]>([]);
 const filters = reactive<AdminReportFilters>({ status: 'completed', score_policy: 'best', search: '' });
 const rows = ref<AdminReportRow[]>([]);
+const totalGradingPending = computed(() => rows.value.reduce((total, row) => total + (row.grading_pending_count ?? 0), 0));
 const summary = ref<AdminReportSummary>({ ...emptySummary });
 const classStatistics = ref<AdminReportClassStatistic[]>([]);
 const questionStatistics = ref<AdminReportQuestionStatistic[]>([]);
@@ -451,6 +460,7 @@ const analysisFilterOptions = [
   { value: 'partial', label: 'Sebagian benar' },
   { value: 'incorrect', label: 'Salah saja' },
   { value: 'unanswered', label: 'Tidak dijawab' },
+  { value: 'pending', label: 'Menunggu penilaian' },
 ];
 const filteredAnalysis = computed(() => detail.value?.question_analysis.filter((question) => analysisFilter.value === 'all' || question.status === analysisFilter.value) ?? []);
 const expandedGroups = reactive<Record<string, boolean>>({});
@@ -555,7 +565,7 @@ function questionNumbers(numbers: number[]) {
 }
 
 function analysisStatusLabel(status: AdminReportQuestionStatus) {
-  return { correct: 'Benar', partial: 'Sebagian benar', incorrect: 'Salah', unanswered: 'Tidak dijawab' }[status];
+  return { correct: 'Benar', partial: 'Sebagian benar', incorrect: 'Salah', unanswered: 'Tidak dijawab', pending: 'Menunggu penilaian' }[status];
 }
 
 function resetFilters() {
@@ -686,6 +696,10 @@ onUnmounted(() => window.removeEventListener(ADMIN_REALTIME_EVENT, handleRealtim
 
 <style scoped>
 .reports-panel { display: flex; flex-direction: column; gap: 18px; }
+.grading-pending-banner { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; padding: 13px 16px; border: 1px solid #ecd9a0; border-radius: 12px; color: #7a5b12; background: #fffaf0; font-size: .83rem; line-height: 1.5; }
+.grading-pending-banner .secondary-btn { border: 1px solid #d9bd6a; color: #7a5b12; background: #fff; }
+.essay-report-answer { display: flex; flex-direction: column; gap: 4px; margin: 10px 0 0; padding: 10px 12px; border: 1px solid #dce7f4; border-radius: 10px; color: #24384b; background: #f8fbff; font-size: .84rem; line-height: 1.6; white-space: pre-wrap; }
+.essay-report-answer small { color: #66788e; font-size: .7rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
 .report-print-documents { display: none; }
 .simple-report-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 24px; border: 1px solid #dce7f4; border-radius: 16px; color: #1d3557; background: #fff; box-shadow: 0 7px 18px rgba(31, 74, 126, .05); }
 .simple-report-header h2 { margin-top: 6px; color: #172b4d; font-size: 1.45rem; }
@@ -808,6 +822,8 @@ td strong, td small { display: block; }.report-row { cursor: pointer; }.report-r
 .analysis-count.correct { border-left-color: #32a476; }.analysis-count.correct strong, .analysis-count.correct span { color: #237c67; }
 .analysis-count.incorrect { border-left-color: #d87878; }.analysis-count.incorrect strong, .analysis-count.incorrect span { color: #b64e56; }
 .analysis-count.unanswered { border-left-color: #d7a34d; }.analysis-count.unanswered strong, .analysis-count.unanswered span { color: #a16c1c; }
+.analysis-count.pending { border-left-color: #7350c7; }.analysis-count.pending strong, .analysis-count.pending span { color: #5b3da8; }
+.question-analysis-item.analysis-pending { border-color: #e3d5f5; }
 .question-analysis-list { display: flex; flex-direction: column; gap: 10px; }
 .question-analysis-item { padding: 14px; border: 1px solid #dfe8f2; border-left: 3px solid #9fb4cb; border-radius: 12px; background: #f8fbff; }
 .question-analysis-item.analysis-correct { border-left-color: #32a476; }.question-analysis-item.analysis-incorrect { border-left-color: #d87878; }.question-analysis-item.analysis-unanswered { border-left-color: #d7a34d; }

@@ -24,6 +24,7 @@ const typeLabel = computed(() => {
     case 'multiple_response': return 'Pilihan Ganda Kompleks';
     case 'true_false': return 'Benar - Salah';
     case 'true_false_multi': return 'Benar - Salah (Banyak Pernyataan)';
+    case 'short_essay': return 'Uraian Singkat';
     default: return props.type;
   }
 });

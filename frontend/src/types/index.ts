@@ -134,7 +134,7 @@ export interface QuestionMedia {
 
 export interface Question {
   id: number;
-  type: 'single_choice' | 'multiple_response' | 'true_false' | 'true_false_multi';
+  type: 'single_choice' | 'multiple_response' | 'true_false' | 'true_false_multi' | 'short_essay';
   difficulty: 'easy' | 'medium' | 'hard';
   question_text: string;
   options: QuestionOption[];
@@ -172,6 +172,7 @@ export interface AdminQuestionPage {
 
 export interface AdminQuestion extends AdminQuestionListItem {
   explanation_text: string;
+  grading_guide: string | null;
   options: AdminQuestionOption[];
   media: QuestionMedia[];
 }
@@ -210,6 +211,7 @@ export interface AdminQuestionInput {
   external_id: string | null;
   question_text: string;
   explanation_text: string;
+  grading_guide: string | null;
   options: AdminQuestionOption[];
 }
 
@@ -347,6 +349,7 @@ export interface CheckResult {
   correct_answer_hidden?: boolean;
   score_fraction?: number;
   statement_results?: StatementResult[];
+  pending_grading?: boolean;
 }
 
 export interface ExamReviewItem {
@@ -357,6 +360,8 @@ export interface ExamReviewItem {
   type?: Question['type'];
   is_correct: boolean;
   score_fraction?: number | null;
+  answer_text?: string | null;
+  pending_grading?: boolean;
   statement_total?: number | null;
   statements_correct?: number | null;
   elapsed_seconds: number;
@@ -365,6 +370,7 @@ export interface ExamReviewItem {
 
 export interface ExamReviewResponse {
   mode: ExplanationMode;
+  grading_pending_count?: number;
   items: ExamReviewItem[];
 }
 
@@ -390,6 +396,7 @@ export interface ExamAttempt {
   question_order?: number[] | null;
   option_order?: Record<string, string[]> | null;
   doubtful_question_ids?: number[] | null;
+  grading_pending_count?: number;
 }
 
 export interface ExamAttemptAvailability {
@@ -405,6 +412,7 @@ export interface ExamAnswerRecord {
   attempt_id: number;
   question_id: number;
   selected_keys: string[];
+  answer_text?: string | null;
   is_correct: boolean;
   score_fraction?: number | null;
   elapsed_seconds: number;
@@ -416,6 +424,7 @@ export interface AttemptQuestion {
   question_number: number;
   total_questions: number;
   selected_keys: string[];
+  answer_text?: string | null;
   elapsed_seconds: number;
   answered: boolean;
   is_doubtful: boolean;
@@ -485,6 +494,7 @@ export interface AdminReportRow {
   final_score: number;
   started_at: string;
   completed_at: string | null;
+  grading_pending_count?: number;
 }
 
 export interface AdminReportAnswer {
@@ -493,13 +503,16 @@ export interface AdminReportAnswer {
   question_id: number;
   question_text: string;
   selected_keys: string[];
+  answer_text?: string | null;
+  graded_by?: string | null;
+  graded_at?: string | null;
   is_correct: boolean;
   score_fraction?: number | null;
   elapsed_seconds: number;
   answered_at: string;
 }
 
-export type AdminReportQuestionStatus = 'correct' | 'incorrect' | 'unanswered' | 'partial';
+export type AdminReportQuestionStatus = 'correct' | 'incorrect' | 'unanswered' | 'partial' | 'pending';
 
 export interface AdminReportStatementDetail {
   key: string;
@@ -517,6 +530,7 @@ export interface AdminReportQuestionAnalysis {
   type?: Question['type'] | null;
   selected_keys: string[];
   selected_texts: string[];
+  answer_text?: string | null;
   correct_keys: string[];
   correct_texts: string[];
   status: AdminReportQuestionStatus;
@@ -542,6 +556,48 @@ export interface AdminReportDetail extends AdminReportRow {
   partial_question_numbers: number[];
   incorrect_question_numbers: number[];
   unanswered_question_numbers: number[];
+  pending_question_numbers?: number[];
+}
+
+export interface GradingQueueRow extends AdminReportRow {
+  grading_pending_count: number;
+}
+
+export interface GradingEssayAnswer {
+  answer_id: number;
+  question_id: number;
+  question_text: string;
+  grading_guide: string | null;
+  answer_text: string | null;
+  score_fraction: number | null;
+  graded_by: string | null;
+  graded_at: string | null;
+  elapsed_seconds: number;
+  answered_at: string | null;
+  pending: boolean;
+}
+
+export interface GradingDetail {
+  attempt: AdminReportRow;
+  answers: GradingEssayAnswer[];
+  grading_pending_count: number;
+}
+
+export interface GradeEssayResult {
+  graded: true;
+  answer_id: number;
+  score_fraction: number;
+  is_correct: boolean;
+  graded_by: string;
+  graded_at: string;
+  aggregates: {
+    answered_questions: number;
+    correct_count: number;
+    incorrect_count: number;
+    accuracy: number;
+    final_score: number;
+  };
+  grading_pending_count: number;
 }
 
 export interface AdminReportStatementStatistic {

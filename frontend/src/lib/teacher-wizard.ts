@@ -27,6 +27,9 @@ export function teacherStepForSection(section: AdminSectionId): TeacherStepId {
       return 'jadwal';
     case 'reports':
       return 'laporan';
+    case 'grading':
+      // Penilaian uraian adalah tindak lanjut hasil pada langkah Laporan.
+      return 'laporan';
     default:
       // overview, users (isi langkah Kelas), teacher-requests, feedback
       return 'kelas';

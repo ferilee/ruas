@@ -76,6 +76,9 @@
           <div><strong>{{ accuracy }}%</strong><span>Akurasi</span></div>
           <div><strong>{{ totalTime }}</strong><span>Total waktu</span></div>
         </div>
+        <p v-if="gradingPendingCount > 0" class="grading-pending-note" role="status">
+          <strong>Menunggu penilaian:</strong> {{ gradingPendingCount }} jawaban uraian belum dinilai guru. Skor dan akurasi di atas masih sementara dan dapat berubah setelah penilaian selesai.
+        </p>
         <section class="integrity-result" :class="{ flagged: violationCount > 0 }" aria-labelledby="integrity-title">
           <div class="integrity-heading">
             <strong id="integrity-title">Integritas sesi</strong>
@@ -104,6 +107,8 @@
             <article v-for="item in examReview" :key="item.question_id" class="review-item">
               <div class="review-item-heading"><strong>Soal nomor {{ item.question_number }}</strong><span :class="reviewStatusClass(item)">{{ reviewStatusLabel(item) }}</span></div>
               <MathText :text="item.question_text" />
+              <p v-if="item.answer_text" class="review-answer-text"><strong>Jawabanmu:</strong> {{ item.answer_text }}</p>
+              <p v-if="item.type === 'short_essay' && item.score_fraction !== null && item.score_fraction !== undefined" class="review-statement-line">Skor uraian: {{ Math.round(item.score_fraction * 100) }} dari 100.</p>
               <p v-if="item.statements_correct !== null && item.statements_correct !== undefined && item.statement_total" class="review-statement-line">Tepat {{ item.statements_correct }} dari {{ item.statement_total }} pernyataan.</p>
               <QuestionMediaGallery :media="item.media" />
               <div class="review-explanation"><strong>Pembahasan</strong><MathText :text="item.explanation" /></div>
@@ -142,8 +147,14 @@
             </div>
 
             <div class="pane-scroll answer-scroll">
+              <EssayAnswerInput
+                v-if="question.type === 'short_essay'"
+                v-model="essayText"
+                :disabled="answerOptionsDisabled"
+              />
+
               <StatementJudgementList
-                v-if="question.type === 'true_false_multi'"
+                v-else-if="question.type === 'true_false_multi'"
                 :options="question.options"
                 :judgements="statementJudgements"
                 :disabled="answerOptionsDisabled"
@@ -164,8 +175,13 @@
                 @update:selected-keys="onSelectKeys"
               />
 
+              <div v-if="state === 'reviewing' && result && question.type === 'short_essay'" class="essay-pending-note" role="status">
+                <strong>Menunggu penilaian.</strong>
+                <span> Jawaban uraianmu sudah tersimpan dan akan dinilai oleh guru. Skor akhir dapat berubah setelah penilaian selesai.</span>
+                <div v-if="result.explanation" class="essay-pending-explanation"><strong>Pembahasan</strong><MathText :text="result.explanation" /></div>
+              </div>
               <ExplanationPanel
-                v-if="state === 'reviewing' && result && result.explanation"
+                v-else-if="state === 'reviewing' && result && result.explanation"
                 :correct="result.correct"
                 :correct_keys="result.correct_keys"
                 :statement_summary="statementSummary"
@@ -285,6 +301,7 @@ import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router';
 import MathText from '@/components/MathText.vue';
 import QuestionMediaGallery from '@/components/QuestionMediaGallery.vue';
 import OptionList from '@/components/OptionList.vue';
+import EssayAnswerInput from '@/components/EssayAnswerInput.vue';
 import StatementJudgementList from '@/components/StatementJudgementList.vue';
 import ExplanationPanel from '@/components/ExplanationPanel.vue';
 import TimerBar from '@/components/TimerBar.vue';
@@ -319,7 +336,7 @@ const {
   deadlineAt, serverClockOffsetMs, canComplete, minimumDurationSeconds, minimumTimeRemaining, submittingAnswer, questionNavigationLoading,
   toggleDoubtful, flagSaving, isQuestionAnswered, isQuestionDoubtful, loadQuestionNumber,
   previousQuestion, statementJudgements, isStatementQuestion, allStatementsJudged, unjudgedStatementCount,
-  canSubmitAnswer, onJudgeStatement,
+  canSubmitAnswer, onJudgeStatement, essayText, isEssayQuestion, gradingPendingCount,
 } = useQuizSession({
   getTopicId,
   getQuerySubjectId: () => Number(route.query.subject_id),
@@ -331,10 +348,12 @@ const answerOptionsDisabled = computed(() => !['answering', 'reviewing'].include
 const answerInstruction = computed(() => {
   if (question.value?.type === 'multiple_response') return 'Pilih semua jawaban yang benar.';
   if (question.value?.type === 'true_false_multi') return 'Nilai setiap pernyataan: Benar atau Salah.';
+  if (question.value?.type === 'short_essay') return 'Tulis jawaban singkatmu pada kolom teks.';
   return 'Pilih satu jawaban.';
 });
 
 const submitHint = computed(() => {
+  if (isEssayQuestion.value) return 'Tulis jawaban dulu untuk menyimpan.';
   if (isStatementQuestion.value && !allStatementsJudged.value) {
     return `${unjudgedStatementCount.value} pernyataan belum dinilai. Nilai semua pernyataan dulu untuk menyimpan.`;
   }
@@ -350,15 +369,19 @@ const statementSummary = computed(() => {
   return `Tepat ${exact} dari ${statementResults.length} pernyataan.${keyNote}`;
 });
 
-function reviewStatusLabel(item: { is_correct: boolean; statements_correct?: number | null }) {
+function reviewStatusLabel(item: { is_correct: boolean; statements_correct?: number | null; pending_grading?: boolean; score_fraction?: number | null }) {
+  if (item.pending_grading) return 'Menunggu penilaian';
   if (item.is_correct) return 'Benar';
   if (item.statements_correct !== null && item.statements_correct !== undefined && item.statements_correct > 0) return 'Sebagian benar';
+  if (item.score_fraction !== null && item.score_fraction !== undefined && item.score_fraction > 0) return 'Sebagian benar';
   return 'Salah';
 }
 
-function reviewStatusClass(item: { is_correct: boolean; statements_correct?: number | null }) {
+function reviewStatusClass(item: { is_correct: boolean; statements_correct?: number | null; pending_grading?: boolean; score_fraction?: number | null }) {
+  if (item.pending_grading) return 'review-pending';
   if (item.is_correct) return 'review-correct';
   if (item.statements_correct !== null && item.statements_correct !== undefined && item.statements_correct > 0) return 'review-partial';
+  if (item.score_fraction !== null && item.score_fraction !== undefined && item.score_fraction > 0) return 'review-partial';
   return 'review-incorrect';
 }
 
@@ -384,6 +407,7 @@ const questionTypeLabel = computed(() => {
   if (question.value?.type === 'multiple_response') return 'Pilihan ganda kompleks';
   if (question.value?.type === 'true_false_multi') return 'Benar / Salah (Banyak Pernyataan)';
   if (question.value?.type === 'true_false') return 'Benar atau salah';
+  if (question.value?.type === 'short_essay') return 'Uraian Singkat';
   return 'Pilihan ganda';
 });
 
@@ -652,7 +676,12 @@ onMounted(() => {
 .review-item { margin-top: 11px; padding: 14px; border: 1px solid #dce8f5; border-radius: 11px; background: #fff; font-size: .82rem; line-height: 1.55; }
 .review-item-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; color: #294e7d; }
 .review-correct, .review-incorrect { font-size: .7rem; font-weight: 800; }
-.review-correct { color: #25815f; }.review-incorrect { color: #c1604e; }.review-partial { color: #a86d1b; }
+.review-correct { color: #25815f; }.review-incorrect { color: #c1604e; }.review-partial { color: #a86d1b; }.review-pending { color: #7a5b12; font-size: .7rem; font-weight: 800; }
+.review-answer-text { margin-top: 6px; padding: 9px 11px; border-radius: 9px; color: #40597a; background: #f4f8fd; white-space: pre-wrap; }
+.grading-pending-note { width: min(560px, 100%); margin: 0 0 12px; padding: 11px 14px; border: 1px solid #ecd9a0; border-radius: 10px; color: #7a5b12; background: #fffaf0; font-size: .82rem; line-height: 1.45; text-align: left; }
+.essay-pending-note { margin-top: 14px; padding: 12px 14px; border: 1px solid #ecd9a0; border-radius: 10px; color: #7a5b12; background: #fffaf0; font-size: .82rem; line-height: 1.55; }
+.essay-pending-explanation { margin-top: 10px; padding: 10px 12px; border-radius: 9px; color: #4b6785; background: #f1f7ff; }
+.essay-pending-explanation strong { display: block; margin-bottom: 4px; color: #245da5; font-size: .75rem; }
 .review-statement-line { margin-top: 6px; color: #66809e; font-size: .78rem; font-weight: 700; }
 .review-explanation { margin-top: 11px; padding: 10px 12px; border-radius: 9px; color: #4b6785; background: #f1f7ff; }
 .review-explanation strong { display: block; margin-bottom: 4px; color: #245da5; font-size: .75rem; }

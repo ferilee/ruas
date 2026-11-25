@@ -1,4 +1,4 @@
-export const ADMIN_SECTIONS = ['overview', 'curriculum', 'questions', 'schedule', 'reports', 'users', 'teacher-requests', 'feedback'] as const;
+export const ADMIN_SECTIONS = ['overview', 'curriculum', 'questions', 'schedule', 'reports', 'grading', 'users', 'teacher-requests', 'feedback'] as const;
 export type AdminSectionId = (typeof ADMIN_SECTIONS)[number];
 
 export const TEACHER_WORKSPACES = ['schedule', 'users', 'reports', 'questions', 'curriculum', 'feedback'] as const;

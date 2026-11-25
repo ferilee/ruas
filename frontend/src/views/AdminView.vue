@@ -187,7 +187,9 @@
 
           <CurriculumPanel v-else-if="activeSection === 'curriculum'" :admin-session="adminSession" :simplified="isEditorSession" @topics-updated="loadData" @open-topic-questions="openQuestionsForTopic" @open-topic-schedule="openScheduleForTopic" />
 
-          <ReportsPanel v-else-if="activeSection === 'reports'" :can-reset="isAdminSession" :simple="isEditorSession" :username="adminSession?.username ?? ''" />
+          <ReportsPanel v-else-if="activeSection === 'reports'" :can-reset="isAdminSession" :simple="isEditorSession" :username="adminSession?.username ?? ''" @open-grading="selectSection('grading')" />
+
+          <GradingPanel v-else-if="activeSection === 'grading'" />
 
           <UsersPanel v-else-if="activeSection === 'users'" :admin-session="adminSession" />
 
@@ -424,7 +426,16 @@
               <p v-else class="field-hint">Setelah soal disimpan, buka kembali soal ini untuk menambahkan gambar.</p>
             </fieldset>
 
-            <fieldset v-if="draft.type === 'true_false_multi'">
+            <fieldset v-if="draft.type === 'short_essay'">
+              <legend>Pedoman Penilaian</legend>
+              <p class="field-hint">Soal Uraian Singkat tidak memiliki opsi dan tidak dinilai otomatis. Tulis pedoman penilaian untuk guru penilai: unsur jawaban yang diharapkan dan patokan pemberian skor. Pedoman ini khusus guru dan tidak pernah ditampilkan kepada siswa.</p>
+              <label>Pedoman penilaian (khusus guru)
+                <textarea v-model="draft.grading_guide" rows="5" required placeholder="Contoh: Nilai penuh bila siswa menyebut ...; nilai sebagian bila ..."></textarea>
+                <small v-if="formFieldErrors.grading_guide" class="field-error" role="alert">{{ formFieldErrors.grading_guide }}</small>
+              </label>
+            </fieldset>
+
+            <fieldset v-else-if="draft.type === 'true_false_multi'">
               <legend>Pernyataan</legend>
               <p class="field-hint">Tulis 3–6 pernyataan yang dinilai terhadap stimulus di atas. Setiap pernyataan wajib berkunci Benar atau Salah, dan kuncinya harus campuran. Urutan pernyataan tidak diacak untuk siswa.</p>
               <div v-for="(option, index) in draft.options" :key="index" class="option-editor statement-editor">
@@ -542,6 +553,7 @@ import MathText from '@/components/MathText.vue';
 import QuestionMediaGallery from '@/components/QuestionMediaGallery.vue';
 import CurriculumPanel from '@/components/CurriculumPanel.vue';
 import ReportsPanel from '@/components/ReportsPanel.vue';
+import GradingPanel from '@/components/GradingPanel.vue';
 import RuasSelect from '@/components/RuasSelect.vue';
 import UsersPanel from '@/components/UsersPanel.vue';
 import TeacherRequestsPanel from '@/components/TeacherRequestsPanel.vue';
@@ -585,13 +597,14 @@ import { readStoredQuestionTopic, resolveQuestionTopicFilter, storeQuestionTopic
 
 const router = useRouter();
 const route = useRoute();
-type AdminSection = 'overview' | 'curriculum' | 'questions' | 'schedule' | 'reports' | 'users' | 'teacher-requests' | 'feedback';
+type AdminSection = 'overview' | 'curriculum' | 'questions' | 'schedule' | 'reports' | 'grading' | 'users' | 'teacher-requests' | 'feedback';
 const navigation: Array<{ id: AdminSection; label: string; icon: string; title: string; description: string }> = [
   { id: 'overview', label: 'Ringkasan', icon: '⌂', title: 'Ringkasan', description: 'Pantau isi dan status asesmen RUAS.' },
   { id: 'curriculum', label: 'Struktur Asesmen', icon: '▦', title: 'Struktur Asesmen', description: 'Atur kelas, jenis asesmen, dan mata pelajaran.' },
   { id: 'questions', label: 'Bank Soal', icon: '?', title: 'Bank Soal', description: 'Buat, cari, dan kelola soal beserta pembahasannya.' },
   { id: 'schedule', label: 'Jadwal Asesmen', icon: '◷', title: 'Jadwal Asesmen', description: 'Tentukan kapan peserta boleh memulai asesmen.' },
   { id: 'reports', label: 'Laporan', icon: '▤', title: 'Laporan Asesmen', description: 'Pantau hasil siswa dan ekspor laporan PDF.' },
+  { id: 'grading', label: 'Penilaian Uraian', icon: '✎', title: 'Penilaian Uraian Singkat', description: 'Nilai jawaban uraian siswa yang menunggu penilaian manual.' },
   { id: 'users', label: 'Pengguna', icon: '♙', title: 'Pengguna', description: 'Tambah akun secara manual atau import dari CSV/JSON.' },
   { id: 'teacher-requests', label: 'Pengajuan Guru', icon: '✦', title: 'Pengajuan Guru', description: 'Tinjau permintaan akses Editor dari guru.' },
   { id: 'feedback', label: 'Masukan', icon: '♡', title: 'Masukan & Testimoni', description: 'Tinjau saran dan testimoni sebelum ditampilkan.' },
@@ -607,7 +620,7 @@ type AdminTheme = 'light' | 'dark';
 const adminTheme = ref<AdminTheme>('light');
 const visibleNavigation = computed(() => isAdminSession.value ? navigation : navigation.filter((item) => item.id !== 'teacher-requests' && item.id !== 'feedback'));
 const visibleMobilePrimaryNavigation = computed(() => visibleNavigation.value.filter((item) => ['overview', 'curriculum', 'questions', 'reports'].includes(item.id)));
-const visibleMobileSecondaryNavigation = computed(() => visibleNavigation.value.filter((item) => ['schedule', 'users', 'teacher-requests', 'feedback'].includes(item.id)));
+const visibleMobileSecondaryNavigation = computed(() => visibleNavigation.value.filter((item) => ['schedule', 'grading', 'users', 'teacher-requests', 'feedback'].includes(item.id)));
 const activeSection = ref<AdminSection>('overview');
 const teacherWorkspaceModal = ref<'schedule' | 'users' | 'reports' | 'questions' | 'curriculum' | 'feedback' | null>(null);
 const feedbackKind = ref<'suggestion' | 'testimonial'>('suggestion');
@@ -678,6 +691,7 @@ const questionTypeOptions = [
   { value: 'multiple_response', label: 'Pilihan Ganda Kompleks' },
   { value: 'true_false', label: 'Benar / Salah' },
   { value: 'true_false_multi', label: 'Benar / Salah (Banyak Pernyataan)' },
+  { value: 'short_essay', label: 'Uraian Singkat' },
 ];
 const difficultyOptions = [
   { value: 'easy', label: 'Mudah' },
@@ -1119,6 +1133,12 @@ function moveStatement(index: number, direction: -1 | 1) {
   statementUnchosenIndexes.value = remapped;
 }
 
+function validateEssayDraft(): string | null {
+  if (draft.type !== 'short_essay') return null;
+  if (!draft.grading_guide || draft.grading_guide.trim().length === 0) return 'Soal Uraian Singkat wajib memiliki pedoman penilaian untuk guru.';
+  return null;
+}
+
 function validateStatementDraft(): string | null {
   if (draft.type !== 'true_false_multi') return null;
   if (draft.options.length < 3 || draft.options.length > 6) return 'Soal Benar / Salah (Banyak Pernyataan) harus memiliki 3 sampai 6 pernyataan.';
@@ -1130,6 +1150,10 @@ function validateStatementDraft(): string | null {
 }
 
 function createDefaultOptions(type: AdminQuestionInput['type']) {
+  if (type === 'short_essay') {
+    return [];
+  }
+
   if (type === 'true_false_multi') {
     return [1, 2, 3].map((number) => ({ key: `S${number}`, text: '', is_correct: false }));
   }
@@ -1153,6 +1177,7 @@ function createDraft(): AdminQuestionInput {
     external_id: null,
     question_text: '',
     explanation_text: '',
+    grading_guide: null,
     options: createDefaultOptions('single_choice'),
   };
 }
@@ -1510,6 +1535,7 @@ async function editQuestion(id: number) {
       external_id: question.external_id,
       question_text: question.question_text,
       explanation_text: question.explanation_text,
+      grading_guide: question.grading_guide ?? null,
       options: question.options,
     });
     editingArchivedAt.value = question.archived_at;
@@ -1611,7 +1637,7 @@ async function saveQuestion() {
   saving.value = true;
   formMessage.value = '';
   formFieldErrors.value = {};
-  const statementError = validateStatementDraft();
+  const statementError = validateStatementDraft() ?? validateEssayDraft();
   if (statementError) {
     formMessageType.value = 'error';
     formMessage.value = statementError;
@@ -1663,7 +1689,7 @@ function difficultyLabel(value: AdminQuestionListItem['difficulty']) {
 }
 
 function questionTypeLabel(value: AdminQuestionListItem['type']) {
-  return { single_choice: 'Pilihan ganda', multiple_response: 'Multi jawaban', true_false: 'Benar / Salah', true_false_multi: 'Benar / Salah (Banyak Pernyataan)' }[value];
+  return { single_choice: 'Pilihan ganda', multiple_response: 'Multi jawaban', true_false: 'Benar / Salah', true_false_multi: 'Benar / Salah (Banyak Pernyataan)', short_essay: 'Uraian Singkat' }[value];
 }
 
 function parseImportText(): unknown | null {

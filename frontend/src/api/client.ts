@@ -23,6 +23,9 @@ import type {
   ExamAttemptAvailability,
   ExamAnswerRecord,
   ExamReviewResponse,
+  GradeEssayResult,
+  GradingDetail,
+  GradingQueueRow,
   ImportSummary,
   MyClassesData,
   UserImportSummary,
@@ -238,7 +241,7 @@ export async function fetchExamAttemptAvailability(subjectId: number, topicId: n
   return data.availability;
 }
 
-export async function saveExamAnswer(attemptId: number, input: { question_id: number; selected_keys: string[]; elapsed_seconds: number }): Promise<CheckResult> {
+export async function saveExamAnswer(attemptId: number, input: { question_id: number; selected_keys: string[]; answer_text?: string; elapsed_seconds: number }): Promise<CheckResult> {
   return request<CheckResult>(`/exam/attempts/${attemptId}/answers`, { method: 'POST', body: JSON.stringify(input) });
 }
 
@@ -588,6 +591,24 @@ export async function resetAdminReportData(confirmation: string): Promise<number
 export async function fetchAdminReportDetail(attemptId: number): Promise<AdminReportDetail> {
   const data = await adminRequest<{ report: AdminReportDetail }>(`/admin/reports/${attemptId}`);
   return data.report;
+}
+
+export async function fetchGradingQueue(): Promise<GradingQueueRow[]> {
+  const data = await adminRequest<{ rows: GradingQueueRow[] }>('/admin/grading/queue');
+  return data.rows;
+}
+
+export async function fetchGradingDetail(attemptId: number): Promise<GradingDetail> {
+  const data = await adminRequest<{ detail: GradingDetail }>(`/admin/grading/attempts/${attemptId}`);
+  return data.detail;
+}
+
+export async function gradeEssayAnswer(attemptId: number, answerId: number, scorePercent: number): Promise<GradeEssayResult> {
+  const data = await adminRequest<{ result: GradeEssayResult }>(`/admin/grading/attempts/${attemptId}/answers/${answerId}`, {
+    method: 'POST',
+    body: JSON.stringify({ score_percent: scorePercent }),
+  });
+  return data.result;
 }
 
 export async function updateAdminSchedule(topicId: number, input: { start_at: string | null; end_at: string | null; enabled: boolean; access_mode: 'class' | 'individual'; participant_ids: number[]; notes: string | null }): Promise<AssessmentSchedule> {

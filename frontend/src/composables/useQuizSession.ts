@@ -52,6 +52,11 @@ export function useQuizSession(options: UseQuizSessionOptions) {
   // yang belum ada di peta ini berarti belum dinilai; selectedKeys hanya berisi
   // key yang dinilai Benar, mengikuti pengkodean jawaban di server.
   const statementJudgements = ref<Record<string, boolean>>({});
+  // Teks jawaban Uraian Singkat: essayText adalah draf yang sedang diketik,
+  // savedEssayText teks terakhir yang tersimpan di server. Keduanya terpisah
+  // agar tombol "Simpan perubahan" hanya muncul bila teks benar-benar berubah.
+  const essayText = ref('');
+  const savedEssayText = ref('');
   const timerRunning = ref(false);
   const elapsedTime = ref(0);
   const finalTime = ref(0);
@@ -86,6 +91,7 @@ export function useQuizSession(options: UseQuizSessionOptions) {
   const currentQuestionDoubtful = computed(() => Boolean(question.value && doubtfulQuestionIds.value.has(question.value.id)));
 
   const completedAttempt = computed(() => persistedAttempt.value?.status === 'completed' ? persistedAttempt.value : null);
+  const gradingPendingCount = computed(() => persistedAttempt.value?.grading_pending_count ?? 0);
   const correctCount = computed(() => completedAttempt.value?.correct_count ?? sessionResults.value.filter((entry) => entry.correct).length);
   const incorrectCount = computed(() => completedAttempt.value?.incorrect_count ?? sessionResults.value.filter((entry) => !entry.correct).length);
   const totalTime = computed(() => {
@@ -113,7 +119,9 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     return leftSorted.length === rightSorted.length && leftSorted.every((key, index) => key === rightSorted[index]);
   }
 
+  const isEssayQuestion = computed(() => question.value?.type === 'short_essay');
   const answerChanged = computed(() => {
+    if (isEssayQuestion.value) return essayText.value !== savedEssayText.value;
     return !keysEqual(savedSelectedKeys.value, selectedKeys.value);
   });
 
@@ -125,6 +133,7 @@ export function useQuizSession(options: UseQuizSessionOptions) {
   });
   const allStatementsJudged = computed(() => isStatementQuestion.value && unjudgedStatementCount.value === 0);
   const canSubmitAnswer = computed(() => {
+    if (isEssayQuestion.value) return essayText.value.trim().length > 0;
     if (isStatementQuestion.value) return allStatementsJudged.value;
     return selectedKeys.value.length > 0;
   });
@@ -193,6 +202,8 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     selectedKeys.value = [];
     savedSelectedKeys.value = [];
     statementJudgements.value = {};
+    essayText.value = '';
+    savedEssayText.value = '';
     elapsedTime.value = 0;
     finalTime.value = 0;
     savedElapsedSeconds.value = null;
@@ -248,6 +259,8 @@ export function useQuizSession(options: UseQuizSessionOptions) {
       const restoredSelectedKeys = normalizeSelectedKeys(loaded.selected_keys);
       selectedKeys.value = restoredSelectedKeys;
       savedSelectedKeys.value = [...restoredSelectedKeys];
+      essayText.value = loaded.answer_text ?? '';
+      savedEssayText.value = loaded.answer_text ?? '';
       restoreJudgementsFromSavedAnswer(restoredSelectedKeys, loaded.answered);
       savedElapsedSeconds.value = loaded.answered ? (loaded.elapsed_seconds ?? 0) : null;
       finalTime.value = loaded.answered ? (loaded.elapsed_seconds ?? 0) : 0;
@@ -384,9 +397,10 @@ export function useQuizSession(options: UseQuizSessionOptions) {
 
   async function submitAnswer() {
     if (submittingAnswer.value || !question.value) return;
-    // Soal pernyataan hanya boleh disimpan bila semua pernyataan sudah dinilai;
-    // jenis lain mensyaratkan minimal satu kunci terpilih (pengkodean lama).
-    if (isStatementQuestion.value ? !allStatementsJudged.value : selectedKeys.value.length === 0) return;
+    // Syarat simpan per jenis soal terpusat di canSubmitAnswer: pernyataan
+    // wajib dinilai semua, uraian wajib terisi teks, jenis lain minimal satu
+    // kunci terpilih (pengkodean lama).
+    if (!canSubmitAnswer.value) return;
 
     submittingAnswer.value = true;
     finalTime.value = savedElapsedSeconds.value ?? elapsedTime.value;
@@ -396,11 +410,16 @@ export function useQuizSession(options: UseQuizSessionOptions) {
       if (!attemptId.value) throw new Error('Sesi ujian belum tersimpan. Silakan muat ulang halaman.');
       const checkResult = await saveExamAnswer(attemptId.value, {
         question_id: question.value.id,
-        selected_keys: selectedKeys.value,
+        selected_keys: isEssayQuestion.value ? [] : selectedKeys.value,
+        ...(isEssayQuestion.value ? { answer_text: essayText.value.trim() } : {}),
         elapsed_seconds: finalTime.value,
       });
       result.value = checkResult;
       savedSelectedKeys.value = [...selectedKeys.value];
+      if (isEssayQuestion.value) {
+        essayText.value = essayText.value.trim();
+        savedEssayText.value = essayText.value;
+      }
       savedElapsedSeconds.value = finalTime.value;
       answeredIds.value.add(question.value.id);
       answeredQuestionNumbers.value.add(currentQuestionNumber.value);
@@ -551,6 +570,8 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     questionOrder.value = [];
     doubtfulQuestionIds.value = new Set();
     statementJudgements.value = {};
+    essayText.value = '';
+    savedEssayText.value = '';
     sessionResults.value = [];
     autoStart.value = false;
     attemptId.value = null;
@@ -669,6 +690,8 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     selectedKeys,
     answerChanged,
     statementJudgements,
+    essayText,
+    isEssayQuestion,
     isStatementQuestion,
     allStatementsJudged,
     unjudgedStatementCount,
@@ -695,5 +718,6 @@ export function useQuizSession(options: UseQuizSessionOptions) {
     questionCountReady,
     minimumDurationSeconds,
     minimumTimeRemaining,
+    gradingPendingCount,
   };
 }
