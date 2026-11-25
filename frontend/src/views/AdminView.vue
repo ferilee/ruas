@@ -311,6 +311,7 @@
                   <div class="topic-access-info"><strong>{{ topic.label }}</strong><span class="topic-access-slug">{{ topic.slug }}</span><small>{{ topic.subject_label }} · {{ topic.token_configured ? 'Token aktif · tersimpan aman' : 'Token belum diatur' }}</small></div>
                   <div class="topic-access-controls">
                     <input v-model="topicAccessDrafts[topic.id].token" type="text" autocomplete="off" :placeholder="topic.token_configured ? 'Ganti token (opsional)' : 'Masukkan token wajib'" @keydown.enter="saveTopicAccess(topic)" />
+                    <button class="secondary-btn" type="button" @click="randomizeTopicToken(topic)">Acak</button>
                     <button class="primary-btn" type="button" :disabled="topicAccessSavingId === topic.id" @click="saveTopicAccess(topic)">{{ topicAccessSavingId === topic.id ? 'Menyimpan...' : 'Simpan' }}</button>
                   </div>
                   <div v-if="revealedTopicTokens[topic.id]" class="topic-access-reveal"><span>Token baru, tampil sekali:</span><code>{{ revealedTopicTokens[topic.id] }}</code><button type="button" @click="copyTopicToken(topic.id)">Salin</button></div>
@@ -580,6 +581,7 @@ import type { AdminQuestionInput, AdminQuestionListItem, AdminTopic, AdminUser, 
 import type { AdminSession } from '@/types';
 import { connectAdminRealtime, dispatchAdminRealtimeEvent, type AdminRealtimeEvent, type AdminRealtimeStatus } from '@/lib/admin-realtime';
 import { extractFieldErrors } from '@/lib/field-errors';
+import { generateTopicToken } from '@/lib/generate-topic-token';
 import { suggestExternalId } from '@/lib/slug';
 import { buildAdminRouteQuery, parseAdminRouteQuery } from '@/lib/admin-route-state';
 import { sectionForTeacherStep, TEACHER_STEPS, teacherStepForSection, teacherStepForWorkspace, type TeacherStepId } from '@/lib/teacher-wizard';
@@ -1009,6 +1011,12 @@ function syncTopicAccessDrafts(rows: AdminTopic[]) {
   for (const topic of rows) {
     topicAccessDrafts[topic.id] = { token: '' };
   }
+}
+
+function randomizeTopicToken(topic: AdminTopic) {
+  const draft = topicAccessDrafts[topic.id];
+  if (!draft) return;
+  draft.token = generateTopicToken();
 }
 
 async function saveTopicAccess(topic: AdminTopic) {
@@ -1873,9 +1881,10 @@ onUnmounted(() => {
 .topic-access-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
 .topic-access-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 390px); align-items: center; gap: 8px 14px; padding: 10px 12px; border: 1px solid #e1eaf4; border-radius: 10px; background: #fbfdff; }
 .topic-access-info { min-width: 0; }.topic-access-info strong, .topic-access-info small, .topic-access-slug { display: block; }.topic-access-info strong { color: #2c4f7a; font-size: .82rem; }.topic-access-slug { margin-top: 3px; overflow: hidden; color: #6f83a0; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: .66rem; text-overflow: ellipsis; white-space: nowrap; }.topic-access-info small { margin-top: 3px; color: #8497ae; font-size: .7rem; }
-.topic-access-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+.topic-access-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px; }
 .topic-access-controls input { min-width: 0; padding: 9px 10px; border: 1px solid #d4dde6; border-radius: 8px; color: #334b68; background: #fff; font: inherit; font-size: .78rem; }
 .topic-access-controls .primary-btn { padding: 9px 12px; font-size: .74rem; }
+.topic-access-controls .secondary-btn { padding: 9px 12px; font-size: .74rem; }
 .topic-access-reveal { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; padding-top: 2px; color: #28734f; font-size: .72rem; }
 .topic-access-reveal code { padding: 5px 8px; color: #1f5e42; background: #e7f7ed; font-size: .78rem; letter-spacing: .06em; }
 .topic-access-reveal button { padding: 4px 8px; border: 1px solid #acd9bd; border-radius: 6px; color: #28734f; background: #fff; cursor: pointer; font: inherit; font-weight: 700; }
@@ -1974,7 +1983,7 @@ legend { padding: 0 6px; color: #445566; font-weight: 600; }
 .success-text { color: #2f855a; }
 code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 @media (max-width: 720px) { .editor-grid { grid-template-columns: 1fr; } .toolbar { flex-wrap: wrap; } .search-input { max-width: none; flex: 1; } .field-row { grid-template-columns: 1fr; } .admin-header { align-items: flex-start; } }
-@media (max-width: 720px) { .topic-access-row { grid-template-columns: 1fr; } .topic-access-controls { grid-template-columns: minmax(0, 1fr) auto; } }
+@media (max-width: 720px) { .topic-access-row { grid-template-columns: 1fr; } .topic-access-controls { grid-template-columns: minmax(0, 1fr) auto auto; } }
 </style>
 
 <style scoped>
