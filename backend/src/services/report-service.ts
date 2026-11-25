@@ -1,4 +1,4 @@
-import { asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/mysql-core';
 import { drizzle } from 'drizzle-orm/mysql2';
 import { assessmentSchedule } from '@/db/schema/assessment-schedule';
@@ -92,6 +92,19 @@ export async function resetAllReportData(db: ReportDb) {
     await tx.delete(examAttempts).where(inArray(examAttempts.id, attemptIds));
     return attemptIds.length;
   });
+}
+
+/** Jumlah jawaban Uraian Singkat yang belum dinilai per attempt selesai. */
+export async function countPendingEssaysByAttempt(db: ReportDb, attemptIds: number[]): Promise<Map<number, number>> {
+  const counts = new Map<number, number>();
+  if (attemptIds.length === 0) return counts;
+  const rows = await db
+    .select({ attempt_id: examAnswers.attempt_id })
+    .from(examAnswers)
+    .innerJoin(questions, eq(examAnswers.question_id, questions.id))
+    .where(and(inArray(examAnswers.attempt_id, attemptIds), eq(questions.type, 'short_essay'), isNull(examAnswers.score_fraction)));
+  for (const row of rows) counts.set(row.attempt_id, (counts.get(row.attempt_id) ?? 0) + 1);
+  return counts;
 }
 
 function toIso(value: Date | string | null) {
@@ -189,7 +202,7 @@ export async function listReportAttempts(db: ReportDb, filters: ReportFilters) {
     class_created_by: user_class_created_by ?? subject_class_created_by,
   }));
   const search = filters.search?.trim().toLowerCase();
-  return normalizedRows
+  const filteredRows = normalizedRows
     .filter((row) => filters.status === 'all' || row.status === filters.status)
     .filter((row) => !filters.subject_id || row.subject_id === filters.subject_id)
     .filter((row) => {
@@ -213,6 +226,11 @@ export async function listReportAttempts(db: ReportDb, filters: ReportFilters) {
         .some((value) => value.toLowerCase().includes(search));
     })
     .map((row) => ({ ...row, started_at: toIso(row.started_at), completed_at: toIso(row.completed_at) }));
+  const pendingByAttempt = await countPendingEssaysByAttempt(
+    db,
+    filteredRows.filter((row) => row.status === 'completed').map((row) => row.attempt_id),
+  );
+  return filteredRows.map((row) => ({ ...row, grading_pending_count: pendingByAttempt.get(row.attempt_id) ?? 0 }));
 }
 
 export async function getReportDetail(db: ReportDb, attemptId: number) {
@@ -228,6 +246,9 @@ export async function getReportDetail(db: ReportDb, attemptId: number) {
         question_id: examAnswers.question_id,
         question_text: questions.question_text,
         selected_keys: examAnswers.selected_keys,
+        answer_text: examAnswers.answer_text,
+        graded_by: examAnswers.graded_by,
+        graded_at: examAnswers.graded_at,
         is_correct: examAnswers.is_correct,
         score_fraction: examAnswers.score_fraction,
         elapsed_seconds: examAnswers.elapsed_seconds,
@@ -277,14 +298,17 @@ export async function getReportDetail(db: ReportDb, attemptId: number) {
     const selectedKeys = normalizeSelectedKeys(answer?.selected_keys);
     const correctKeys = options.filter((option) => option.is_correct).map((option) => option.option_key);
     const isStatementQuestion = question?.type === 'true_false_multi';
+    const isEssayQuestion = question?.type === 'short_essay';
     const scoreFraction = answer?.score_fraction ?? null;
     const status = !answer
       ? 'unanswered'
-      : answer.is_correct
-        ? 'correct'
-        : isStatementQuestion && scoreFraction !== null && scoreFraction > 0
-          ? 'partial'
-          : 'incorrect';
+      : isEssayQuestion && scoreFraction === null
+        ? 'pending'
+        : answer.is_correct
+          ? 'correct'
+          : (isStatementQuestion || isEssayQuestion) && scoreFraction !== null && scoreFraction > 0
+            ? 'partial'
+            : 'incorrect';
     return {
       question_number: index + 1,
       question_id: questionId,
@@ -293,6 +317,7 @@ export async function getReportDetail(db: ReportDb, attemptId: number) {
       type: question?.type ?? null,
       selected_keys: selectedKeys,
       selected_texts: options.filter((option) => selectedKeys.includes(option.option_key)).map((option) => option.option_text),
+      answer_text: answer?.answer_text ?? null,
       correct_keys: correctKeys,
       correct_texts: options.filter((option) => option.is_correct).map((option) => option.option_text),
       status,
@@ -317,13 +342,15 @@ export async function getReportDetail(db: ReportDb, attemptId: number) {
 
   return {
     ...attempt,
-    answers: uniqueAnswers.map((answer) => ({ ...answer, selected_keys: normalizeSelectedKeys(answer.selected_keys), answered_at: toIso(answer.answered_at) })),
+    answers: uniqueAnswers.map((answer) => ({ ...answer, selected_keys: normalizeSelectedKeys(answer.selected_keys), answered_at: toIso(answer.answered_at), graded_at: toIso(answer.graded_at) })),
     integrity_events: events.map((event) => ({ ...event, occurred_at: toIso(event.occurred_at) })),
     question_analysis: questionAnalysis,
+    grading_pending_count: questionAnalysis.filter((question) => question.status === 'pending').length,
     correct_question_numbers: questionAnalysis.filter((question) => question.status === 'correct').map((question) => question.question_number),
     partial_question_numbers: questionAnalysis.filter((question) => question.status === 'partial').map((question) => question.question_number),
     incorrect_question_numbers: questionAnalysis.filter((question) => question.status === 'incorrect').map((question) => question.question_number),
     unanswered_question_numbers: questionAnalysis.filter((question) => question.status === 'unanswered').map((question) => question.question_number),
+    pending_question_numbers: questionAnalysis.filter((question) => question.status === 'pending').map((question) => question.question_number),
   };
 }
 

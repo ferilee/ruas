@@ -21,6 +21,7 @@ import { requireAdminAuth } from './middleware/require-admin-auth';
 import { requireAdminRole } from './middleware/require-admin-role';
 import type { AdminSession } from './lib/admin-auth-store';
 import { adminReportRoutes } from './routes/admin-reports';
+import { adminGradingRoutes } from './routes/admin-grading';
 import { adminRealtimeRoutes } from './routes/admin-realtime';
 import { teacherAccessRequestRoutes } from './routes/teacher-access-requests';
 import { adminTeacherRequestRoutes } from './routes/admin-teacher-requests';
@@ -108,6 +109,8 @@ export function createApp(config: AppConfig) {
   app.use('/api/admin/users', requireAdminAuth);
   app.use('/api/admin/users/*', requireAdminAuth);
   app.use('/api/admin/reports', requireAdminAuth);
+  app.use('/api/admin/grading', requireAdminAuth);
+  app.use('/api/admin/grading/*', requireAdminAuth);
   app.use('/api/admin/realtime', requireAdminAuth);
   app.use('/api/admin/teacher-requests', requireAdminAuth);
   app.use('/api/admin/teacher-requests/*', requireAdminAuth);
@@ -144,6 +147,7 @@ export function createApp(config: AppConfig) {
   app.route('/api/admin/curriculum', adminCurriculumRoutes(config.pool));
   app.route('/api/admin/users', adminUserRoutes(config.pool));
   app.route('/api/admin/reports', adminReportRoutes(config.pool));
+  app.route('/api/admin/grading', adminGradingRoutes(config.pool));
   app.route('/api/admin/realtime', adminRealtimeRoutes());
   app.route('/api/admin/teacher-requests', adminTeacherRequestRoutes(config.pool));
   app.route('/api/admin/my-classes', adminMyClassesRoutes(config.pool));
@@ -182,6 +186,7 @@ export function createApp(config: AppConfig) {
 function realtimeResource(path: string) {
   if (path.startsWith('/api/exam/attempts')) return 'attempts';
   if (path.startsWith('/api/admin/reports')) return 'reports';
+  if (path.startsWith('/api/admin/grading')) return 'reports';
   if (path.startsWith('/api/admin/users')) return 'users';
   if (path.startsWith('/api/admin/questions')) return 'questions';
   if (path.startsWith('/api/admin/topics')) return 'topics';

@@ -305,7 +305,7 @@ export async function getAttemptQuestion(db: ExamDb, attemptId: number, identity
     .sort((left, right) => (optionPosition.get(left.key) ?? left.display_order) - (optionPosition.get(right.key) ?? right.display_order))
     .map(({ key, text }) => ({ key, text }));
   const [answer] = await db
-    .select({ selected_keys: examAnswers.selected_keys, elapsed_seconds: examAnswers.elapsed_seconds })
+    .select({ selected_keys: examAnswers.selected_keys, answer_text: examAnswers.answer_text, elapsed_seconds: examAnswers.elapsed_seconds })
     .from(examAnswers)
     .where(and(eq(examAnswers.attempt_id, attemptId), eq(examAnswers.question_id, questionId)))
     .limit(1);
@@ -316,6 +316,7 @@ export async function getAttemptQuestion(db: ExamDb, attemptId: number, identity
     question_number: questionNumber,
     total_questions: order.question_order.length,
     selected_keys: parseSelectedKeys(answer?.selected_keys),
+    answer_text: answer?.answer_text ?? null,
     elapsed_seconds: Number(answer?.elapsed_seconds ?? 0),
     answered: Boolean(answer),
     is_doubtful: parseQuestionIds(attempt.doubtful_question_ids).includes(questionId),
@@ -440,7 +441,8 @@ export async function getExamReview(db: ExamDb, attemptId: number, identityKey: 
     .where(eq(subjects.id, attempt.subject_id))
     .limit(1);
   const mode = subject?.explanation_mode ?? 'hidden';
-  if (mode !== 'after_exam' || attempt.status !== 'completed') return { mode, items: [] };
+  const gradingPendingCount = await countPendingEssayAnswers(db, attemptId);
+  if (mode !== 'after_exam' || attempt.status !== 'completed') return { mode, items: [], grading_pending_count: gradingPendingCount };
 
   const rows = await db
     .select({
@@ -450,6 +452,7 @@ export async function getExamReview(db: ExamDb, attemptId: number, identityKey: 
       type: questions.type,
       is_correct: examAnswers.is_correct,
       score_fraction: examAnswers.score_fraction,
+      answer_text: examAnswers.answer_text,
       elapsed_seconds: examAnswers.elapsed_seconds,
     })
     .from(examAnswers)
@@ -475,6 +478,7 @@ export async function getExamReview(db: ExamDb, attemptId: number, identityKey: 
       statements_correct: statementTotal !== null && item.score_fraction !== null && item.score_fraction !== undefined
         ? Math.round(item.score_fraction * statementTotal)
         : null,
+      pending_grading: item.type === 'short_essay' && (item.score_fraction === null || item.score_fraction === undefined),
     };
   });
   const mediaByQuestion = new Map<number, Awaited<ReturnType<typeof listQuestionMedia>>>();
@@ -482,7 +486,7 @@ export async function getExamReview(db: ExamDb, attemptId: number, identityKey: 
     mediaByQuestion.set(questionId, await listQuestionMedia(db, questionId, mediaStorage));
   }));
 
-  return { mode, items: items.map((item) => ({ ...item, media: mediaByQuestion.get(item.question_id) ?? [] })) };
+  return { mode, grading_pending_count: gradingPendingCount, items: items.map((item) => ({ ...item, media: mediaByQuestion.get(item.question_id) ?? [] })) };
 }
 
 export async function createAttempt(
@@ -538,13 +542,17 @@ export async function createAttempt(
   return { limited: false as const, attempt: await findAttempt(db, Number(result.insertId), identityKey) };
 }
 
-export async function saveAnswer(db: ExamDb, attemptId: number, input: { question_id: number; selected_keys: string[]; is_correct: boolean; elapsed_seconds: number; score_fraction?: number | null }) {
+export async function saveAnswer(db: ExamDb, attemptId: number, input: { question_id: number; selected_keys: string[]; is_correct: boolean; elapsed_seconds: number; score_fraction?: number | null; answer_text?: string | null }) {
   const values = {
     question_id: input.question_id,
     selected_keys: input.selected_keys,
     is_correct: input.is_correct,
     elapsed_seconds: input.elapsed_seconds,
     score_fraction: input.score_fraction ?? null,
+    answer_text: input.answer_text ?? null,
+    // Jawaban uraian yang ditulis ulang membatalkan penilaian sebelumnya:
+    // skor dan penanda penilai dikosongkan agar masuk antrean lagi.
+    ...(input.answer_text !== undefined ? { graded_by: null, graded_at: null } : {}),
   };
   const [existing] = await db
     .select({ id: examAnswers.id })
@@ -563,16 +571,57 @@ export async function saveIntegrityEvent(db: ExamDb, attemptId: number, eventTyp
   await db.insert(examIntegrityEvents).values({ attempt_id: attemptId, event_type: eventType, occurred_at: occurredAt });
 }
 
-export async function completeAttempt(db: ExamDb, attemptId: number, identityKey: string, options: { force?: boolean } = {}) {
-  const attempt = await findAttempt(db, attemptId, identityKey);
-  if (!attempt) return null;
-  if (attempt.status !== 'in_progress') return attempt;
+export interface AttemptAggregates {
+  answered_questions: number;
+  correct_count: number;
+  incorrect_count: number;
+  accuracy: number;
+  final_score: number;
+}
+
+/**
+ * Menghitung ulang agregat skor attempt dari jawaban tersimpan. Dipakai oleh
+ * completeAttempt dan oleh penilaian manual Uraian Singkat, agar rumus skor
+ * tidak pernah terduplikasi: skor per soal terjawab adalah pecahan tersimpan
+ * (skor parsial / nilai guru) bila ada; jenis lama tidak pernah memiliki
+ * pecahan sehingga rumusnya tereduksi persis ke perhitungan biner sebelumnya.
+ * Uraian yang belum dinilai memiliki pecahan null dan is_correct false,
+ * sehingga menyumbang 0 selama penilaian masih tertunda.
+ */
+export async function recomputeAttemptAggregates(db: ExamDb, attemptId: number): Promise<AttemptAggregates> {
   const answerRows = await db.select().from(examAnswers).where(eq(examAnswers.attempt_id, attemptId));
   const answersByQuestion = new Map<number, (typeof answerRows)[number]>();
   for (const answer of answerRows) answersByQuestion.set(answer.question_id, answer);
   const answers = [...answersByQuestion.values()];
-  const events = await db.select({ total: count() }).from(examIntegrityEvents).where(eq(examIntegrityEvents.attempt_id, attemptId));
   const correctCount = answers.filter((answer) => answer.is_correct).length;
+  const scoreTotal = answers.reduce((total, answer) => total + (answer.score_fraction ?? (answer.is_correct ? 1 : 0)), 0);
+  const accuracy = answers.length ? Math.round((scoreTotal / answers.length) * 100) : 0;
+  const aggregates: AttemptAggregates = {
+    answered_questions: answers.length,
+    correct_count: correctCount,
+    incorrect_count: answers.length - correctCount,
+    accuracy,
+    final_score: accuracy,
+  };
+  await db.update(examAttempts).set(aggregates).where(eq(examAttempts.id, attemptId));
+  return aggregates;
+}
+
+/** Jumlah jawaban Uraian Singkat pada attempt yang belum dinilai guru. */
+export async function countPendingEssayAnswers(db: ExamDb, attemptId: number): Promise<number> {
+  const rows = await db
+    .select({ id: examAnswers.id })
+    .from(examAnswers)
+    .innerJoin(questions, eq(examAnswers.question_id, questions.id))
+    .where(and(eq(examAnswers.attempt_id, attemptId), eq(questions.type, 'short_essay'), isNull(examAnswers.score_fraction)));
+  return rows.length;
+}
+
+export async function completeAttempt(db: ExamDb, attemptId: number, identityKey: string, options: { force?: boolean } = {}) {
+  const attempt = await findAttempt(db, attemptId, identityKey);
+  if (!attempt) return null;
+  if (attempt.status !== 'in_progress') return attempt;
+  const events = await db.select({ total: count() }).from(examIntegrityEvents).where(eq(examIntegrityEvents.attempt_id, attemptId));
   const completedAt = new Date();
   const totalTime = Math.max(0, Math.floor((completedAt.getTime() - new Date(attempt.started_at).getTime()) / 1000));
   const minimumTime = Math.max(0, attempt.minimum_duration_minutes * 60);
@@ -580,21 +629,12 @@ export async function completeAttempt(db: ExamDb, attemptId: number, identityKey
   if (!options.force && !deadlineReached && totalTime < minimumTime) {
     return { blocked: true as const, minimum_duration_seconds: minimumTime, elapsed_seconds: totalTime };
   }
-  // Skor per soal terjawab: pecahan tersimpan (soal Benar / Salah Banyak Pernyataan)
-  // didahulukan; jenis lama tidak pernah memiliki pecahan sehingga rumusnya
-  // tereduksi persis ke perhitungan biner sebelumnya.
-  const scoreTotal = answers.reduce((total, answer) => total + (answer.score_fraction ?? (answer.is_correct ? 1 : 0)), 0);
-  const accuracy = answers.length ? Math.round((scoreTotal / answers.length) * 100) : 0;
+  await recomputeAttemptAggregates(db, attemptId);
   const violationCount = Number(events[0]?.total ?? 0);
   await db.update(examAttempts).set({
     status: 'completed',
-    answered_questions: answers.length,
-    correct_count: correctCount,
-    incorrect_count: answers.length - correctCount,
     total_time_seconds: totalTime,
-    accuracy,
     violation_count: violationCount,
-    final_score: accuracy,
     completed_at: completedAt,
   }).where(eq(examAttempts.id, attemptId));
   return findAttempt(db, attemptId, identityKey);

@@ -11,10 +11,40 @@ const externalIdSchema = z.preprocess(
   z.string().min(1).max(100).nullable().optional(),
 );
 
+const questionTypeSchema = z.enum(['single_choice', 'multiple_response', 'true_false', 'true_false_multi', 'short_essay']);
+
 function validateQuestionRules(
-  question: { type: 'single_choice' | 'multiple_response' | 'true_false' | 'true_false_multi'; options: Array<{ key: string; is_correct: boolean }> },
+  question: { type: 'single_choice' | 'multiple_response' | 'true_false' | 'true_false_multi' | 'short_essay'; options: Array<{ key: string; is_correct: boolean }>; grading_guide?: string | null },
   ctx: z.RefinementCtx,
 ) {
+  // Uraian Singkat dinilai manual: tanpa opsi sama sekali, tetapi wajib
+  // memiliki pedoman penilaian yang hanya dibaca guru.
+  if (question.type === 'short_essay') {
+    if (question.options.length > 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Soal Uraian Singkat tidak memiliki opsi jawaban.',
+        path: ['options'],
+      });
+    }
+    if (!question.grading_guide || question.grading_guide.trim().length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Soal Uraian Singkat wajib memiliki pedoman penilaian.',
+        path: ['grading_guide'],
+      });
+    }
+    return;
+  }
+
+  if (question.options.length < 2) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Soal harus memiliki minimal dua opsi jawaban.',
+      path: ['options'],
+    });
+  }
+
   if (new Set(question.options.map((option) => option.key)).size !== question.options.length) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
@@ -94,12 +124,13 @@ function validateQuestionRules(
 }
 
 const questionContentSchema = z.object({
-  type: z.enum(['single_choice', 'multiple_response', 'true_false', 'true_false_multi']),
+  type: questionTypeSchema,
   difficulty: z.enum(['easy', 'medium', 'hard']),
   external_id: externalIdSchema,
   question_text: z.string().min(1),
   explanation_text: z.string().min(1),
-  options: z.array(optionSchema).min(2),
+  grading_guide: z.string().trim().min(1).nullable().optional(),
+  options: z.array(optionSchema),
 });
 
 export const adminQuestionSchema = questionContentSchema
@@ -111,12 +142,13 @@ export const adminQuestionSchema = questionContentSchema
 
 export const importQuestionSchema = z.object({
   topic_slug: z.string().min(1),
-  type: z.enum(['single_choice', 'multiple_response', 'true_false', 'true_false_multi']),
+  type: questionTypeSchema,
   difficulty: z.enum(['easy', 'medium', 'hard']),
   external_id: externalIdSchema,
   question_text: z.string().min(1),
   explanation_text: z.string().min(1),
-  options: z.array(optionSchema).min(2),
+  grading_guide: z.string().trim().min(1).nullable().optional(),
+  options: z.array(optionSchema),
 }).superRefine(validateQuestionRules);
 
 export const importPayloadSchema = z.union([

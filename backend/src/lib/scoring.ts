@@ -1,4 +1,4 @@
-export type QuestionType = 'single_choice' | 'multiple_response' | 'true_false' | 'true_false_multi';
+export type QuestionType = 'single_choice' | 'multiple_response' | 'true_false' | 'true_false_multi' | 'short_essay';
 
 export interface StatementResult {
   key: string;

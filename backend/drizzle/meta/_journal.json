@@ -253,6 +253,13 @@
       "when": 1794734008633,
       "tag": "0035_simak_handoff_tokens",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "5",
+      "when": 1794820800000,
+      "tag": "0036_uraian_singkat",
+      "breakpoints": true
     }
   ]
 }

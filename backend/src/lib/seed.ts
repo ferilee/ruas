@@ -18,11 +18,12 @@ const optionSchema = z.object({
 
 const questionSchema = z.object({
   topic_slug: z.string().min(1),
-  type: z.enum(['single_choice', 'multiple_response', 'true_false', 'true_false_multi']),
+  type: z.enum(['single_choice', 'multiple_response', 'true_false', 'true_false_multi', 'short_essay']),
   difficulty: z.enum(['easy', 'medium', 'hard']),
   external_id: z.string().optional(),
   question_text: z.string().min(1),
   explanation_text: z.string().min(1),
+  grading_guide: z.string().min(1).optional(),
   options: z.array(optionSchema),
 });
 
@@ -118,6 +119,24 @@ const seedSchema = z.object({
           code: z.ZodIssueCode.custom,
           message: 'Soal true_false harus memiliki tepat satu jawaban benar.',
           path: ['questions', index, 'options'],
+        });
+      }
+    }
+
+    if (question.type === 'short_essay') {
+      if (question.options.length > 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Soal Uraian Singkat tidak memiliki opsi jawaban.',
+          path: ['questions', index, 'options'],
+        });
+      }
+
+      if (!question.grading_guide || question.grading_guide.trim().length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Soal Uraian Singkat wajib memiliki pedoman penilaian.',
+          path: ['questions', index, 'grading_guide'],
         });
       }
     }
@@ -227,6 +246,7 @@ export async function seed() {
       difficulty: q.difficulty,
       question_text: q.question_text,
       explanation_text: q.explanation_text,
+      grading_guide: q.type === 'short_essay' ? q.grading_guide ?? null : null,
       external_id: q.external_id ?? null,
     });
 

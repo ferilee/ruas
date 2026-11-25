@@ -45,6 +45,12 @@ export function validateSelectedKeys(
   selectedKeys: string[],
   validOptionKeys: string[],
 ): string | null {
+  // Uraian Singkat tidak diperiksa otomatis: jawabannya teks bebas yang
+  // dinilai manual oleh guru lewat antrean penilaian.
+  if (questionType === 'short_essay') {
+    return 'Soal Uraian Singkat dinilai manual oleh guru.';
+  }
+
   const selectedSet = new Set(selectedKeys);
 
   if (selectedSet.size !== selectedKeys.length) {

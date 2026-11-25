@@ -8,7 +8,7 @@ import type { Pool } from '@/db/connection';
 import { getParticipantIdentity } from '@/lib/participant-identity';
 import { checkAnswer, checkStatementJudgements } from '@/lib/scoring';
 import { mapCheckAnswerResponse } from '@/mappers/question-response';
-import { createExamDb, abandonAttempt, completeAttempt, createAttempt, findActiveAttempt, findAttempt, findAttemptAnswers, getAttemptAvailability, getAttemptQuestion, getExamReview, getNextAttemptQuestion, getQuestionExplanationMode, getSubjectExamSettings, isAttemptExpired, saveAnswer, saveIntegrityEvent, updateAttemptQuestionFlag } from '@/services/exam-service';
+import { createExamDb, abandonAttempt, completeAttempt, countPendingEssayAnswers, createAttempt, findActiveAttempt, findAttempt, findAttemptAnswers, getAttemptAvailability, getAttemptQuestion, getExamReview, getNextAttemptQuestion, getQuestionExplanationMode, getSubjectExamSettings, isAttemptExpired, saveAnswer, saveIntegrityEvent, updateAttemptQuestionFlag } from '@/services/exam-service';
 import { getAssessmentScheduleStatusFromDb } from '@/services/assessment-schedule-service';
 import type { MediaStorage } from '@/services/media-storage';
 
@@ -16,7 +16,10 @@ const attemptSchema = z.object({ subject_id: z.coerce.number().int().positive(),
 // selected_keys boleh kosong HANYA untuk soal Benar / Salah (Banyak Pernyataan):
 // array kosong di sana berarti siswa menilai semua pernyataan Salah. Keabsahan
 // isi diperiksa ulang sesudah soal dimuat dan jenisnya diketahui (lihat handler).
-const answerSchema = z.object({ question_id: z.coerce.number().int().positive(), selected_keys: z.array(z.string().min(1)), elapsed_seconds: z.coerce.number().int().nonnegative() });
+// answer_text hanya bermakna untuk soal Uraian Singkat (short_essay): teks
+// bebas jawaban murid yang dinilai manual oleh guru. Untuk jenis lain kolom
+// ini diabaikan dan jawaban tetap dibaca dari selected_keys.
+const answerSchema = z.object({ question_id: z.coerce.number().int().positive(), selected_keys: z.array(z.string().min(1)), answer_text: z.string().max(20000).optional(), elapsed_seconds: z.coerce.number().int().nonnegative() });
 const eventSchema = z.object({ event_type: z.enum(['fullscreen_exit', 'tab_hidden', 'window_blur', 'blocked_shortcut']), occurred_at: z.string().datetime().optional() });
 const flagSchema = z.object({ is_doubtful: z.boolean() });
 
@@ -64,7 +67,7 @@ export function examAttemptRoutes(pool: Pool, mediaStorage: MediaStorage | null 
     if (!identityKey || !topicId) return c.json({ attempt: null, answers: [], server_now: new Date().toISOString() });
     const attempt = await findActiveAttempt(db, topicId, identityKey);
     return c.json({
-      attempt: attempt ? { ...attempt, doubtful_question_ids: Array.isArray(attempt.doubtful_question_ids) ? attempt.doubtful_question_ids : [] } : null,
+      attempt: attempt ? { ...attempt, doubtful_question_ids: Array.isArray(attempt.doubtful_question_ids) ? attempt.doubtful_question_ids : [], grading_pending_count: await countPendingEssayAnswers(db, attempt.id) } : null,
       answers: attempt ? await findAttemptAnswers(db, attempt.id, identityKey) : [],
       server_now: new Date().toISOString(),
     });
@@ -129,6 +132,29 @@ export function examAttemptRoutes(pool: Pool, mediaStorage: MediaStorage | null 
     if (!topicQuestion) return c.json({ error: 'invalid_question', message: 'Soal tidak termasuk dalam sesi ujian ini.' }, 400);
     const storedOptions = await db.select().from(questionOptions).where(eq(questionOptions.question_id, question.id));
     const options = storedOptions.map((option) => ({ key: option.option_key, text: option.option_text, is_correct: option.is_correct }));
+    // Uraian Singkat: jawaban berupa teks bebas. Teks kosong berarti belum
+    // terjawab dan ditolak; teks tersimpan selalu berstatus menunggu
+    // penilaian (score_fraction null, is_correct false) sampai guru menilai.
+    if (question.type === 'short_essay') {
+      const answerText = parsed.data.answer_text?.trim() ?? '';
+      if (!answerText) {
+        return c.json({ error: 'invalid_body', message: 'Jawaban uraian tidak boleh kosong.' }, 400);
+      }
+      await saveAnswer(db, attemptId, {
+        question_id: question.id,
+        selected_keys: [],
+        is_correct: false,
+        score_fraction: null,
+        answer_text: answerText,
+        elapsed_seconds: parsed.data.elapsed_seconds,
+      });
+      const explanationMode = await getQuestionExplanationMode(db, question.id);
+      // Pembahasan (bukan pedoman penilaian) mengikuti mode penjelasan mapel
+      // seperti jenis lain; kunci jawaban tidak pernah ada untuk uraian.
+      const revealExplanation = explanationMode === 'after_answer';
+      const response = mapCheckAnswerResponse(question, { correct: false, correct_keys: [] }, revealExplanation ? question.explanation_text : null, explanationMode, revealExplanation);
+      return c.json({ ...response, pending_grading: true });
+    }
     const isStatementQuestion = question.type === 'true_false_multi';
     if (!isStatementQuestion && parsed.data.selected_keys.length === 0) {
       return c.json({ error: 'invalid_body', message: 'Jawaban tidak valid.' }, 400);
@@ -182,7 +208,7 @@ export function examAttemptRoutes(pool: Pool, mediaStorage: MediaStorage | null 
     const attempt = await completeAttempt(db, attemptId, identityKey);
     if (!attempt) return c.json({ error: 'not_found', message: 'Sesi ujian tidak ditemukan.' }, 404);
     if ('blocked' in attempt && attempt.blocked) return c.json({ error: 'minimum_duration_not_reached', message: `Ujian belum dapat dikumpulkan. Tunggu hingga ${Math.ceil(attempt.minimum_duration_seconds / 60)} menit pengerjaan.`, minimum_duration_seconds: attempt.minimum_duration_seconds, elapsed_seconds: attempt.elapsed_seconds }, 409);
-    return c.json({ attempt });
+    return c.json({ attempt: { ...attempt, grading_pending_count: await countPendingEssayAnswers(db, attemptId) } });
   });
 
   app.post('/:id/abandon', async (c) => {

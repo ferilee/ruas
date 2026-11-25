@@ -34,6 +34,7 @@ export interface AdminQuestionListItem {
 
 export interface AdminQuestionDetail extends AdminQuestionListItem {
   explanation_text: string;
+  grading_guide: string | null;
   options: Array<{ key: string; text: string; is_correct: boolean }>;
 }
 
@@ -176,6 +177,7 @@ export async function findAdminQuestion(db: AdminDb, questionId: number, visible
       difficulty: questions.difficulty,
       question_text: questions.question_text,
       explanation_text: questions.explanation_text,
+      grading_guide: questions.grading_guide,
       external_id: questions.external_id,
       archived_at: questions.archived_at,
       created_by: questions.created_by,
@@ -249,6 +251,12 @@ async function syncQuestionTopics(db: Pick<AdminDb, 'insert' | 'delete'>, questi
   await db.insert(schema.topicQuestions).values(topicIds.map((topicId, index) => ({ topic_id: topicId, question_id: questionId, enabled: true, display_order: index + 1 })));
 }
 
+// Pedoman penilaian hanya bermakna untuk Uraian Singkat; jenis lain selalu
+// disimpan null agar tidak ada pedoman basi yang terbawa saat tipe diganti.
+function normalizedGradingGuide(input: AdminQuestionInput) {
+  return input.type === 'short_essay' ? input.grading_guide?.trim() || null : null;
+}
+
 async function insertQuestion(db: InsertDb, input: AdminQuestionInput, createdBy: string | null = null) {
   const [inserted] = await db.insert(questions).values({
     topic_id: input.topic_id,
@@ -256,20 +264,23 @@ async function insertQuestion(db: InsertDb, input: AdminQuestionInput, createdBy
     difficulty: input.difficulty,
     question_text: input.question_text,
     explanation_text: input.explanation_text,
+    grading_guide: normalizedGradingGuide(input),
     external_id: input.external_id || null,
     created_by: createdBy,
   });
 
   const questionId = Number(inserted.insertId);
-  await db.insert(questionOptions).values(
-    input.options.map((option, index) => ({
-      question_id: questionId,
-      option_key: option.key,
-      option_text: option.text,
-      is_correct: option.is_correct,
-      display_order: index + 1,
-    })),
-  );
+  if (input.options.length > 0) {
+    await db.insert(questionOptions).values(
+      input.options.map((option, index) => ({
+        question_id: questionId,
+        option_key: option.key,
+        option_text: option.text,
+        is_correct: option.is_correct,
+        display_order: index + 1,
+      })),
+    );
+  }
   await db.insert(schema.topicQuestions).values(normalizedTopicIds(input).map((topicId, index) => ({ topic_id: topicId, question_id: questionId, enabled: true, display_order: index + 1 })));
 
   return questionId;
@@ -297,20 +308,23 @@ export async function updateAdminQuestion(
       difficulty: input.difficulty,
       question_text: input.question_text,
       explanation_text: input.explanation_text,
+      grading_guide: normalizedGradingGuide(input),
       external_id: input.external_id || null,
     }).where(eq(questions.id, questionId));
     await syncQuestionTopics(tx, questionId, normalizedTopicIds(input));
 
     await tx.delete(questionOptions).where(eq(questionOptions.question_id, questionId));
-    await tx.insert(questionOptions).values(
-      input.options.map((option, index) => ({
-        question_id: questionId,
-        option_key: option.key,
-        option_text: option.text,
-        is_correct: option.is_correct,
-        display_order: index + 1,
-      })),
-    );
+    if (input.options.length > 0) {
+      await tx.insert(questionOptions).values(
+        input.options.map((option, index) => ({
+          question_id: questionId,
+          option_key: option.key,
+          option_text: option.text,
+          is_correct: option.is_correct,
+          display_order: index + 1,
+        })),
+      );
+    }
   });
 
   return true;
@@ -604,6 +618,7 @@ export async function importAdminQuestions(
         external_id: question.external_id ?? null,
         question_text: question.question_text,
         explanation_text: question.explanation_text,
+        grading_guide: question.grading_guide ?? null,
         options: question.options,
       },
     });
@@ -627,17 +642,20 @@ export async function importAdminQuestions(
           difficulty: plan.input.difficulty,
           question_text: plan.input.question_text,
           explanation_text: plan.input.explanation_text,
+          grading_guide: normalizedGradingGuide(plan.input),
           external_id: plan.input.external_id || null,
         }).where(eq(questions.id, plan.existingId));
         await syncQuestionTopics(tx, plan.existingId, normalizedTopicIds(plan.input));
         await tx.delete(questionOptions).where(eq(questionOptions.question_id, plan.existingId));
-        await tx.insert(questionOptions).values(plan.input.options.map((option, index) => ({
-          question_id: plan.existingId as number,
-          option_key: option.key,
-          option_text: option.text,
-          is_correct: option.is_correct,
-          display_order: index + 1,
-        })));
+        if (plan.input.options.length > 0) {
+          await tx.insert(questionOptions).values(plan.input.options.map((option, index) => ({
+            question_id: plan.existingId as number,
+            option_key: option.key,
+            option_text: option.text,
+            is_correct: option.is_correct,
+            display_order: index + 1,
+          })));
+        }
       }
     }
   });
