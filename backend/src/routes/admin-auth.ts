@@ -1,14 +1,8 @@
 import { Hono } from 'hono';
-import { z } from 'zod';
 import { createAdminToken, getAdminSession, type AdminRole } from '../lib/admin-auth-store';
-import { authenticateUser, createUserDb, findUserByUsername, hasAdminUsers, listEffectiveUserClassIds } from '@/services/user-service';
+import { createUserDb, findUserByUsername, hasAdminUsers, listEffectiveUserClassIds } from '@/services/user-service';
 import { getTokenUsername } from '../lib/auth-store';
 import type { Pool } from '@/db/connection';
-
-const authBodySchema = z.object({
-  username: z.string().trim().max(100).optional(),
-  password: z.string().min(1),
-});
 
 export function adminAuthRoutes(validPassword: string, pool: Pool) {
   let db: ReturnType<typeof createUserDb> | null = null;
@@ -61,35 +55,11 @@ export function adminAuthRoutes(validPassword: string, pool: Pool) {
     return c.json({ token: createAdminToken(session), session });
   });
 
-  app.post('/', async (c) => {
-    const parsed = authBodySchema.safeParse(await c.req.json());
-    if (!parsed.success) {
-      return c.json({ error: 'invalid_body', message: 'Username dan password wajib diisi.' }, 400);
-    }
-
-    if (parsed.data.username) {
-      const user = await authenticateUser(getDb(), parsed.data.username, parsed.data.password);
-      if (!user || (user.role !== 'admin' && user.role !== 'editor')) {
-        return c.json({ error: 'unauthorized', message: 'Username atau password admin/guru salah.' }, 401);
-      }
-      if (user.must_change_password && !user.is_demo) {
-        return c.json({ error: 'password_change_required', message: 'Ganti sandi awal terlebih dahulu melalui halaman login utama (/auth), lalu masuk kembali sebagai Admin/Guru.' }, 403);
-      }
-      const session = await sessionForUser(user);
-      return c.json({ token: createAdminToken(session), session });
-    }
-
-    if (!validPassword) {
-      return c.json({ error: 'admin_auth_disabled', message: 'Admin belum diaktifkan.' }, 400);
-    }
-    if (parsed.data.password !== validPassword) {
-      return c.json({ error: 'unauthorized', message: 'Password admin salah.' }, 401);
-    }
-
-    return c.json({ token: createAdminToken(), session: {
-      username: 'env-admin', display_name: 'Admin RUAS', role: 'admin', subject_id: null, class_id: null, class_ids: [],
-    } });
-  });
+  // Tidak ada lagi endpoint login langsung di sini: semua pengguna —
+  // murid, guru/editor, dan admin bawaan (env-admin) — masuk lewat satu
+  // form login utama (POST /api/auth). Ruang kerja dibuka lewat jembatan
+  // sesi di atas, atau token admin yang diterbitkan form utama untuk
+  // env-admin.
 
   return app;
 }

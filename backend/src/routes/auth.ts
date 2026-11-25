@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { createDemoToken, createToken, getTokenUsername } from '../lib/auth-store';
+import { createAdminToken } from '../lib/admin-auth-store';
 import type { Pool } from '../db/connection';
 import { authenticateUser, changeUserPassword, createUserDb, findDemoUser, hasUsers } from '../services/user-service';
 import { createDemoDb, prepareDemoSession } from '../services/demo-service';
@@ -17,15 +18,21 @@ const changePasswordSchema = z.object({
   message: 'Konfirmasi sandi tidak sama.',
 });
 
-export function authRoutes(validUsername: string, validPassword: string, pool?: Pool, schoolName?: string) {
+// Username tetap untuk login admin bawaan (env-admin) lewat form login
+// utama: ketik username ini + ADMIN_PASSWORD. Sesi ruang kerja yang terbit
+// tetap bernama 'env-admin' seperti sebelumnya.
+export const ENV_ADMIN_LOGIN_USERNAME = 'admin';
+
+export function authRoutes(validUsername: string, validPassword: string, pool?: Pool, schoolName?: string, adminPassword?: string) {
   const app = new Hono();
   const getDb = () => (pool ? createUserDb(pool) : null);
   const trimmedSchoolName = schoolName?.trim() ? schoolName.trim() : null;
+  const envAdminEnabled = Boolean(adminPassword);
 
   app.get('/', async (c) => {
     const db = getDb();
     const demoUser = db ? await findDemoUser(db) : null;
-    return c.json({ auth_enabled: Boolean(validPassword) || Boolean(db && (await hasUsers(db))), demo_available: Boolean(demoUser?.subject_id), school_name: trimmedSchoolName });
+    return c.json({ auth_enabled: Boolean(validPassword) || envAdminEnabled || Boolean(db && (await hasUsers(db))), demo_available: Boolean(demoUser?.subject_id), school_name: trimmedSchoolName });
   });
 
   app.get('/demo', async (c) => {
@@ -63,7 +70,7 @@ export function authRoutes(validUsername: string, validPassword: string, pool?: 
   app.post('/', async (c) => {
     const db = getDb();
     const databaseAuthEnabled = Boolean(db && (await hasUsers(db)));
-    if (!validPassword && !databaseAuthEnabled) {
+    if (!validPassword && !databaseAuthEnabled && !envAdminEnabled) {
       return c.json({ error: 'auth_disabled', message: 'Autentikasi tidak aktif.' }, 400);
     }
 
@@ -75,13 +82,28 @@ export function authRoutes(validUsername: string, validPassword: string, pool?: 
     }
 
     const databaseUser = db ? await authenticateUser(db, parsed.data.username, parsed.data.password) : null;
+    // Admin bawaan (env-admin) kini masuk lewat form utama ini saja:
+    // username tetap ENV_ADMIN_LOGIN_USERNAME + ADMIN_PASSWORD, selalu
+    // diverifikasi di server. Hanya berlaku bila kredensial tidak cocok
+    // dengan akun database mana pun.
+    const envAdminLogin =
+      !databaseUser &&
+      envAdminEnabled &&
+      parsed.data.username === ENV_ADMIN_LOGIN_USERNAME &&
+      parsed.data.password === adminPassword;
     const validLegacyCredentials =
       Boolean(validPassword) &&
       (!validUsername || parsed.data.username === validUsername) &&
       parsed.data.password === validPassword;
 
-    if (!databaseUser && !validLegacyCredentials) {
+    if (!databaseUser && !envAdminLogin && !validLegacyCredentials) {
       return c.json({ error: 'unauthorized', message: 'Username atau password salah.' }, 401);
+    }
+
+    if (envAdminLogin) {
+      // Token sesi utama + token ruang kerja diterbitkan bersama supaya
+      // klien bisa langsung membuka /admin tanpa login kedua.
+      return c.json({ token: createToken('env-admin'), admin_token: createAdminToken(), role: 'admin' });
     }
 
     if (databaseUser?.is_demo && pool) {

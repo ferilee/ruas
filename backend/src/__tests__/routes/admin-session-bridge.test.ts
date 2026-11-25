@@ -48,6 +48,18 @@ describe('admin session bridge (RUAS-004)', () => {
     expect(res.status).toBe(401);
   });
 
+  it('no longer offers a direct admin login endpoint (login happens on the main form)', async () => {
+    const { adminAuthRoutes } = await import('@/routes/admin-auth');
+    const app = adminAuthRoutes('admin-secret', {} as never);
+
+    const res = await app.request('http://localhost/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: 'admin-secret' }),
+    });
+    expect(res.status).toBe(404);
+  });
+
   it('rejects participant accounts', async () => {
     getTokenUsernameMock.mockReturnValue('siswa1');
     findUserByUsernameMock.mockResolvedValue({

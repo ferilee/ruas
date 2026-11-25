@@ -85,7 +85,7 @@ export function createApp(config: AppConfig) {
     }
   });
 
-  app.route('/api/auth', authRoutes(config.appUsername ?? '', config.appPassword, config.pool, config.schoolName));
+  app.route('/api/auth', authRoutes(config.appUsername ?? '', config.appPassword, config.pool, config.schoolName, config.adminPassword));
   app.route('/api/teacher-requests', teacherAccessRequestRoutes(config.pool));
   app.route('/api/admin/auth', adminAuthRoutes(config.adminPassword ?? '', config.pool));
 
