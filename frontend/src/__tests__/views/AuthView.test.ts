@@ -5,7 +5,9 @@ import { AUTH_RETURN_DESTINATION_KEY, saveAuthReturnDestination } from '@/lib/au
 
 // Satu form login untuk semua: form utama ini melayani murid, guru/editor,
 // dan admin bawaan (env-admin), serta mengembalikan pengguna ke tujuan
-// yang tersimpan (mis. /admin) sesudah login berhasil.
+// yang tersimpan (mis. /admin) sesudah login berhasil. Guru/editor dan
+// admin akun database mendarat langsung di ruang editor (/admin); murid
+// mendarat di beranda atau halaman profil seperti sebelumnya.
 
 const { fetchDemoAvailability, fetchParticipantProfile, push, replace } = vi.hoisted(() => ({
   fetchDemoAvailability: vi.fn(),
@@ -132,5 +134,55 @@ describe('AuthView tujuan kembali sesudah login', () => {
 
     expect(wrapper.find('.editor-access').exists()).toBe(false);
     expect(wrapper.text()).not.toContain('Akses Editor');
+  });
+});
+
+describe('AuthView pendaratan guru/editor sesudah login', () => {
+  it('mengarahkan login editor langsung ke /admin tanpa memeriksa profil murid', async () => {
+    loginResponseBody = { token: 'token-utama', role: 'editor' };
+
+    await mountAndLogin();
+
+    expect(push).toHaveBeenCalledWith('/admin');
+    expect(fetchParticipantProfile).not.toHaveBeenCalled();
+  });
+
+  it('mengarahkan login admin akun database (tanpa admin_token) langsung ke /admin', async () => {
+    loginResponseBody = { token: 'token-utama', role: 'admin' };
+
+    await mountAndLogin();
+
+    expect(push).toHaveBeenCalledWith('/admin');
+    expect(fetchParticipantProfile).not.toHaveBeenCalled();
+  });
+
+  it('tujuan kembali tetap menang atas pendaratan /admin untuk editor', async () => {
+    saveAuthReturnDestination('/admin?section=schedule');
+    loginResponseBody = { token: 'token-utama', role: 'editor' };
+
+    await mountAndLogin();
+
+    expect(push).toHaveBeenCalledWith('/admin?section=schedule');
+    expect(push).not.toHaveBeenCalledWith('/admin');
+  });
+
+  it('login murid tetap memakai pendaratan profil: profil belum lengkap ke /profile', async () => {
+    fetchParticipantProfile.mockResolvedValue({ is_complete: false, subject_id: null });
+    loginResponseBody = { token: 'token-utama', role: 'participant' };
+
+    await mountAndLogin();
+
+    expect(push).toHaveBeenCalledWith('/profile');
+  });
+
+  it('wajib ganti sandi tetap didahulukan atas pendaratan /admin untuk editor', async () => {
+    loginResponseBody = { token: 'token-utama', role: 'editor', must_change_password: true };
+
+    await mountAndLogin();
+
+    expect(sessionStorage.getItem('ruas_after_password_change')).toBe('/admin');
+    expect(push).toHaveBeenCalledWith('/change-password');
+    expect(push).not.toHaveBeenCalledWith('/admin');
+    expect(fetchParticipantProfile).not.toHaveBeenCalled();
   });
 });

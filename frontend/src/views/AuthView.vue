@@ -273,6 +273,13 @@ async function login() {
       await router.push(returnDestination);
       return;
     }
+    // Guru (editor) dan admin akun database langsung ke ruang editor;
+    // jembatan sesi di /admin membuka ruang kerja tanpa login kedua.
+    // Pendaratan beranda/profil hanya untuk akun murid.
+    if (data.role === 'editor' || data.role === 'admin') {
+      await router.push('/admin');
+      return;
+    }
     let profile = await fetchParticipantProfile();
     const legacyProfile = profile ? null : getLegacyParticipantProfile();
     if (legacyProfile) {
