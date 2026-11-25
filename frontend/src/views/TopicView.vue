@@ -431,11 +431,6 @@ onUnmounted(() => {
   bottom: -225px;
 }
 
-.topic-back,
-.topic-title,
-.topic-subtitle,
-.topic-list,
-.topic-state,
 .topic-skeleton { display: block; height: 64px; margin-bottom: 10px; border-radius: 12px; background: linear-gradient(90deg, #e3ebf5, #f2f7fc, #e3ebf5); background-size: 200% 100%; animation: skeleton-pulse 1.2s ease-in-out infinite; }
 @keyframes skeleton-pulse { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
 .topic-loading {
