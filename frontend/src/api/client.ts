@@ -287,34 +287,40 @@ export async function fetchAdminAuthStatus(): Promise<{ enabled: boolean; sessio
   return { enabled: Boolean(data.admin_auth_enabled), session: data.session ?? null };
 }
 
-export async function adminLoginFromSession(): Promise<AdminSession | null> {
+// Hasil jembatan sesi (RUAS-004): sesi utama ditukar menjadi sesi ruang
+// kerja. Status kegagalan dibedakan supaya AdminView bisa memilih antara
+// memantul ke form login utama, menampilkan pemberitahuan tanpa akses,
+// atau mengarahkan ke alur ganti sandi — tanpa formulir login kedua.
+export type AdminSessionBridgeResult =
+  | { status: 'ok'; session: AdminSession }
+  | { status: 'no-main-session' }
+  | { status: 'password-change-required'; message: string }
+  | { status: 'no-access'; message: string }
+  | { status: 'error'; message: string };
+
+export async function adminLoginFromSession(): Promise<AdminSessionBridgeResult> {
   const authToken = sessionStorage.getItem('auth_token');
-  if (!authToken) return null;
-  const res = await fetch(`${BASE}/admin/auth/session`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-auth-token': authToken },
-  });
-  if (!res.ok) return null;
-  const data = await res.json() as { token: string; session: AdminSession };
-  sessionStorage.setItem('admin_token', data.token);
-  return data.session;
-}
-
-export async function adminLogin(username: string, password: string): Promise<AdminSession> {
-  const res = await fetch(`${BASE}/admin/auth`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: username.trim() || undefined, password }),
-  });
-
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ message: 'Gagal login admin.' }));
-    throw new Error(body.message || `HTTP ${res.status}`);
+  if (!authToken) return { status: 'no-main-session' };
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}/admin/auth/session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': authToken },
+    });
+  } catch {
+    return { status: 'error', message: 'Tidak dapat terhubung ke server.' };
   }
-
-  const data = await res.json() as { token: string; session: AdminSession };
-  sessionStorage.setItem('admin_token', data.token);
-  return data.session;
+  if (res.ok) {
+    const data = await res.json() as { token: string; session: AdminSession };
+    sessionStorage.setItem('admin_token', data.token);
+    return { status: 'ok', session: data.session };
+  }
+  const body = await res.json().catch(() => ({})) as { error?: string; message?: string };
+  if (body.error === 'password_change_required') {
+    return { status: 'password-change-required', message: body.message || 'Ganti sandi awal terlebih dahulu melalui halaman login utama.' };
+  }
+  if (res.status === 401) return { status: 'no-main-session' };
+  return { status: 'no-access', message: body.message || 'Akun ini tidak memiliki akses editor.' };
 }
 
 export interface TeacherAccessRequestInput {

@@ -7,13 +7,6 @@
 
     <div class="auth-utility-bar">
       <div class="auth-utility-links">
-        <router-link to="/admin" class="editor-access" aria-label="Akses editor">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M4 5.5h16v13H4z" />
-            <path d="M8 9h8M8 12h8M8 15h5" />
-          </svg>
-          <span>Akses Editor</span>
-        </router-link>
         <router-link to="/tentang" class="landing-access" aria-label="Tentang dan layanan RUAS">Tentang &amp; Layanan</router-link>
       </div>
 
@@ -161,6 +154,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { fetchDemoAvailability, fetchParticipantProfile, loginAsDemo as requestDemoLogin, saveParticipantProfile } from '@/api/client';
 import { clearLegacyParticipantProfile, getLegacyParticipantProfile } from '@/lib/participant-profile';
+import { consumeAuthReturnDestination } from '@/lib/auth-redirect';
 
 const router = useRouter();
 const username = ref('');
@@ -255,11 +249,28 @@ async function login() {
       return;
     }
 
-    const data = await res.json() as { token: string; role?: 'admin' | 'editor' | 'participant'; must_change_password?: boolean };
+    const data = await res.json() as { token: string; role?: 'admin' | 'editor' | 'participant'; must_change_password?: boolean; admin_token?: string };
     sessionStorage.setItem('auth_token', data.token);
+    // Login admin bawaan (env-admin) menerima token ruang kerja langsung
+    // dari server bersama respons ini; simpan agar /admin terbuka tanpa
+    // login kedua.
+    if (data.admin_token) sessionStorage.setItem('admin_token', data.admin_token);
+    // Tujuan kembali (mis. /admin yang memantul ke sini) hanya berlaku
+    // untuk login ini; selalu konsumsi agar tidak basi.
+    const returnDestination = consumeAuthReturnDestination();
     if (data.must_change_password) {
-      if (data.role === 'admin' || data.role === 'editor') sessionStorage.setItem('ruas_after_password_change', '/admin');
+      if (data.role === 'admin' || data.role === 'editor') {
+        sessionStorage.setItem('ruas_after_password_change', returnDestination ?? '/admin');
+      }
       await router.push('/change-password');
+      return;
+    }
+    if (data.admin_token) {
+      await router.push(returnDestination ?? '/admin');
+      return;
+    }
+    if (returnDestination) {
+      await router.push(returnDestination);
       return;
     }
     let profile = await fetchParticipantProfile();
@@ -369,7 +380,6 @@ async function loginAsDemo() {
   pointer-events: auto;
 }
 
-.editor-access,
 .theme-button {
   pointer-events: auto;
   display: inline-flex;
@@ -380,17 +390,6 @@ async function loginAsDemo() {
   color: #10265e;
   box-shadow: 7px 9px 18px rgba(90, 122, 184, 0.13), inset 2px 2px 8px rgba(255, 255, 255, 0.7);
   transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
-}
-
-.editor-access {
-  gap: 8px;
-  min-height: 46px;
-  padding: 0 15px;
-  border-radius: 15px;
-  color: #236bdc;
-  font-size: 0.78rem;
-  font-weight: 700;
-  text-decoration: none;
 }
 
 .landing-access {
@@ -415,17 +414,6 @@ async function loginAsDemo() {
   box-shadow: 9px 12px 22px rgba(90, 122, 184, 0.16), inset 2px 2px 8px rgba(255, 255, 255, 0.75);
 }
 
-.editor-access svg {
-  width: 18px;
-  height: 18px;
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.8;
-}
-
-.editor-access:hover,
 .theme-button:hover {
   transform: translateY(-2px);
   background: rgba(255, 255, 255, 0.78);
@@ -755,7 +743,6 @@ async function loginAsDemo() {
   box-shadow: inset 9px 9px 18px rgba(142, 179, 255, 0.08), 12px 18px 26px rgba(2, 8, 24, 0.2);
 }
 
-.auth-page[data-theme='dark'] .editor-access,
 .auth-page[data-theme='dark'] .landing-access,
 .auth-page[data-theme='dark'] .theme-button {
   border-color: rgba(156, 192, 255, 0.28);
@@ -764,7 +751,6 @@ async function loginAsDemo() {
   box-shadow: 7px 9px 18px rgba(2, 8, 24, 0.22), inset 2px 2px 8px rgba(150, 188, 255, 0.08);
 }
 
-.auth-page[data-theme='dark'] .editor-access:hover,
 .auth-page[data-theme='dark'] .landing-access:hover,
 .auth-page[data-theme='dark'] .theme-button:hover {
   background: rgba(40, 72, 132, 0.88);
@@ -830,7 +816,6 @@ async function loginAsDemo() {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .editor-access,
   .landing-access,
   .theme-button {
     transition: none;
@@ -857,13 +842,6 @@ async function loginAsDemo() {
     top: 18px;
     right: 18px;
     left: 18px;
-  }
-
-  .editor-access {
-    min-height: 45px;
-    padding: 0 12px;
-    border-radius: 14px;
-    font-size: 0.72rem;
   }
 
   .auth-utility-links {

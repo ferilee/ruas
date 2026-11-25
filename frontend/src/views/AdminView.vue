@@ -16,16 +16,11 @@
       <p>Isi <code>ADMIN_PASSWORD</code> di file <code>.env</code>, lalu restart service backend.</p>
     </div>
 
-    <form v-else-if="!isAuthenticated" class="login-card" @submit.prevent="login">
-      <h2>Masuk ke editor</h2>
-      <p>Gunakan akun admin atau akun guru yang sudah dibuat oleh admin. Editor adalah ruang kerja terpisah; bila Anda sudah masuk lewat halaman login utama dengan akun guru/admin, editor terbuka otomatis tanpa login kedua.</p>
-      <input v-model.trim="username" type="text" placeholder="Username admin/guru (kosongkan untuk ADMIN_PASSWORD)" autocomplete="username" autofocus />
-      <input v-model="password" type="password" placeholder="Password" autocomplete="current-password" />
-      <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
-      <button class="primary-btn" type="submit" :disabled="loading || !password">
-        {{ loading ? 'Memverifikasi...' : 'Masuk' }}
-      </button>
-    </form>
+    <div v-else-if="accessDenied" class="state-card error-state">
+      <strong>{{ accessDeniedMessage }}</strong>
+      <p>Ruang kerja ini hanya untuk guru dan admin. Anda masuk sebagai akun murid; gunakan akun guru/admin melalui halaman login utama bila Anda memilikinya.</p>
+      <button class="primary-btn" type="button" @click="goHome">Kembali ke beranda</button>
+    </div>
 
     <template v-else>
       <div v-if="shareScheduleOpen && shareScheduleRow" class="teacher-workspace-modal-backdrop" role="presentation" @click.self="closeScheduleShare">
@@ -557,8 +552,8 @@ import FeedbackPanel from '@/components/FeedbackPanel.vue';
 import ScheduleAudiencePicker from '@/components/ScheduleAudiencePicker.vue';
 import QuestionTopicPicker from '@/components/QuestionTopicPicker.vue';
 import {
-  adminLogin,
   adminLoginFromSession,
+  type AdminSessionBridgeResult,
   createAdminQuestion,
   deleteAdminQuestion,
   fetchAdminAuthStatus,
@@ -584,6 +579,7 @@ import { extractFieldErrors } from '@/lib/field-errors';
 import { generateTopicToken } from '@/lib/generate-topic-token';
 import { suggestExternalId } from '@/lib/slug';
 import { buildAdminRouteQuery, parseAdminRouteQuery } from '@/lib/admin-route-state';
+import { saveAuthReturnDestination } from '@/lib/auth-redirect';
 import { sectionForTeacherStep, TEACHER_STEPS, teacherStepForSection, teacherStepForWorkspace, type TeacherStepId } from '@/lib/teacher-wizard';
 import { readStoredQuestionTopic, resolveQuestionTopicFilter, storeQuestionTopic } from '@/lib/question-topic-context';
 
@@ -626,8 +622,8 @@ const currentSectionDescription = computed(() => currentSection.value.descriptio
 const adminEnabled = ref(false);
 const authLoading = ref(true);
 const isAuthenticated = ref(Boolean(sessionStorage.getItem('admin_token')));
-const username = ref('');
-const password = ref('');
+const accessDenied = ref(false);
+const accessDeniedMessage = ref('Akun ini tidak memiliki akses editor.');
 const loading = ref(false);
 const saving = ref(false);
 const importing = ref(false);
@@ -1224,26 +1220,6 @@ async function runConfirmation() {
   if (action) await action();
 }
 
-async function login() {
-  loading.value = true;
-  errorMessage.value = '';
-  try {
-    adminSession.value = await adminLogin(username.value, password.value);
-    username.value = '';
-    password.value = '';
-    isAuthenticated.value = true;
-    sessionStorage.removeItem(supportPromptSeenKey);
-    supportPromptShown.value = false;
-    scheduleSupportPrompt();
-    await loadData();
-    startRealtime();
-  } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Gagal login admin.';
-  } finally {
-    loading.value = false;
-  }
-}
-
 function goHome() {
   router.push('/');
 }
@@ -1750,21 +1726,41 @@ function applyImport() {
 
 onMounted(async () => {
   applyAdminThemeToDocument();
+  // Selama memantul ke halaman login utama, kartu "Memeriksa akses..."
+  // dibiarkan tampil supaya tidak ada kedipan ruang kerja/pemberitahuan.
+  let redirectingToAuth = false;
   try {
     const authStatus = await fetchAdminAuthStatus();
     adminEnabled.value = authStatus.enabled;
     adminSession.value = authStatus.session;
-    if (!adminSession.value && !isAuthenticated.value) {
-      const bridgedSession = await adminLoginFromSession().catch(() => null);
-      if (bridgedSession) {
-        adminSession.value = bridgedSession;
-        adminEnabled.value = true;
-        isAuthenticated.value = true;
-      }
-    }
-    if (!adminSession.value && isAuthenticated.value) {
+    if (adminSession.value) {
+      isAuthenticated.value = true;
+    } else {
+      // Token ruang kerja tersimpan sudah tidak berlaku: bersihkan, lalu
+      // coba jembatan sesi utama. Tidak ada formulir login di halaman ini —
+      // semua login terjadi di form utama /auth.
       sessionStorage.removeItem('admin_token');
       isAuthenticated.value = false;
+      if (adminEnabled.value) {
+        const bridge = await adminLoginFromSession().catch((): AdminSessionBridgeResult => ({ status: 'error', message: 'Tidak dapat terhubung ke server.' }));
+        if (bridge.status === 'ok') {
+          adminSession.value = bridge.session;
+          adminEnabled.value = true;
+          isAuthenticated.value = true;
+        } else if (bridge.status === 'no-access') {
+          accessDenied.value = true;
+          accessDeniedMessage.value = bridge.message;
+        } else {
+          // 'no-main-session' | 'password-change-required' | 'error':
+          // masuk (atau ganti sandi wajib) lewat form login utama, lalu
+          // kembali ke halaman ini. Untuk password-change-required, alur
+          // utama meneruskan ke /admin lewat pola ruas_after_password_change.
+          redirectingToAuth = true;
+          saveAuthReturnDestination(route.fullPath);
+          await router.replace('/auth');
+          return;
+        }
+      }
     }
     if (adminEnabled.value && isAuthenticated.value) {
       applyRouteState();
@@ -1775,7 +1771,7 @@ onMounted(async () => {
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Gagal memeriksa akses editor.';
   } finally {
-    authLoading.value = false;
+    if (!redirectingToAuth) authLoading.value = false;
   }
 });
 
@@ -1846,11 +1842,10 @@ onUnmounted(() => {
 @keyframes realtime-pulse { 50% { opacity: .35; } }
 .back-link { color: #556677; text-decoration: none; font-size: 0.9rem; }
 .page-title { color: #1e40af; font-size: 1.8rem; margin-top: 8px; }
-.page-subtitle, .panel-heading p, .login-card p { color: #667788; }
-.state-card, .login-card, .panel { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
-.login-card { max-width: 420px; margin: 40px auto; width: 100%; display: flex; flex-direction: column; gap: 14px; }
-.login-card h2, .panel h2 { color: #1e40af; font-size: 1.15rem; }
-.login-card input, label input, label select, label textarea, .search-input, .import-panel select { width: 100%; padding: 10px 12px; border: 2px solid #d4dde6; border-radius: 8px; font: inherit; }
+.page-subtitle, .panel-heading p { color: #667788; }
+.state-card, .panel { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+.panel h2 { color: #1e40af; font-size: 1.15rem; }
+label input, label select, label textarea, .search-input, .import-panel select { width: 100%; padding: 10px 12px; border: 2px solid #d4dde6; border-radius: 8px; font: inherit; }
 .primary-btn, .secondary-btn { border: 0; border-radius: 8px; padding: 10px 16px; font-weight: 700; cursor: pointer; white-space: nowrap; }
 .primary-btn { color: #fff; background: #1e40af; }
 .secondary-btn { color: #1e40af; background: #e8edf5; }
@@ -2118,7 +2113,7 @@ code { background: #edf1f5; padding: 2px 4px; border-radius: 4px; }
 .question-readonly-fieldset:disabled { opacity: .82; }
 
 .editor-view .sidebar-mark { background: linear-gradient(145deg, #8b5cf6, #5b21b6); box-shadow: 0 8px 16px rgba(109, 40, 217, .22); }
-.editor-view .sidebar-brand strong, .editor-view .page-title, .editor-view .login-card h2, .editor-view .panel h2 { color: #6d28d9; }
+.editor-view .sidebar-brand strong, .editor-view .page-title, .editor-view .panel h2 { color: #6d28d9; }
 .editor-view .nav-item:hover { color: #6d28d9; background: #f3e8ff; }
 .editor-view .nav-item.active { background: linear-gradient(100deg, #8b5cf6, #6d28d9); box-shadow: 0 9px 18px rgba(109, 40, 217, .2); }
 .editor-view .sidebar-help { background: #f5edff; }
